@@ -1,7 +1,15 @@
 ---
 name: overlay
-description: Manages the rhdh-plugin-export-overlays repository — onboards plugins to the Extensions Catalog, updates plugin versions, fixes overlay build failures, triages and analyzes PRs, triggers publishes, and manages plugin workspaces. Use when working with overlays, importing plugins, debugging CI, checking PRs, or bumping versions.
+description: Manages the rhdh-plugin-export-overlays repository — onboards plugins to the Extensions Catalog, updates plugin versions, generates and audits Package metadata, fixes overlay build failures, triages and analyzes PRs, triggers publishes, and manages plugin workspaces. Use when working with overlays, importing plugins, generating metadata, auditing metadata, fixing metadata inconsistencies, debugging CI, checking PRs, or bumping versions.
 ---
+
+<path_resolution>
+All relative paths in this skill (`scripts/`, `references/`, `workflows/`, `templates/`) are relative to **this SKILL.md file's directory**. Derive the skill root from the absolute path used to read this file. For example, if this file was read from `/Users/me/.agents/skills/overlay/SKILL.md`, then `scripts/derive-metadata.py` resolves to `/Users/me/.agents/skills/overlay/scripts/derive-metadata.py`. Always use absolute paths when invoking scripts or reading reference files.
+</path_resolution>
+
+<shell_permissions>
+Prefer running `gh api` and `gh search code` as **direct shell commands** rather than via Python subprocess. Direct `gh` calls go through the user's command allowlist without triggering permission prompts. Python scripts that only do local work (file I/O, JSON processing, field derivation) also need no extra permissions. Only request `full_network` for Python scripts that internally spawn `gh` as a subprocess — the sandbox blocks network access from child processes.
+</shell_permissions>
 
 <cli_setup>
 This skill uses the orchestrator CLI. **Set up first:**
@@ -63,6 +71,7 @@ What overlay task would you like to do?
 2. **Update plugin version** — Bump to newer upstream commit/tag
 3. **Check plugin status** — Verify health and compatibility
 4. **Fix build failure** — Debug CI/publish issues
+8. **Generate or audit metadata** — Add missing Package metadata or fix inconsistencies in existing metadata
 
 ### Core Team Tasks
 
@@ -84,6 +93,7 @@ What overlay task would you like to do?
 | 2, "update", "bump", "upgrade", "version" | `workflows/update-plugin.md` |
 | 3, "status", "check", "health" | Run inline status checks |
 | 4, "fix", "debug", "failure", "error" | `workflows/fix-build.md` |
+| 8, "metadata", "generate metadata", "add metadata", "audit", "audit metadata", "fix metadata", "check metadata", "validate metadata" | `workflows/generate-metadata.md` |
 
 ### Core Team Routes
 
@@ -158,6 +168,7 @@ See `../rhdh/references/github-reference.md` for full patterns.
 | onboard-plugin.md | Full 6-phase process to add new plugin |
 | update-plugin.md | Bump to newer upstream version |
 | fix-build.md | Debug and resolve CI failures |
+| generate-metadata.md | Generate missing Package metadata and audit existing metadata for consistency |
 
 ### Core Team Workflows
 
