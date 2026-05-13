@@ -234,43 +234,13 @@ gh pr create \
 
 **Goal:** Create metadata files for integration tests and catalog registration.
 
-### 4.1 Create Package Metadata Files
+### 4.1 Generate Package and Plugin Metadata
 
-Create one YAML file per exported plugin in `workspaces/<name>/metadata/`.
+Follow `workflows/generate-metadata.md` to generate Package metadata (and Plugin entity if needed) for all plugins in the workspace.
 
-**Kind:** `Package` — represents a single npm package (frontend or backend)
+Review the generated files before proceeding.
 
-**Documentation:** [catalog-entities/marketplace/README.md](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/main/catalog-entities/marketplace/README.md)
-
-### 4.2 Create Plugin Entity
-
-Create a Plugin entity that groups your packages together.
-
-**Kind:** `Plugin` — user-facing catalog entry
-
-**Location:** `catalog-entities/marketplace/plugins/<plugin-name>.yaml`
-
-**Key fields:**
-
-- `metadata.name` — short identifier
-- `metadata.description` — brief summary
-- `spec.description` — full markdown documentation
-- `spec.packages` — list of Package names
-- `spec.categories` — for filtering (e.g., `CI/CD`, `Cloud`)
-
-### 4.3 Trigger Build & Tests
-
-```bash
-git add workspaces/<name>/metadata/ catalog-entities/marketplace/plugins/<name>.yaml
-git commit -m "Add plugin metadata"
-git push
-```
-
-Comment `/publish` to rebuild. Watch for test workflow results.
-
-> ⚠️ **Smoke test only:** The CI test verifies plugins install and RHDH starts without errors. It does **not** test plugin functionality (no API calls, no browser tests). Functional verification happens in Phase 5.
-
-### 4.4 Add to Packages List (if applicable)
+### 4.2 Add to Packages List (if applicable)
 
 Plugins in these lists become "required" — release gates fail if they're incompatible.
 
