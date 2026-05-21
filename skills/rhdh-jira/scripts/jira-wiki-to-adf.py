@@ -22,18 +22,18 @@ def parse_inline(text):
     monospace before backticks.
     """
     nodes = []
-    pattern = re.compile(r'\*([^*\n]+)\*|_([^_\n]+)_|\{\{([^}]+)\}\}|`([^`\n]+)`')
+    pattern = re.compile(r"\*([^*\n]+)\*|_([^_\n]+)_|\{\{([^}]+)\}\}|`([^`\n]+)`")
     last = 0
     for m in pattern.finditer(text):
         if m.start() > last:
-            nodes.append({"type": "text", "text": text[last:m.start()]})
-        if m.group(1) is not None:      # *bold*
+            nodes.append({"type": "text", "text": text[last : m.start()]})
+        if m.group(1) is not None:  # *bold*
             nodes.append({"type": "text", "text": m.group(1), "marks": [{"type": "strong"}]})
-        elif m.group(2) is not None:    # _italic_
+        elif m.group(2) is not None:  # _italic_
             nodes.append({"type": "text", "text": m.group(2), "marks": [{"type": "em"}]})
-        elif m.group(3) is not None:    # {{monospace}}
+        elif m.group(3) is not None:  # {{monospace}}
             nodes.append({"type": "text", "text": m.group(3), "marks": [{"type": "code"}]})
-        else:                           # `backtick`
+        else:  # `backtick`
             nodes.append({"type": "text", "text": m.group(4), "marks": [{"type": "code"}]})
         last = m.end()
     if last < len(text):
@@ -67,33 +67,27 @@ def _task_list(items, idx):
 def _bullet_list(items):
     return {
         "type": "bulletList",
-        "content": [
-            {"type": "listItem", "content": [_para(item)]}
-            for item in items
-        ],
+        "content": [{"type": "listItem", "content": [_para(item)]} for item in items],
     }
 
 
 def _ordered_list(items):
     return {
         "type": "orderedList",
-        "content": [
-            {"type": "listItem", "content": [_para(item)]}
-            for item in items
-        ],
+        "content": [{"type": "listItem", "content": [_para(item)]} for item in items],
     }
 
 
 # hN. text  (heading)
-HEADING_RE = re.compile(r'^h([1-6])\.\s+(.*)')
+HEADING_RE = re.compile(r"^h([1-6])\.\s+(.*)")
 # (?) text  (task item, unchecked)
-TASK_TODO_RE = re.compile(r'^\(\?\)\s+(.*)')
+TASK_TODO_RE = re.compile(r"^\(\?\)\s+(.*)")
 # (/) text  (task item, checked)
-TASK_DONE_RE = re.compile(r'^\(/\)\s+(.*)')
+TASK_DONE_RE = re.compile(r"^\(/\)\s+(.*)")
 # * text  (bullet — asterisk + whitespace; does NOT match *bold*)
-BULLET_RE = re.compile(r'^\*\s+(.*)')
+BULLET_RE = re.compile(r"^\*\s+(.*)")
 # # text or  # text  (ordered list — optional leading whitespace)
-ORDERED_RE = re.compile(r'^\s*#\s+(.*)')
+ORDERED_RE = re.compile(r"^\s*#\s+(.*)")
 
 
 def convert(wiki):
@@ -184,12 +178,12 @@ def convert(wiki):
             para_lines.append(s2)
             i += 1
         if para_lines:
-            content.append(_para(' '.join(para_lines)))
+            content.append(_para(" ".join(para_lines)))
 
     return {"version": 1, "type": "doc", "content": content}
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: jira-wiki-to-adf.py <input.txt> [output.json]", file=sys.stderr)
         sys.exit(1)
@@ -200,7 +194,7 @@ if __name__ == '__main__':
     output = json.dumps(convert(wiki), ensure_ascii=False)
 
     if len(sys.argv) >= 3:
-        with open(sys.argv[2], 'w') as f:
+        with open(sys.argv[2], "w") as f:
             f.write(output)
     else:
         print(output)
