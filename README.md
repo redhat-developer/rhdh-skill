@@ -28,6 +28,16 @@ Manage plugins in the [rhdh-plugin-export-overlays](https://github.com/redhat-de
 
 - **[overlay](./skills/overlay/SKILL.md)** — Onboard new plugins, update versions, fix CI failures, triage and analyze PRs, trigger `/publish`. Covers both plugin-owner and core-team workflows.
 
+### Konflux / Tekton
+
+Update Konflux task digests and apply `MIGRATION.md` pipeline changes in [rhdh-plugin-catalog](https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog) or [rhdh](https://gitlab.cee.redhat.com/rhidp/rhdh) midstream.
+
+- **[konflux-tekton-updates](./skills/konflux-tekton-updates/SKILL.md)** — Run `.tekton/updateDigests.sh --minor --no-push`, apply [build-definitions](https://github.com/konflux-ci/build-definitions) task migrations, update shared pipelines/templates and PLR generators. Repo-specific file lists: [plugin-catalog](./skills/konflux-tekton-updates/references/plugin-catalog.md), [RHDH midstream](./skills/konflux-tekton-updates/references/rhdh-midstream.md).
+
+```bash
+npx skills add redhat-developer/rhdh-skill --skill konflux-tekton-updates
+```
+
 ### Local Testing
 
 Test plugins in a local RHDH instance before deploying.
