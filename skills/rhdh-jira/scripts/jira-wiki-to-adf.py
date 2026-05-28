@@ -12,7 +12,6 @@ Usage:
 
 import json
 import re
-import sys
 
 
 def parse_inline(text):
@@ -184,17 +183,22 @@ def convert(wiki):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: jira-wiki-to-adf.py <input.txt> [output.json]", file=sys.stderr)
-        sys.exit(1)
+    import argparse
 
-    with open(sys.argv[1]) as f:
+    parser = argparse.ArgumentParser(
+        description="Convert Jira wiki markup to Atlassian Document Format (ADF) JSON."
+    )
+    parser.add_argument("input", help="Input file containing Jira wiki markup")
+    parser.add_argument("output", nargs="?", help="Output JSON file (default: stdout)")
+    args = parser.parse_args()
+
+    with open(args.input, encoding="utf-8") as f:
         wiki = f.read()
 
-    output = json.dumps(convert(wiki), ensure_ascii=False)
+    result = json.dumps(convert(wiki), ensure_ascii=False)
 
-    if len(sys.argv) >= 3:
-        with open(sys.argv[2], "w") as f:
-            f.write(output)
+    if args.output:
+        with open(args.output, "w", encoding="utf-8") as f:
+            f.write(result)
     else:
-        print(output)
+        print(result)

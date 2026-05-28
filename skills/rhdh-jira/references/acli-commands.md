@@ -240,7 +240,7 @@ acli jira filter get --id 10001
 | Labels | Not available via `--fields` | Array of strings |
 | Fix versions | Not available via `--fields` | Array of version objects |
 
-When writing descriptions, use `--description "plain text"`. When reading, be aware `--json` returns ADF — don't try to round-trip it.
+When writing formatted descriptions, fill a wiki markup template then convert with `scripts/jira-wiki-to-adf.py` and pass via `--description-file` (see Gotcha #6 in SKILL.md). When reading, be aware `--json` returns ADF — don't try to round-trip it.
 
 ## Custom Fields and `--enrich`
 

@@ -99,7 +99,8 @@ If a likely duplicate Feature is found, present it and ask: "This may already ex
 Fill the template with grill results. Save to a temp file. Then convert to ADF using the helper script (see Gotcha #6). `acli create` accepts ADF via `--description-file`:
 
 ```bash
-python scripts/jira-wiki-to-adf.py /tmp/feature-filled.txt > /tmp/feature-desc.adf.json
+FEATURE_ADF=$(mktemp)  # on Windows: use %TEMP% or Python tempfile
+python scripts/jira-wiki-to-adf.py feature-filled.txt "$FEATURE_ADF"
 ```
 
 Create the issue — note `--priority` and `--yes` do not exist on `create` (see Gotcha #18):
@@ -107,7 +108,7 @@ Create the issue — note `--priority` and `--yes` do not exist on `create` (see
 ```bash
 acli jira workitem create --project RHDHPLAN --type Feature \
   --summary "Feature summary" \
-  --description-file /tmp/feature-desc.adf.json \
+  --description-file "$FEATURE_ADF" \
   --assignee "ACCOUNT_ID" \
   --label "rhdh-2.1-candidate"
 ```

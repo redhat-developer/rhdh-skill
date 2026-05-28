@@ -89,7 +89,8 @@ Run the pre-creation check from `references/duplicates.md`. Search RHIDP Epics (
 Fill the template. Then convert to ADF using the helper script (see Gotcha #6). `acli create` accepts ADF via `--description-file`:
 
 ```bash
-python scripts/jira-wiki-to-adf.py /tmp/epic-filled.txt > /tmp/epic-desc.adf.json
+EPIC_ADF=$(mktemp)  # on Windows: use %TEMP% or Python tempfile
+python scripts/jira-wiki-to-adf.py epic-filled.txt "$EPIC_ADF"
 ```
 
 Create the issue — note `--priority`, `--component`, and `--yes` do not exist on `create` (see Gotcha #18):
@@ -97,11 +98,11 @@ Create the issue — note `--priority`, `--component`, and `--yes` do not exist 
 ```bash
 acli jira workitem create --project RHIDP --type Epic \
   --summary "Epic summary" \
-  --description-file /tmp/epic-desc.adf.json \
+  --description-file "$EPIC_ADF" \
   --assignee "ACCOUNT_ID"
 ```
 
-Then set priority, components, size, and parent Feature link together in one REST call. Cross-project parent links use `customfield_10018`, not `parent` (see Gotcha #16):
+Then set priority, components, size, and parent Feature link together in one REST call. Cross-project parent links accept either `customfield_10018` or `parent.key` — do not use `issuelinks` (see Gotcha #16):
 
 ```bash
 curl -s -X PUT -u "$AUTH" -H "Content-Type: application/json" \

@@ -70,10 +70,14 @@ When a product defect is identified:
 2. Comment on the RHDHSUPP issue with the RHDHBUGS link — this tells the customer when the fix is expected
 
 ```bash
-# Create the bug
+# Convert wiki markup to ADF (required — plain wiki text is not rendered by Jira)
+BUG_ADF=$(mktemp)  # on Windows: use %TEMP% or Python tempfile
+python scripts/jira-wiki-to-adf.py bug_description.txt "$BUG_ADF"
+
+# Create the bug (note: --yes does not exist on create, see Gotcha #18)
 acli jira workitem create --project RHDHBUGS --type Bug \
   --summary "Login fails when SSO token expires during session" \
-  --description-file bug_description.txt \
+  --description-file "$BUG_ADF" \
   --label "rhdh-customer" \
   --assignee "@me"
 
@@ -96,9 +100,14 @@ When a support case reveals a missing capability:
 2. Encourage customer to follow up with their account team to prioritize with Product Management
 
 ```bash
+# Convert wiki markup to ADF (required — plain wiki text is not rendered by Jira)
+FEATURE_ADF=$(mktemp)  # on Windows: use %TEMP% or Python tempfile
+python scripts/jira-wiki-to-adf.py feature_request.txt "$FEATURE_ADF"
+
+# Create the feature request (note: --yes does not exist on create, see Gotcha #18)
 acli jira workitem create --project RHDHPLAN --type "Feature Request" \
   --summary "Support OIDC token refresh in admin console" \
-  --description-file feature_request.txt
+  --description-file "$FEATURE_ADF"
 
 acli jira workitem link create --out RHDHSUPP-456 --in RHDHPLAN-123 --type "Related" --yes
 ```

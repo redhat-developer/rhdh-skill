@@ -122,7 +122,8 @@ Run the pre-creation check from `references/duplicates.md`. Scope to the target 
 Fill the appropriate template (`assets/templates/story.txt`, `task.txt`, or `bug.txt`) with grill results, then convert to ADF using the helper script (see Gotcha #6). `acli create` accepts ADF via `--description-file`:
 
 ```bash
-python scripts/jira-wiki-to-adf.py /tmp/story-filled.txt > /tmp/story-desc.adf.json
+ISSUE_ADF=$(mktemp)  # on Windows: use %TEMP% or Python tempfile
+python scripts/jira-wiki-to-adf.py story-filled.txt "$ISSUE_ADF"
 ```
 
 Create the issue — note `--priority`, `--component`, and `--yes` do not exist on `create` (see Gotcha #18):
@@ -131,18 +132,18 @@ Create the issue — note `--priority`, `--component`, and `--yes` do not exist 
 # Story
 acli jira workitem create --project RHIDP --type Story \
   --summary "Story summary" \
-  --description-file /tmp/story-desc.adf.json \
+  --description-file "$ISSUE_ADF" \
   --assignee "ACCOUNT_ID"
 
 # Bug (different project)
 acli jira workitem create --project RHDHBUGS --type Bug \
   --summary "Bug summary" \
-  --description-file /tmp/bug-desc.adf.json
+  --description-file "$ISSUE_ADF"
 
 # Spike (Task with prefix)
 acli jira workitem create --project RHIDP --type Task \
   --summary "SPIKE: Research multi-source catalog merging" \
-  --description-file /tmp/spike-desc.adf.json \
+  --description-file "$ISSUE_ADF" \
   --assignee "ACCOUNT_ID"
 ```
 
@@ -154,7 +155,7 @@ curl -s -X PUT -u "$AUTH" -H "Content-Type: application/json" \
     "fields": {
       "priority": {"name": "Major"},
       "components": [{"name": "Plugins"}],
-      "story_points": 5
+      "customfield_10028": 5
     }
   }' \
   "https://redhat.atlassian.net/rest/api/3/issue/RHIDP-YYY"
