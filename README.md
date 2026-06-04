@@ -71,6 +71,13 @@ Track work across the four RHDH Jira projects.
 
 - **[rhdh](./skills/rhdh/SKILL.md)** — Entry point and router. Detects your environment, runs `doctor` checks, maintains a cross-session worklog, and routes to the right skill. Start here if you're not sure what you need.
 
+### Repository Readiness
+
+Prepare any git repository for effective AI agent use.
+
+- **[agent-ready](./skills/agent-ready/SKILL.md)** — Assess a repository against agentready criteria, then walk through and address each gap interactively. Runs the [agentready](https://github.com/ambient-code/agentready) CLI, presents failing findings by tier, and delegates AGENTS.md creation to `init-agents-md`.
+- **[init-agents-md](./skills/init-agents-md/SKILL.md)** — Bootstrap `AGENTS.md` and `CLAUDE.md` for any repository. Detects build/test commands from config files and CI, asks 3 targeted questions, and writes a minimal draft for human review.
+
 ### Meta
 
 - **[skill-maker](./skills/skill-maker/SKILL.md)** — Create new skills or consolidate existing ones following the [Agent Skills open standard](https://agentskills.io/specification). Interviews you about scope and edge cases before drafting.
