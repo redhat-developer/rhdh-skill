@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Orchestrator skill for RHDH plugin development - onboard, update, and maintain plugins in the Extensions Catalog",
-    "version": "0.3.2"
+    "version": "0.4.0"
   },
   "plugins": [
     {
       "name": "rhdh",
       "source": "./",
       "description": "Skills for RHDH plugin lifecycle management",
-      "version": "0.3.2",
+      "version": "0.4.0",
       "strict": true
     }
   ]
