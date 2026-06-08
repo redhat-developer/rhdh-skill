@@ -22,6 +22,22 @@ Build dynamic plugins from scratch — backend or frontend — and get them depl
   - **[export](./skills/create-plugin/references/export.md)** — Export, package (OCI/tgz/npm), and push to a container registry.
   - **[wiring](./skills/create-plugin/references/wiring.md)** — Analyze plugin source and generate `dynamic-plugins.yaml` wiring config.
 
+### NFS Migration
+
+Migrate your plugins from the legacy Backstage frontend system to the New Frontend System (NFS).
+
+Start with the **[NFS Migration Guide](./docs/nfs-migration-guide.md)** -- it covers what NFS is, why you need to migrate, the deprecation timeline, and walks through every migration pattern with code examples.
+
+When you're ready to migrate, use the Agent Skill to automate it:
+
+- **[nfs-migration](./skills/nfs-migration/SKILL.md)** -- Analyzes your existing plugin, applies the right Blueprint patterns, updates exports, and verifies the result. Two approaches: direct-to-GA (recommended) or phased with backward compatibility.
+
+### Backstage Upgrade
+
+Upgrade `@backstage/*` dependencies in your plugin to align with a target RHDH or Backstage release.
+
+- **[backstage-upgrade](./skills/backstage-upgrade/SKILL.md)** -- Discovers current versions, determines the target using the RHDH→Backstage version matrix, runs `backstage-cli versions:bump`, migrates moved packages, guides through breaking changes from upstream changelogs, and verifies the result. Composable — the NFS migration skill chains into it automatically when deps are outdated.
+
 ### Extensions Catalog
 
 Manage plugins in the [rhdh-plugin-export-overlays](https://github.com/redhat-developer/rhdh-plugin-export-overlays) repository.

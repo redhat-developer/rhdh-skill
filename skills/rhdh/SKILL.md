@@ -194,6 +194,14 @@ What would you like to do?
 
 **To route:** Read `../rhdh-release/SKILL.md` and follow its intake process.
 
+### Backstage Upgrade Routes
+
+| Response | Skill |
+|----------|-------|
+| "upgrade backstage", "bump backstage", "update @backstage", "backstage version", "align deps", "versions:bump" | Route to `backstage-upgrade` skill |
+
+**To route:** Read `../backstage-upgrade/SKILL.md` and follow its intake process.
+
 ### General Routes
 
 | Response | Action |

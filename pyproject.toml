@@ -1,6 +1,6 @@
 [project]
 name = "rhdh-skill"
-version = "0.5.0"
+version = "0.6.0"
 description = "Claude Code skill for RHDH plugin development"
 readme = "README.md"
 license = "Apache-2.0"
