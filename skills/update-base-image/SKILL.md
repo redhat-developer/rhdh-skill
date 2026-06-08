@@ -100,7 +100,7 @@ Run **`updateBaseImages.sh` once per repo** from `$RHDH_BUILD_SCRIPTS`:
 | `--pr`                          | Opens one PR with all commits (protected branches)                                                         |
 | `--no-commit`                   | Writes file changes only; no git commit, push, or PR                                                       |
 
-**Tag format:** Updates use RHEC tags like `9.8-1780434037` (`major.minor-buildid`). Bare numeric tags (e.g. `1780432632`) are ignored. Default `--tag` filter is `9\.[0-9]-`.
+**Tag format:** RHEC tags may use `major.minor-buildid` (e.g. `9.8-1780434037`) or bare numeric build ids (e.g. `1780432632`). Analysis queries all matching registry tags via `getLatestImageTags.sh --tag .` (built-in excludes still apply).
 
 ## Analyze without committing
 
@@ -152,17 +152,16 @@ Stage-only lines (`FROM skeleton AS deps`) are ignored.
 
 ## Gotchas
 
-| Cause                                   | Fix                                                                                                        |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Scripts not in target repo              | Point `RHDH_BUILD_SCRIPTS` at **rhdh-downstream** `build/scripts/`, not the repo being updated             |
-| Only scanned one repo                   | Run analyze/update for both **rhdh** and **rhdh-operator**                                                 |
-| rhdh e2e/ci Dockerfiles                 | Analyze skips `e2e-tests/` and `.ci/` under `$RHDH_REPO`                                                   |
-| `-maxdepth` too low                     | Use `-maxdepth 5`                                                                                          |
-| Wrong `-f` pattern                      | Use `-f "Containerfile Dockerfile"` when covering both repos                                               |
-| Missing `# https://registry...` comment | Add comment above `FROM`                                                                                   |
-| Registry not logged in                  | `skopeo login registry.redhat.io`                                                                          |
-| Current tag already newest              | Script skips; confirm with `getLatestImageTags.sh -n 5`                                                    |
-| Wrong tag format (bare build id)        | Ensure scripts use `[0-9]+\.[0-9]+-` filter; tags must match `major.minor-buildid` (e.g. `9.8-1780434037`) |
+| Cause                                   | Fix                                                                                            |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Scripts not in target repo              | Point `RHDH_BUILD_SCRIPTS` at **rhdh-downstream** `build/scripts/`, not the repo being updated |
+| Only scanned one repo                   | Run analyze/update for both **rhdh** and **rhdh-operator**                                     |
+| rhdh e2e/ci Dockerfiles                 | Analyze skips `e2e-tests/` and `.ci/` under `$RHDH_REPO`                                       |
+| `-maxdepth` too low                     | Use `-maxdepth 5`                                                                              |
+| Wrong `-f` pattern                      | Use `-f "Containerfile Dockerfile"` when covering both repos                                   |
+| Missing `# https://registry...` comment | Add comment above `FROM`                                                                       |
+| Registry not logged in                  | `skopeo login registry.redhat.io`                                                              |
+| Current tag already newest              | Script skips; confirm with `getLatestImageTags.sh -n 5`                                        |
 
 ## UBI mismatch warnings
 

@@ -4,7 +4,6 @@
 set -euo pipefail
 
 RHDH_BUILD_SCRIPTS="${RHDH_BUILD_SCRIPTS:-}"
-RHEC_TAG_FILTER='[0-9]+\.[0-9]+-'
 WORKDIRS=()
 FILES=()
 FIND_NAMES=(Containerfile Dockerfile)
@@ -39,10 +38,6 @@ if [[ -z "$RHDH_BUILD_SCRIPTS" ]]; then
 	echo "Set RHDH_BUILD_SCRIPTS to '/path/to/rhidp/rhdh/build/scripts' directory, or pass -s SCRIPTS_DIR." >&2
 	exit 1
 fi
-
-is_valid_rhec_tag() {
-	[[ "$1" =~ ^[0-9]+\.[0-9]+- ]]
-}
 
 resolve_in_workdirs() {
 	local f="$1"
@@ -183,19 +178,12 @@ for cf in "${FILES[@]}"; do
 		echo "    comment: ${last_comment:-"(none — add # https://registry.../image above FROM)"}"
 		echo "    current: ${current_tag}"
 
-		latest=$("$GLIT" -q -c "${image_name}" --tag "${RHEC_TAG_FILTER}" --latestNext latest 2>/dev/null | sort -V | tail -1 || true)
+		latest=$("$GLIT" -q -c "${image_name}" --tag . --latestNext latest 2>/dev/null | sort -V | tail -1 || true)
 		latest_tag="${latest##*:}"
 		latest_tag="${latest_tag%%@*}"
 
-		if [[ -n "$latest_tag" ]] && ! is_valid_rhec_tag "$latest_tag"; then
-			echo "    latest:  (ignored invalid tag '${latest_tag}' — expected major.minor-buildid, e.g. 9.8-1780434037)"
-			latest_tag=""
-		else
-			echo "    latest:  ${latest_tag:-"(query failed — check registry login)"}"
-		fi
-		if [[ -n "$latest_tag" ]] && ! is_valid_rhec_tag "$current_tag"; then
-			echo "    status:  UPDATE AVAILABLE (current tag is not major.minor-buildid)"
-		elif [[ -n "$latest_tag" ]] && [[ "$current_tag" != "$latest_tag" ]] \
+		echo "    latest:  ${latest_tag:-"(query failed — check registry login)"}"
+		if [[ -n "$latest_tag" ]] && [[ "$current_tag" != "$latest_tag" ]] \
 			&& [[ "$(printf '%s\n' "${current_tag}" "${latest_tag}" | sort -V | tail -1)" == "${latest_tag}" ]]; then
 			echo "    status:  UPDATE AVAILABLE"
 		else
