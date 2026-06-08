@@ -30,6 +30,7 @@ def _run_script(*args: str, env: dict[str, str] | None = None) -> subprocess.Com
         env=run_env,
     )
 
+
 class TestAnalyzeBaseImagesScript:
     """Smoke tests for the bundled Bash analyzer."""
 
