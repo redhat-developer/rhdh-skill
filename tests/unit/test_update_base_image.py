@@ -1,5 +1,7 @@
 """Tests for update-base-image skill - bundled analyze-base-images.sh smoke behavior."""
 
+from __future__ import annotations
+
 import os
 import shutil
 import subprocess
