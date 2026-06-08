@@ -73,10 +73,7 @@ Track work across the four RHDH Jira projects.
 
 ### Repository Readiness
 
-Prepare any git repository for effective AI agent use.
-
-- **[agent-ready](./skills/agent-ready/SKILL.md)** — Assess a repository against agentready criteria, then walk through and address each gap interactively. Runs the [agentready](https://github.com/ambient-code/agentready) CLI, presents failing findings by tier, and delegates AGENTS.md creation to `init-agents-md`.
-- **[init-agents-md](./skills/init-agents-md/SKILL.md)** — Bootstrap `AGENTS.md` and `CLAUDE.md` for any repository. Detects build/test commands from config files and CI, asks 3 targeted questions, and writes a minimal draft for human review.
+- **[agent-ready](./skills/agent-ready/SKILL.md)** — Assess RHDH repositories against agentready criteria and address each gap. RHDH-aware: detects the repo from its remote URL, uses `rhdh-repos.md` context to pre-fill `AGENTS.md` and skip inapplicable findings. Supports single-repo and batch modes (assess all RHDH repos in one pass).
 
 ### Meta
 
