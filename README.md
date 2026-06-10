@@ -38,6 +38,29 @@ Update Konflux task digests and apply `MIGRATION.md` pipeline changes in [rhdh-p
 npx skills add redhat-developer/rhdh-skill --skill konflux-tekton-updates
 ```
 
+### Platform Lifecycle
+
+Check version support status for platforms and integrations used by RHDH.
+
+- **[lifecycle](./skills/lifecycle/SKILL.md)** — Check version lifecycle and support status for OCP, AKS, EKS, GKE, RHDH releases, RHBK, Quay, PostgreSQL, and any Red Hat product via the Product Life Cycles API.
+
+### CI / Prow
+
+Manage Prow CI job configurations and trigger nightly E2E tests.
+
+- **[prow](./skills/prow/SKILL.md)** — Manage Prow CI job configurations for RHDH in the openshift/release repository. List, generate, add, and remove OCP test entries and cluster pools. List K8s platform test entries (AKS, EKS, GKE). Analyze coverage gaps. Commission new release branches and decommission end-of-life ones.
+- **[prow-trigger-nightly](./skills/prow-trigger-nightly/SKILL.md)** — Trigger RHDH nightly ProwJobs on demand via the OpenShift CI Gangway REST API. Supports both rhdh and rhdh-plugin-export-overlays repos with Gangway overrides for catalog index image, chart version, and Playwright version.
+
+### Base image
+
+Bump UBI / RHEC base image tags and refresh `@sha256` digests in **rhdh** and **rhdh-operator** (see [rhdh-repos](./skills/rhdh/references/rhdh-repos.md)).
+
+- **[update-base-image](./skills/update-base-image/SKILL.md)** — Analyze and update Containerfile / Dockerfile using [rhdh-downstream](./skills/rhdh/references/rhdh-repos.md#rhdh-downstream) scripts (`build/scripts/`). Bundled `analyze-base-images.sh`; run `updateBaseImages.sh` per repo. Requires `skopeo login registry.redhat.io`.
+
+```bash
+npx skills add redhat-developer/rhdh-skill --skill update-base-image
+```
+
 ### Local Testing
 
 Test plugins in a local RHDH instance before deploying.

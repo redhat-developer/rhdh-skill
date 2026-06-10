@@ -4,9 +4,9 @@ description: >-
   Manage Prow CI job configurations for RHDH in the openshift/release
   repository. List, generate, add, and remove OCP test entries and cluster
   pools. List K8s platform test entries (AKS, EKS, GKE). Analyze OCP
-  version coverage gaps. Decommission end-of-life release branches. Use
-  when working with RHDH CI config, Prow jobs, cluster pools, or
-  openshift/release CI management.
+  version coverage gaps. Commission new release branches and decommission
+  end-of-life ones. Use when working with RHDH CI config, Prow jobs,
+  cluster pools, or openshift/release CI management.
 ---
 # RHDH Prow CI Management
 
@@ -32,6 +32,7 @@ What CI management task do you need?
 | "cluster pool", "ClusterPool", "Hive pool" | `workflows/ocp-pools.md` |
 | "coverage", "gap analysis", "what OCP versions are missing" | `workflows/ocp-coverage.md` |
 | "AKS test", "EKS test", "GKE test", "K8s platform jobs" | `workflows/k8s-jobs.md` |
+| "commission", "new release branch", "create release branch CI", "onboard release", "add release branch" | `workflows/commission-release.md` |
 | "decommission", "EOL release", "remove release branch", "clean up old release" | `workflows/decommission-release.md` |
 
 After reading the workflow, follow it exactly.

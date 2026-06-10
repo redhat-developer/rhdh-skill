@@ -16,13 +16,14 @@ Reference of all RHDH-related repositories, what each one is used for, and how t
   - **Layered config:** `app-config.yaml` (base dev) -> `app-config.dynamic-plugins.yaml` (frontend plugin UI integration: mount points, routes, menu items, icons, route bindings) -> `app-config.production.yaml` (production overlay). `dynamic-plugins.default.yaml` is **generated** (do not edit manually) from `default.packages.yaml`.
   - **Service override mechanism:** Each default service factory in `packages/backend/src/defaultServiceFactories.ts` can be disabled via `ENABLE_{SERVICE_ID}_OVERRIDE=true` env var to let a dynamic plugin provide its own.
   - **Branching:** `main` for active development; `release-1.x` for maintained releases; `dependencies/backstage-latest` for tracking upstream.
-- **Key paths:** `packages/app/` (frontend), `packages/backend/` (backend), `plugins/` (internal `@internal/*` plugins), `dynamic-plugins/wrappers/` (wrapper packages), `app-config.dynamic-plugins.yaml` (UI integration config), `default.packages.yaml` (master plugin manifest), `backstage.json` (upstream version tracking)
+- **Key paths:** `packages/app/` (frontend), `packages/backend/` (backend), `plugins/` (internal `@internal/*` plugins), `dynamic-plugins/wrappers/` (wrapper packages), `app-config.dynamic-plugins.yaml` (UI integration config), `default.packages.yaml` (master plugin manifest), `backstage.json` (upstream version tracking), `build/containerfiles/Containerfile` (main app image base)
 
 ### rhdh-downstream
 
 - **Upstream:** <https://gitlab.cee.redhat.com/rhidp/rhdh>
 - **Description:** Downstream (productized) build of RHDH. Internal GitLab repository that produces the official Red Hat-supported container images published to `registry.redhat.io`. Syncs from the upstream `redhat-developer/rhdh` GitHub repo and applies Red Hat-specific patches, branding, and build configuration for Konflux/Brew pipelines.
 - **Note:** Requires Red Hat VPN / internal network access.
+- **Key paths:** `build/scripts/` (base image maintenance: `getLatestImageTags.sh`, `updateBaseImages.sh`)
 
 ### rhdh-cli
 
@@ -65,7 +66,7 @@ Reference of all RHDH-related repositories, what each one is used for, and how t
   - **Platform detection:** Auto-detects OpenShift/EKS/AKS/GKE/vanilla K8s at startup. OpenShift gets Route + ClusterIP; K8s gets NodePort + fsGroup. Platform overrides use `.k8s` file suffix.
   - **Profiles:** `rhdh` (primary, default), `backstage.io` (community), `external` (no default config). Most `make` commands accept `PROFILE=`.
   - **Branching:** `main` for active development; `release-1.x` for maintained releases.
-- **Key paths:** `api/v1alpha5/backstage_types.go` (CRD types), `internal/controller/` (reconciler), `pkg/model/` (runtime object model), `config/profile/rhdh/default-config/` (default manifests), `examples/rhdh-cr.yaml` (comprehensive example CR)
+- **Key paths:** `api/v1alpha5/backstage_types.go` (CRD types), `internal/controller/` (reconciler), `pkg/model/` (runtime object model), `config/profile/rhdh/default-config/` (default manifests), `examples/rhdh-cr.yaml` (comprehensive example CR), `Dockerfile` (operator image base), `.rhdh/docker/Dockerfile`
 
 ### rhdh-chart
 
@@ -205,4 +206,5 @@ rhdh (enterprise distribution, github.com)
 - **Deployment/operator changes:** Work in `rhdh-operator` or `rhdh-chart`
 - **Plugin packaging:** Work in `rhdh-plugin-export-overlays` to add/update plugins as dynamic plugins; uses actions from `rhdh-plugin-export-utils`
 - **Midstream plugin builds:** Work in `rhdh-plugin-catalog` for Konflux pipeline management, catalog index updates, and OCI artifact publishing to Red Hat registries
+- **Base image maintenance:** Use scripts in `rhdh-downstream` (`build/scripts/`), scan and update Containerfiles in `rhdh` and `rhdh-operator` — see `update-base-image` skill
 - **CI/CD actions for plugins:** Work in `rhdh-plugin-export-utils` to modify the reusable GitHub Actions

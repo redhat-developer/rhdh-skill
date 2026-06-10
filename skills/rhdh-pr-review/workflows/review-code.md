@@ -38,6 +38,7 @@ Reviewers will produce false positives. Verify each finding against actual code 
 **Drop any finding that:**
 
 - References code that doesn't exist at HEAD
+- References files that are not in the PR's changed files list (check the context artifact's `files[]` — don't assume a file exists in the PR just because it exists on the branch)
 - Was already raised and resolved in `existing_comments` or `existing_reviews`
 - Misreads what the code actually does
 - Matches existing codebase conventions (the PR follows the project's style, not the reviewer's preference)
@@ -48,34 +49,25 @@ Reviewers will produce false positives. Verify each finding against actual code 
 - Tested?
 - Anything from the issue's scope missing? (Author may be intentionally splitting work — note, don't block.)
 
-Present verified findings and dropped findings (with reasoning) to the user before drafting.
+Present verified findings and dropped findings (with reasoning) to the user before drafting. Use a structured format here — categorized by type (suggestion, question, observation), with `file:line` references and short descriptions. This is for the user to scan and approve, not the final comment text.
 
 ## Step 4: Draft the review
 
+The posted review should read like a person wrote it, not a report generator. The structured presentation in Step 3 helps the user decide what to include; the actual GitHub comments use a different voice.
+
 ### Top-level comment
 
-1. One short sentence acknowledging the work.
-2. Frame inline items: "A few questions inline, nothing blocking."
-3. Requirements coverage summary if issues were checked.
-4. Keep to 3–5 sentences total.
+Keep it short and direct — frame what the inline comments are about so the author knows the scope at a glance. Include a requirements coverage note if linked issues were checked. Skip performative praise; it reads as filler.
 
-Keep the opening acknowledgment to one short sentence. Longer praise reads as performative.
-
-If `existing_reviews` shows you've already left a top-level comment on this PR, a new top-level comment is often unnecessary — consider posting only the inline findings to reduce noise. Use judgment: a follow-up summary may still be warranted if the scope of feedback changed significantly or the prior review was on a different revision.
+If `existing_reviews` shows you've already left a top-level comment on this PR, a new one is often unnecessary — consider posting only the inline findings. A follow-up summary is still warranted if the scope of feedback changed significantly or the prior review was on a different revision.
 
 ### Inline comments
 
-Post one inline comment per medium-or-above finding — no artificial cap. After presenting the medium+ findings, list each nit/low item as a one-line bullet (`file:line — short description`) so the user can quickly scan and cherry-pick which to include. Never leave a comment just to show you noticed something.
+Post one inline comment per finding worth raising — no artificial cap. Never leave a comment just to show you noticed something. Not every finding needs the same weight — substantial issues get a full comment, nits can be grouped into a single comment as one-liners.
 
-Choose the right comment type:
+Write each comment as natural prose — a short paragraph explaining the issue and why it matters. Avoid bullet lists, bold headers, and over-structured formatting. Keep just enough information for the author to understand the problem and act on it. Code suggestions and code blocks are fine since they're functional, not formatting.
 
-| Type | When | Example |
-|------|------|---------|
-| Code suggestion | Clear fix, small scope | Missing guard, warning log, docs wording |
-| Question | Design decision, tradeoff | "Is X intended, or would Y avoid Z?" |
-| Observation | Worth noting, not actionable | "Return type changed — callers are safe" |
-
-Assume deliberate choices. Ask why before suggesting alternatives. Explain reasoning only when the fix isn't obvious. Call out specific things done well — name the pattern or decision, not generic praise.
+Assume deliberate choices. Ask why before suggesting alternatives. Explain reasoning only when the fix isn't obvious. Call out specific things done well when genuine — name the pattern or decision, not generic praise.
 
 **If nothing significant survives verification**, that's a valid outcome. Produce a short approving review. Don't manufacture issues.
 
