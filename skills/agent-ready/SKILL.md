@@ -222,3 +222,4 @@ rhdh-plugins                88/100  Silver             1
 - Deferred findings surface again after the re-run.
 - Never invent rationale for ADRs or design docs. In auto mode, skip them. In review mode, ask for rationale before writing anything.
 - In batch mode, only assess repos whose remote URL matches `rhdh-repos.md` — do not assess unrelated repos in the same directory.
+- `rhdh-repos.md` is expected at `~/.claude/skills/rhdh/references/rhdh-repos.md` — the default install path when using `npx skills add redhat-developer/rhdh-skill`. If the `rhdh` skill was installed to a different prefix, RHDH detection will silently degrade to generic mode. This is by design — no error, no warning.
