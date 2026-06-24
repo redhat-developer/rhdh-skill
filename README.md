@@ -82,6 +82,10 @@ Track work across the four RHDH Jira projects.
   - **[to-issue](./skills/rhdh-jira/references/to-issue.md)** — Create a Story, Task, Bug, or Spike with automatic type inference. Grills on implementation details and story points.
   - **[update-jira-status](./skills/rhdh-jira/references/update-jira-status.md)** — Update an issue with session progress. Detects the related issue, adds a status comment, proposes transitions, and checks upward cascade to parent Epic/Feature.
 
+### UI Testing
+
+- **[rhdh-playwright](./skills/rhdh-playwright/SKILL.md)** — Automate RHDH UI navigation and verification using `playwright-cli`. Covers guest login, sidebar navigation, catalog browsing, entity page inspection, tab verification, and plugin exploration. Use for "check RHDH", "verify catalog entity", "entity should have tab", or any RHDH UI testing task.
+
 ### PR Review
 
 - **[rhdh-pr-review](./skills/rhdh-pr-review/SKILL.md)** — PR code review with inline comments (GitHub, GitLab planned) and live cluster testing for rhdh-operator PRs. Layered architecture: fetch → analyze → post.
