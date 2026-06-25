@@ -16,7 +16,7 @@ Always read the plugin's `package.json` (and `backstage.json` if present) before
 </principle>
 
 <principle name="rhdh_alignment">
-RHDH pins specific Backstage versions per release. If the plugin targets RHDH, use the version matrix from `../rhdh/references/versions.md` to determine the correct Backstage version. Don't blindly upgrade to the latest Backstage if it's ahead of what RHDH ships.
+RHDH pins specific Backstage versions per release. If the plugin targets RHDH, use the version matrix from `../rhdh/references/versions.md` to determine the correct Backstage version. Don't blindly upgrade to the latest Backstage if it's ahead of what RHDH ships. **Note:** This path requires the `rhdh` core skill to be installed alongside. If the file is not found, ask the user for the target RHDH and Backstage versions directly.
 </principle>
 
 <principle name="cli_first">

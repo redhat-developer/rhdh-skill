@@ -10,6 +10,8 @@ description: >
   to the new frontend system for RHDH.
 ---
 
+> **Human-readable guide:** `docs/nfs-migration-guide.md` is the authoritative source for migration patterns. These reference files are optimized for agent consumption. When patterns diverge, the guide takes precedence.
+
 <essential_principles>
 
 <principle name="discover_first">

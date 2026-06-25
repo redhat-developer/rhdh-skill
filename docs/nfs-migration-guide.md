@@ -2,6 +2,8 @@
 
 A practical guide for Red Hat Developer Hub plugin authors migrating from the legacy Backstage frontend system to NFS.
 
+> **Agent skill users:** The `nfs-migration` skill (`skills/nfs-migration/`) contains the same patterns broken into reference files optimized for agent consumption. This guide is the authoritative human-readable source. When updating migration patterns, update this guide first, then sync the corresponding reference file.
+
 ---
 
 ## 1. What is the New Frontend System

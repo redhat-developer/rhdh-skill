@@ -4,6 +4,8 @@
 
 RHDH pins a specific Backstage version per release. Load the version matrix from `../../rhdh/references/versions.md` to find the mapping.
 
+> **Dependency:** RHDH version alignment requires the `rhdh` core skill to be installed alongside this skill. If `versions.md` is not found at that path, ask the user for the target RHDH and Backstage versions directly.
+
 Ask the user: **"Which RHDH version are you targeting?"**
 
 | RHDH Version | Backstage Version |
