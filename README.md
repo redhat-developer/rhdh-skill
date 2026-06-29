@@ -22,6 +22,22 @@ Build dynamic plugins from scratch — backend or frontend — and get them depl
   - **[export](./skills/create-plugin/references/export.md)** — Export, package (OCI/tgz/npm), and push to a container registry.
   - **[wiring](./skills/create-plugin/references/wiring.md)** — Analyze plugin source and generate `dynamic-plugins.yaml` wiring config.
 
+### NFS Migration
+
+Migrate your plugins from the legacy Backstage frontend system to the New Frontend System (NFS).
+
+Start with the **[NFS Migration Guide](./docs/nfs-migration-guide.md)** -- it covers what NFS is, why you need to migrate, the deprecation timeline, and walks through every migration pattern with code examples.
+
+When you're ready to migrate, use the Agent Skill to automate it:
+
+- **[nfs-migration](./skills/nfs-migration/SKILL.md)** -- Analyzes your existing plugin, applies the right Blueprint patterns, updates exports, and verifies the result. Two approaches: direct-to-GA (recommended) or phased with backward compatibility.
+
+### Backstage Upgrade
+
+Upgrade `@backstage/*` dependencies in your plugin to align with a target RHDH or Backstage release.
+
+- **[backstage-upgrade](./skills/backstage-upgrade/SKILL.md)** -- Discovers current versions, determines the target using the RHDH→Backstage version matrix, runs `backstage-cli versions:bump`, migrates moved packages, guides through breaking changes from upstream changelogs, and verifies the result. Composable — the NFS migration skill chains into it automatically when deps are outdated.
+
 ### Extensions Catalog
 
 Manage plugins in the [rhdh-plugin-export-overlays](https://github.com/redhat-developer/rhdh-plugin-export-overlays) repository.
@@ -36,6 +52,29 @@ Update Konflux task digests and apply `MIGRATION.md` pipeline changes in [rhdh-p
 
 ```bash
 npx skills add redhat-developer/rhdh-skill --skill konflux-tekton-updates
+```
+
+### Platform Lifecycle
+
+Check version support status for platforms and integrations used by RHDH.
+
+- **[lifecycle](./skills/lifecycle/SKILL.md)** — Check version lifecycle and support status for OCP, AKS, EKS, GKE, RHDH releases, RHBK, Quay, PostgreSQL, and any Red Hat product via the Product Life Cycles API.
+
+### CI / Prow
+
+Manage Prow CI job configurations and trigger nightly E2E tests.
+
+- **[prow](./skills/prow/SKILL.md)** — Manage Prow CI job configurations for RHDH in the openshift/release repository. List, generate, add, and remove OCP test entries and cluster pools. List K8s platform test entries (AKS, EKS, GKE). Analyze coverage gaps. Commission new release branches and decommission end-of-life ones.
+- **[prow-trigger-nightly](./skills/prow-trigger-nightly/SKILL.md)** — Trigger RHDH nightly ProwJobs on demand via the OpenShift CI Gangway REST API. Supports both rhdh and rhdh-plugin-export-overlays repos with Gangway overrides for catalog index image, chart version, and Playwright version.
+
+### Base image
+
+Bump UBI / RHEC base image tags and refresh `@sha256` digests in **rhdh** and **rhdh-operator** (see [rhdh-repos](./skills/rhdh/references/rhdh-repos.md)).
+
+- **[update-base-image](./skills/update-base-image/SKILL.md)** — Analyze and update Containerfile / Dockerfile using [rhdh-downstream](./skills/rhdh/references/rhdh-repos.md#rhdh-downstream) scripts (`build/scripts/`). Tags must be `major.minor-buildid` or `x.y.z-buildid`; bare numeric registry tags are ignored. Bundled `analyze-base-images.sh`; run `updateBaseImages.sh` per repo. Requires `skopeo login registry.redhat.io`.
+
+```bash
+npx skills add redhat-developer/rhdh-skill --skill update-base-image
 ```
 
 ### Local Testing
@@ -61,7 +100,7 @@ Track work across the four RHDH Jira projects.
 
 ### PR Review
 
-- **[rhdh-pr-review](./skills/rhdh-pr-review/SKILL.md)** — Test PR changes on a live RHDH cluster. Supports rhdh-operator PRs (deploys full OLM bundle or manifests) and rhdh-chart PRs (deploys chart from PR branch via Helm). Verifies code changes and reports findings.
+- **[rhdh-pr-review](./skills/rhdh-pr-review/SKILL.md)** — PR code review with inline comments (GitHub, GitLab planned) and live cluster testing for rhdh-operator PRs. Layered architecture: fetch → analyze → post.
 
 ### Test Plan
 
@@ -70,6 +109,10 @@ Track work across the four RHDH Jira projects.
 ### Orchestration
 
 - **[rhdh](./skills/rhdh/SKILL.md)** — Entry point and router. Detects your environment, runs `doctor` checks, maintains a cross-session worklog, and routes to the right skill. Start here if you're not sure what you need.
+
+### Repository Readiness
+
+- **[agent-ready](./skills/agent-ready/SKILL.md)** — Assess RHDH repositories against agentready criteria and address each gap. RHDH-aware: detects the repo from its remote URL, uses `rhdh-repos.md` context to pre-fill `AGENTS.md` and skip inapplicable findings. Supports single-repo and batch modes (assess all RHDH repos in one pass).
 
 ### Meta
 

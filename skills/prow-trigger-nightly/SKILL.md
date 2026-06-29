@@ -14,6 +14,7 @@ description: >-
 Trigger RHDH nightly ProwJobs via the OpenShift CI Gangway REST API.
 
 Supports two repositories:
+
 - **rhdh** — the main RHDH application (`periodic-ci-redhat-developer-rhdh-*-nightly`)
 - **rhdh-plugin-export-overlays** — plugin export overlays (`periodic-ci-redhat-developer-rhdh-plugin-export-overlays-*-nightly`)
 
@@ -56,6 +57,7 @@ Then ask the user to describe which job and branch they want in natural language
 Map the user's description to the matching full job name from the fetched list. If no branch is mentioned, default to `main`:
 
 **RHDH repo jobs:**
+
 - "ocp helm" / "openshift helm" -> `e2e-ocp-helm-nightly` (not upgrade, not versioned)
 - "operator" / "ocp operator" -> `e2e-ocp-operator-nightly` (not auth-providers)
 - "helm upgrade" / "upgrade test" -> `e2e-ocp-helm-upgrade-nightly`
@@ -72,6 +74,7 @@ Map the user's description to the matching full job name from the fetched list. 
 - Multiple: "all AKS jobs", "all Operator jobs on main" -> offer to trigger them in sequence
 
 **Overlay repo jobs:**
+
 - "overlay nightly" / "overlay helm" / "overlays nightly" -> `periodic-ci-redhat-developer-rhdh-plugin-export-overlays-main-e2e-ocp-helm-nightly`
 
 ### Shared Cluster Constraint (GKE / OSD-GCP only)
@@ -80,21 +83,34 @@ GKE and OSD-GCP each share a single cluster — never run two jobs on the same p
 
 ## Step 2: Options
 
-**Important:** Overlay repo jobs only support fork overrides (`--org`, `--repo`, `--branch`). Image overrides (`--image-registry`, `--image-repo`, `--tag`) and `--send-alerts` are NOT supported — the script will error if these are passed for an overlay job. If the user doesn't need fork overrides, skip this step and go directly to Step 3.
+### Overlay repo jobs
 
-For RHDH repo jobs, present all options together. The user picks by number — multiple selections allowed (e.g. "2, 5"):
+Overlay jobs support fork overrides (`--org`, `--repo`, `--branch`), catalog index override (`--catalog-index-image`), and Playwright version override (`--playwright-version`).
+
+Image overrides (`--image-registry`, `--image-repo`, `--tag`), `--chart-version`, and `--send-alerts` are NOT supported — the script will error if these are passed for an overlay job.
+
+If the user doesn't need any overrides, skip this step and go directly to Step 3.
+
+### RHDH repo jobs
+
+Present all options together. The user picks by number — multiple selections allowed (e.g. "2, 5"):
 
 **Image override:**
+
 1. **Default image** — no image flags, use whatever the job is configured with
 2. **Custom tag only** — override just the tag, keep default registry and repo
 3. **Custom repo + tag** — override image repository and tag, keep default registry (`quay.io`)
 4. **Fully custom image** — override registry, repo, and tag
 
-**Additional options:**
-5. **Fork override** — run against a fork instead of `redhat-developer/rhdh`
-6. **Send Slack alerts** — notify via `--send-alerts`
+**Catalog & chart override:**
+5. **Catalog index image** — override the plugin catalog index image (`--catalog-index-image`)
+6. **Chart version** — override the Helm chart version (`--chart-version`)
 
-Constraint: `--image-repo` requires `--tag`, but `--tag` works on its own.
+**Additional options:**
+7. **Fork override** — run against a fork instead of `redhat-developer/rhdh`
+8. **Send Slack alerts** — notify via `--send-alerts`
+
+Constraint: `--image-repo` requires `--tag`, but `--tag` works on its own. `--playwright-version` is overlay-only and will error for RHDH jobs.
 
 ### Follow-up based on selections
 
@@ -111,11 +127,17 @@ uv run scripts/trigger_nightly_job.py --list-tags
 Use `--image-repo <REPO>` to query a different image repository (default: `rhdh/rhdh-hub-rhel9`). Present the numbered results with a final option to enter a custom tag (e.g. `next`, `latest`). For option 3, also ask for the image repository.
 
 **If 4 selected (non-quay registry)** — ask for all three values (tag fetching not available):
+
 - Registry (e.g. `brew.registry.redhat.io`)
 - Image repo (e.g. `rhdh/rhdh-hub-rhel9`)
 - Tag (e.g. `1.9`)
 
-**If 5 selected** — ask for:
+**If 5 selected** — ask for catalog index image (e.g. `quay.io/rhdh/plugin-catalog-index:1.9-60` for RC, `registry.access.redhat.com/rhdh/plugin-catalog-index:1.9.4` for GA).
+
+**If 6 selected** — ask for chart version (e.g. `1.9-227-CI`).
+
+**If 7 selected** — ask for:
+
 - GitHub org (`--org`): e.g. `my-github-user`
 - Repo name (`--repo`): e.g. `rhdh`
 - Branch (`--branch`): e.g. `my-feature-branch`
@@ -130,6 +152,9 @@ uv run scripts/trigger_nightly_job.py \
   [--image-registry <REGISTRY>] \
   [--image-repo <REPO>] \
   [--tag <TAG>] \
+  [--catalog-index-image <IMAGE>] \
+  [--chart-version <VERSION>] \
+  [--playwright-version <VERSION>] \
   [--org <ORG>] \
   [--repo <REPO>] \
   [--branch <BRANCH>] \
@@ -142,14 +167,33 @@ uv run scripts/trigger_nightly_job.py \
 
 After execution, show the API response. If a job URL or ID is returned, display it prominently. On error, help diagnose (common issues: expired token, invalid job name).
 
+### RC Verification Example
+
+```bash
+uv run scripts/trigger_nightly_job.py \
+  --job periodic-ci-redhat-developer-rhdh-main-e2e-ocp-helm-nightly \
+  --image-repo rhdh/rhdh-hub-rhel9 --tag 1.9-227 \
+  --catalog-index-image quay.io/rhdh/plugin-catalog-index:1.9 \
+  --chart-version 1.9-227-CI
+```
+
+### GA Verification Example
+
+```bash
+uv run scripts/trigger_nightly_job.py \
+  --job periodic-ci-redhat-developer-rhdh-main-e2e-ocp-helm-nightly \
+  --image-registry registry.redhat.io --image-repo rhdh/rhdh-hub-rhel9 --tag 1.9.4 \
+  --catalog-index-image registry.access.redhat.com/rhdh/plugin-catalog-index:1.9.4
+```
+
 ## Reference
 
-- Script flags: `-j/--job`, `-l/--list`, `-T/--list-tags`, `--tag-filter`, `-I/--image-registry`, `-q/--image-repo`, `-t/--tag`, `-o/--org`, `-r/--repo`, `-b/--branch`, `-S/--send-alerts`, `-n/--dry-run`, `--json`
+- Script flags: `-j/--job`, `-l/--list`, `-T/--list-tags`, `--tag-filter`, `-I/--image-registry`, `-q/--image-repo`, `-t/--tag`, `--catalog-index-image`, `--chart-version`, `--playwright-version`, `-o/--org`, `-r/--repo`, `-b/--branch`, `-S/--send-alerts`, `-n/--dry-run`, `--json`
 - Dedicated kubeconfig at `~/.config/openshift-ci/kubeconfig` — won't interfere with your current cluster context
 - If auth is needed, the script opens a browser for SSO login
-- RHDH jobs list: https://prow.ci.openshift.org/configured-jobs/redhat-developer/rhdh
-- Overlay jobs list: https://prow.ci.openshift.org/configured-jobs/redhat-developer/rhdh-plugin-export-overlays
-- Image tags: https://quay.io/repository/rhdh/rhdh-hub-rhel9?tab=tags
+- RHDH jobs list: <https://prow.ci.openshift.org/configured-jobs/redhat-developer/rhdh>
+- Overlay jobs list: <https://prow.ci.openshift.org/configured-jobs/redhat-developer/rhdh-plugin-export-overlays>
+- Image tags: <https://quay.io/repository/rhdh/rhdh-hub-rhel9?tab=tags>
 
 ## Related Skills
 

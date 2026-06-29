@@ -86,27 +86,38 @@ Run the pre-creation check from `references/duplicates.md`. Search RHIDP Epics (
 
 ### Step 8 — Create Epic
 
-Fill the template. Create the issue:
+Fill the template. Then convert to ADF using the helper script (see Gotcha #6). `acli create` accepts ADF via `--description-file`:
+
+```bash
+EPIC_ADF=$(mktemp)  # on Windows: use %TEMP% or Python tempfile
+python scripts/jira-wiki-to-adf.py epic-filled.txt "$EPIC_ADF"
+```
+
+Create the issue — note `--priority`, `--component`, and `--yes` do not exist on `create` (see Gotcha #18):
 
 ```bash
 acli jira workitem create --project RHIDP --type Epic \
   --summary "Epic summary" \
-  --description-file /tmp/epic-desc.txt \
-  --assignee "ACCOUNT_ID" \
-  --priority "Major" \
-  --component "Plugins" \
-  --yes
+  --description-file "$EPIC_ADF" \
+  --assignee "ACCOUNT_ID"
 ```
 
-If a parent Feature exists, link via REST:
+Then set priority, components, size, and parent Feature link together in one REST call. Cross-project parent links accept either `customfield_10018` or `parent.key` — do not use `issuelinks` (see Gotcha #16):
 
 ```bash
 curl -s -X PUT -u "$AUTH" -H "Content-Type: application/json" \
-  -d '{"fields": {"parent": {"key": "RHDHPLAN-XXX"}}}' \
+  -d '{
+    "fields": {
+      "priority": {"name": "Major"},
+      "components": [{"name": "Catalog"}],
+      "customfield_10795": {"value": "M"},
+      "customfield_10018": "RHDHPLAN-XXX"
+    }
+  }' \
   "https://redhat.atlassian.net/rest/api/3/issue/RHIDP-XXX"
 ```
 
-Set Team and Size via REST — follow API preference order in SKILL.md.
+Set Team via REST — follow API preference order in SKILL.md.
 
 ### Step 9 — Comments
 

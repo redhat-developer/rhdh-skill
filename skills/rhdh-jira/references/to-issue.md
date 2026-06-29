@@ -119,36 +119,49 @@ Run the pre-creation check from `references/duplicates.md`. Scope to the target 
 
 ### Step 9 — Create Issue
 
-Fill the template. Create the issue:
+Fill the appropriate template (`assets/templates/story.txt`, `task.txt`, or `bug.txt`) with grill results, then convert to ADF using the helper script (see Gotcha #6). `acli create` accepts ADF via `--description-file`:
+
+```bash
+ISSUE_ADF=$(mktemp)  # on Windows: use %TEMP% or Python tempfile
+python scripts/jira-wiki-to-adf.py story-filled.txt "$ISSUE_ADF"
+```
+
+Create the issue — note `--priority`, `--component`, and `--yes` do not exist on `create` (see Gotcha #18):
 
 ```bash
 # Story
 acli jira workitem create --project RHIDP --type Story \
   --summary "Story summary" \
-  --description-file /tmp/story-desc.txt \
-  --assignee "ACCOUNT_ID" \
-  --priority "Major" \
-  --component "Plugins" \
-  --yes
+  --description-file "$ISSUE_ADF" \
+  --assignee "ACCOUNT_ID"
 
 # Bug (different project)
 acli jira workitem create --project RHDHBUGS --type Bug \
   --summary "Bug summary" \
-  --description-file /tmp/bug-desc.txt \
-  --priority "Critical" \
-  --yes
+  --description-file "$ISSUE_ADF"
 
 # Spike (Task with prefix)
 acli jira workitem create --project RHIDP --type Task \
   --summary "SPIKE: Research multi-source catalog merging" \
-  --description-file /tmp/spike-desc.txt \
-  --assignee "ACCOUNT_ID" \
-  --priority "Major" \
-  --component "Plugins" \
-  --yes
+  --description-file "$ISSUE_ADF" \
+  --assignee "ACCOUNT_ID"
 ```
 
-If a parent Epic exists, link via REST:
+Then set priority, component, and story points together in one REST call:
+
+```bash
+curl -s -X PUT -u "$AUTH" -H "Content-Type: application/json" \
+  -d '{
+    "fields": {
+      "priority": {"name": "Major"},
+      "components": [{"name": "Plugins"}],
+      "customfield_10028": 5
+    }
+  }' \
+  "https://redhat.atlassian.net/rest/api/3/issue/RHIDP-YYY"
+```
+
+If a parent Epic exists, link via REST (same-project RHIDP→RHIDP uses native `parent` field):
 
 ```bash
 curl -s -X PUT -u "$AUTH" -H "Content-Type: application/json" \

@@ -353,8 +353,8 @@ def build_payload(args: argparse.Namespace) -> dict:
     is_overlay = args.job.startswith(OVERLAY_JOB_PREFIX)
 
     if is_overlay:
-        # Overlay jobs support fork overrides only (org, repo, branch).
-        # Image overrides and alerts are not supported.
+        # Overlay jobs support fork overrides, catalog index, and playwright version.
+        # Image overrides, chart version, and alerts are not supported.
         unsupported: list[str] = []
         if args.image_repo:
             unsupported.append("--image-repo")
@@ -362,6 +362,8 @@ def build_payload(args: argparse.Namespace) -> dict:
             unsupported.append("--image-registry")
         if args.tag:
             unsupported.append("--tag")
+        if args.chart_version:
+            unsupported.append("--chart-version")
         if args.send_alerts:
             unsupported.append("--send-alerts")
         if unsupported:
@@ -377,7 +379,16 @@ def build_payload(args: argparse.Namespace) -> dict:
             envs["MULTISTAGE_PARAM_OVERRIDE_GITHUB_REPOSITORY_NAME"] = args.repo
         if args.branch:
             envs["MULTISTAGE_PARAM_OVERRIDE_RELEASE_BRANCH_NAME"] = args.branch
+        if args.catalog_index_image:
+            envs["MULTISTAGE_PARAM_OVERRIDE_CATALOG_INDEX_IMAGE"] = args.catalog_index_image
+        if args.playwright_version:
+            envs["MULTISTAGE_PARAM_OVERRIDE_PLAYWRIGHT_VERSION"] = args.playwright_version
     else:
+        # RHDH repo jobs do not support playwright version.
+        if args.playwright_version:
+            log_error("--playwright-version is only supported for overlay jobs.")
+            sys.exit(1)
+
         # RHDH repo jobs support full overrides.
         if args.image_repo:
             envs["MULTISTAGE_PARAM_OVERRIDE_IMAGE_REPO"] = args.image_repo
@@ -391,6 +402,10 @@ def build_payload(args: argparse.Namespace) -> dict:
             envs["MULTISTAGE_PARAM_OVERRIDE_GITHUB_REPOSITORY_NAME"] = args.repo
         if args.branch:
             envs["MULTISTAGE_PARAM_OVERRIDE_RELEASE_BRANCH_NAME"] = args.branch
+        if args.catalog_index_image:
+            envs["MULTISTAGE_PARAM_OVERRIDE_CATALOG_INDEX_IMAGE"] = args.catalog_index_image
+        if args.chart_version:
+            envs["MULTISTAGE_PARAM_OVERRIDE_CHART_VERSION"] = args.chart_version
 
         skip_alert = "false" if args.send_alerts else "true"
         envs["MULTISTAGE_PARAM_OVERRIDE_SKIP_SEND_ALERT"] = skip_alert
@@ -531,55 +546,76 @@ Examples:
         help="Filter tags by version prefix (e.g. '1.10'). Used with --list-tags.",
     )
 
-    overrides = parser.add_argument_group("RHDH job overrides (not supported for overlay jobs)")
-    overrides.add_argument(
-        "-I",
-        "--image-registry",
-        dest="image_registry",
-        default="",
-        help="Override the image registry (default: quay.io).",
-    )
-    overrides.add_argument(
-        "-q",
-        "--image-repo",
-        dest="image_repo",
-        default="",
-        help="Override the image repository (e.g. rhdh/rhdh-hub-rhel9). Requires --tag.",
-    )
-    overrides.add_argument(
-        "-t",
-        "--tag",
-        dest="tag",
-        default="",
-        help="Override the image tag (e.g. 1.9-123).",
-    )
-    overrides.add_argument(
+    shared = parser.add_argument_group("Shared overrides (both rhdh and overlay jobs)")
+    shared.add_argument(
         "-o",
         "--org",
         dest="org",
         default="",
         help="Override the GitHub org (default: redhat-developer).",
     )
-    overrides.add_argument(
+    shared.add_argument(
         "-r",
         "--repo",
         dest="repo",
         default="",
         help="Override the GitHub repo name (default: rhdh).",
     )
-    overrides.add_argument(
+    shared.add_argument(
         "-b",
         "--branch",
         dest="branch",
         default="",
         help="Override the branch name.",
     )
+    shared.add_argument(
+        "--catalog-index-image",
+        dest="catalog_index_image",
+        default="",
+        help="Override the catalog index image (e.g. quay.io/rhdh/plugin-catalog-index:1.9-60).",
+    )
 
-    parser.add_argument(
+    rhdh_only = parser.add_argument_group("RHDH-only overrides (not supported for overlay jobs)")
+    rhdh_only.add_argument(
+        "-I",
+        "--image-registry",
+        dest="image_registry",
+        default="",
+        help="Override the image registry (default: quay.io).",
+    )
+    rhdh_only.add_argument(
+        "-q",
+        "--image-repo",
+        dest="image_repo",
+        default="",
+        help="Override the image repository (e.g. rhdh/rhdh-hub-rhel9). Requires --tag.",
+    )
+    rhdh_only.add_argument(
+        "-t",
+        "--tag",
+        dest="tag",
+        default="",
+        help="Override the image tag (e.g. 1.9-123).",
+    )
+    rhdh_only.add_argument(
+        "--chart-version",
+        dest="chart_version",
+        default="",
+        help="Override the Helm chart version (e.g. 1.9-227-CI).",
+    )
+    rhdh_only.add_argument(
         "-S",
         "--send-alerts",
         action="store_true",
         help="Send Slack alerts (default: alerts are skipped).",
+    )
+
+    overlay_only = parser.add_argument_group("Overlay-only overrides (not supported for rhdh jobs)")
+    overlay_only.add_argument(
+        "--playwright-version",
+        dest="playwright_version",
+        default="",
+        help="Override the Playwright version (overlay jobs only).",
     )
     parser.add_argument(
         "-n",

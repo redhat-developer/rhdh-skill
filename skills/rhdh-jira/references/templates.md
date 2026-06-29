@@ -26,12 +26,15 @@ Implement SSO integration for admin console.
 ...
 EOF
 
-# Create the issue
+# Convert wiki markup to ADF (required — plain wiki text is not rendered by Jira)
+ISSUE_ADF=$(mktemp)
+python scripts/jira-wiki-to-adf.py issue-desc.txt "$ISSUE_ADF"
+
+# Create the issue (note: --yes does not exist on create, see Gotcha #18)
 acli jira workitem create --project RHIDP --type Epic \
   --summary "SSO Integration for Admin Console" \
-  --description-file issue-desc.txt \
-  --assignee "@me" \
-  --yes
+  --description-file "$ISSUE_ADF" \
+  --assignee "@me"
 ```
 
 ## Field Requirements at Creation

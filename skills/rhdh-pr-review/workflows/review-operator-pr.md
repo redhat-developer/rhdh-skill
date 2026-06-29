@@ -1,16 +1,15 @@
 # Workflow: Review rhdh-operator PR on Live Cluster
 
-Fetch a PR's CI-built images, deploy the full operator bundle or manifests into a running RHDH cluster, and generate a targeted review checklist from the diff.
+Deploy a PR's CI-built images onto a running RHDH cluster, actively verify the code changes, and report findings.
+
+This workflow expects a **context artifact** from `fetch-github.md` (or a future forge-specific fetch workflow). If the context artifact is not yet available, run the fetch workflow first.
 
 <required_reading>
 
 Read these reference files before starting:
 
-1. `../references/shared-pr-fetch.md` — Shared Phase 1 (PR context fetching)
-2. `../references/shared-verification.md` — Shared Phase 6 (active verification)
-3. `../references/shared-findings-structure.md` — Shared Phase 7 (findings structure)
-4. `../references/operator-pr-images.md` — Image naming, extraction, validation
-5. `../../rhdh/references/github-reference.md` — gh CLI patterns
+1. `../references/operator-pr-images.md` — Image naming, extraction, validation
+2. `../../rhdh/references/github-reference.md` — gh CLI patterns (if available)
 
 </required_reading>
 
@@ -27,14 +26,21 @@ Read these reference files before starting:
 
 <process>
 
-## Phase 1: Fetch PR Context
+## Phase 1: Use Context Artifact
+
+The context artifact from the fetch workflow provides `repo`, `pr_number`, `head_sha`, `files`, `diff`, and `body`. Extract:
 
 ```bash
 REPO="redhat-developer/rhdh-operator"
-PR_NUMBER=<number>
+PR_NUMBER=<from context artifact>
 ```
 
-Read `../references/shared-pr-fetch.md` and follow the `<fetch_pr>` instructions using the `REPO` and `PR_NUMBER` variables above.
+Validate:
+
+- PR belongs to `redhat-developer/rhdh-operator`
+- PR state is `OPEN` (warn if merged or closed — images may still work but PR is not active)
+
+The diff and changed file list are already available in the context artifact.
 
 ---
 

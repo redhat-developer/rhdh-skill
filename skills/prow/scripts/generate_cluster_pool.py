@@ -63,6 +63,11 @@ def main(argv=None):
         print(f"ERROR: Version must be in X.Y format, got: {args.version}", file=sys.stderr)
         sys.exit(1)
 
+    if args.reference:
+        if not re.match(r"^\d+\.\d+$", args.reference):
+            print(f"ERROR: Reference must be in X.Y format, got: {args.reference}", file=sys.stderr)
+            sys.exit(1)
+
     major, minor = args.version.split(".")
     next_minor = str(int(minor) + 1)
     dash_ver = f"{major}-{minor}"

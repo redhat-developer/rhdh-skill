@@ -96,19 +96,37 @@ If a likely duplicate Feature is found, present it and ask: "This may already ex
 
 ### Step 7 — Create Feature
 
-Fill the template with grill results. Save to a temp file. Create the issue:
+Fill the template with grill results. Save to a temp file. Then convert to ADF using the helper script (see Gotcha #6). `acli create` accepts ADF via `--description-file`:
+
+```bash
+FEATURE_ADF=$(mktemp)  # on Windows: use %TEMP% or Python tempfile
+python scripts/jira-wiki-to-adf.py feature-filled.txt "$FEATURE_ADF"
+```
+
+Create the issue — note `--priority` and `--yes` do not exist on `create` (see Gotcha #18):
 
 ```bash
 acli jira workitem create --project RHDHPLAN --type Feature \
   --summary "Feature summary" \
-  --description-file /tmp/feature-desc.txt \
+  --description-file "$FEATURE_ADF" \
   --assignee "ACCOUNT_ID" \
-  --priority "Major" \
-  --label "rhdh-2.1-candidate" \
-  --yes
+  --label "rhdh-2.1-candidate"
 ```
 
-Set additional fields via REST if needed (Team, Size) — follow API preference order in SKILL.md.
+Then set priority, Team, and Size together in one REST call:
+
+```bash
+curl -s -X PUT -u "$AUTH" -H "Content-Type: application/json" \
+  -d '{
+    "fields": {
+      "priority": {"name": "Major"},
+      "customfield_10795": {"value": "M"}
+    }
+  }' \
+  "https://redhat.atlassian.net/rest/api/3/issue/RHDHPLAN-XXX"
+```
+
+Set Team via REST — follow API preference order in SKILL.md.
 
 ### Step 8 — Comments
 
@@ -132,7 +150,7 @@ If yes:
 2. For each team, invoke the `to-epic` workflow with context carried down from this Feature:
    - The Feature's scope, AC, and customer considerations are established — don't re-grill on these
    - The Epic grill narrows to: delivery scope for *this team*, dependencies, team-specific AC
-3. Each Epic is automatically linked to the parent Feature via `parent` field
+3. Each Epic is automatically linked to the parent Feature via `customfield_10018` (cross-project parent link — see Gotcha #16 and to-epic.md Step 8)
 
 ## Error Handling
 

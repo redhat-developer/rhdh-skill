@@ -27,6 +27,9 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+# OAuth credentials
+client_secret*.json
+
 # uv
 .python-version
 

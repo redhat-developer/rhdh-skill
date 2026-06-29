@@ -124,6 +124,12 @@ What would you like to do?
 
 10. **Review Test Plan content** — Reviews an RHDH test plan Jira ticket and suggests platform/integration version updates based on support lifecycle pages and RHDH release milestones
 
+### Release Management Tasks
+
+*For RHDH release tracking, status, announcements*
+
+10. **Release management** — Release dates, status, team breakdown, freeze announcements, blocker bugs, CVEs, release notes
+
 ### General Tasks
 
 11. **Check environment** — Run doctor, configure paths
@@ -169,7 +175,7 @@ What would you like to do?
 
 | Response | Skill |
 |----------|-------|
-| 8, 9, "review PR", "rhdh-pr-review", "test PR", "operator PR", "chart PR", "helm chart PR", "swap image" | Route to `@rhdh-pr-review` skill |
+| 8, "review PR", "code review", "PR review", "test PR", "operator PR", "review this PR", "rhdh-pr-review" | Route to `@rhdh-pr-review` skill |
 
 **To route:** Read `../rhdh-pr-review/SKILL.md` and follow its intake process.
 
@@ -180,6 +186,22 @@ What would you like to do?
 | 10, "review test plan", "update test plan", "check platform versions in test plan", "review RHDH test plan" | Route to `@rhdh-test-plan-review` skill |
 
 **To route:** Read `../rhdh-test-plan-review/SKILL.md` and follow its intake process.
+
+### Release Management Routes
+
+| Response | Skill |
+|----------|-------|
+| 10, "release", "release manager", "release dates", "release status", "feature freeze", "code freeze", "blocker bugs", "CVEs", "release notes", "team breakdown", "freeze announcement" | Route to `@rhdh-release` skill |
+
+**To route:** Read `../rhdh-release/SKILL.md` and follow its intake process.
+
+### Backstage Upgrade Routes
+
+| Response | Skill |
+|----------|-------|
+| "upgrade backstage", "bump backstage", "update @backstage", "backstage version", "align deps", "versions:bump" | Route to `backstage-upgrade` skill |
+
+**To route:** Read `../backstage-upgrade/SKILL.md` and follow its intake process.
 
 ### General Routes
 
@@ -324,8 +346,9 @@ Todos must be **self-contained**—a new session should understand the task with
 | overlay | Manage plugins in rhdh-plugin-export-overlays | `../overlay/SKILL.md` |
 | create-plugin | Create, export, package, and wire RHDH dynamic plugins | `../create-plugin/SKILL.md` |
 | rhdh-local | Enable/disable/test plugins in local RHDH | `../rhdh-local/SKILL.md` |
-| rhdh-pr-review | Test PR changes on live RHDH cluster | `../rhdh-pr-review/SKILL.md` |
+| rhdh-pr-review | PR code review and live cluster testing | `../rhdh-pr-review/SKILL.md` |
 | rhdh-test-plan-review | Reviews an RHDH test plan Jira ticket and suggests platform/integration version updates | `../rhdh-test-plan-review/SKILL.md` |
+| rhdh-release | Release dates, status tracking, team coordination, freeze announcements, blocker bugs, CVEs, release notes | `../rhdh-release/SKILL.md` |
 
 ### Shared References
 
