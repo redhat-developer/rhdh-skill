@@ -45,8 +45,15 @@ Chart CI does NOT build container images — it runs `ct lint` + `ct install` on
 ### 2.1 Check out the PR branch
 
 ```bash
-# If rhdh-chart is already cloned locally
-CHART_DIR=$(find .. -maxdepth 1 -name "rhdh-chart" -type d 2>/dev/null | head -1)
+# Use an existing rhdh-chart clone if available, otherwise clone fresh
+CHART_DIR=""
+for candidate in "../rhdh-chart" "$HOME/rhdh-chart" "$HOME/src/rhdh-chart"; do
+  if [ -d "$candidate/.git" ]; then
+    CHART_DIR="$candidate"
+    break
+  fi
+done
+
 if [ -z "$CHART_DIR" ]; then
   gh repo clone $REPO /tmp/rhdh-chart-pr-$PR_NUMBER
   CHART_DIR="/tmp/rhdh-chart-pr-$PR_NUMBER"
@@ -59,6 +66,8 @@ git checkout FETCH_HEAD
 ```
 
 ### 2.2 Update Helm dependencies
+
+Follow the dependency update steps in `../references/chart-pr-testing.md` (`<getting_pr_chart>` section):
 
 ```bash
 helm repo add bitnami https://charts.bitnami.com/bitnami 2>/dev/null
@@ -196,6 +205,8 @@ helm upgrade $HELM_RELEASE "$CHART_DIR/charts/backstage/" \
 ```
 
 The `--reuse-values` flag preserves any existing user configuration (dynamic plugins, app-config, secrets) while applying the PR's chart changes (templates, defaults, schema).
+
+**Fallback:** If the upgrade fails because the PR introduces new required values or renames existing ones, retry with `--reset-values` instead of `--reuse-values`. This starts from the chart's default values — you'll need to re-supply any custom configuration via `--set` or `-f values-override.yaml`.
 
 ### 4.4 Wait for rollout
 

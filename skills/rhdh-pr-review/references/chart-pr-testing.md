@@ -18,13 +18,17 @@ How to validate and deploy chart changes from a PR. The CI workflow definition l
 
 ## Getting the PR Chart Locally
 
+**Requires a local clone of rhdh-chart.** `gh pr checkout` operates on the current git repo — it will fail if CWD is not inside an rhdh-chart clone.
+
 ```bash
 REPO="redhat-developer/rhdh-chart"
 PR_NUMBER=<number>
 
-# Clone and checkout the PR branch
+# Ensure you're inside a local rhdh-chart clone (clone first if needed)
+# gh repo clone $REPO && cd rhdh-chart
+
+# Checkout the PR branch
 gh pr checkout $PR_NUMBER --repo $REPO --detach
-cd rhdh-chart
 
 # Update Helm dependencies (required before template/install)
 helm repo add bitnami https://charts.bitnami.com/bitnami

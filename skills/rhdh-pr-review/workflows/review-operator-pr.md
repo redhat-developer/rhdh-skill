@@ -489,7 +489,9 @@ Read `../references/shared-findings-structure.md` and follow the `<findings_stru
 
 ### Operator security bullets (for 7.3)
 
-- Do dependency updates (`go.mod`) introduce known CVEs?
+- Are environment variables (especially credentials and tokens) sourced from Secrets rather than hardcoded or logged?
+- Are container image references pinned to digests (`@sha256:...`) rather than mutable tags?
+- Do dependency updates (`go.mod`) introduce known CVEs? (`go list -m -json all | nancy sleuth` or `govulncheck ./...`)
 
 ### Operator rollback commands (for 7.5)
 
@@ -512,6 +514,13 @@ oc wait csv -n $OPERATOR_NS -l "operators.coreos.com/$PACKAGE_NAME.$OPERATOR_NS=
 
 ```bash
 oc apply -f /tmp/rollback-install.yaml
+
+# Wait for rollout to complete
+oc rollout status deployment/$OPERATOR_DEPLOY -n $OPERATOR_NS --timeout=180s
+
+# Verify the original image is restored
+oc get deployment $OPERATOR_DEPLOY -n $OPERATOR_NS \
+  -o jsonpath='{.spec.template.spec.containers[?(@.name=="manager")].image}'
 ```
 
 </process>
