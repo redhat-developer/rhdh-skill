@@ -34,6 +34,8 @@ PageBlueprint.make({
 
 **noHeader**: RHDH plugins commonly use `noHeader: true` when the plugin renders its own header with breadcrumbs, tabs, or permission controls. Omit it if you want the framework-provided `PluginHeader`.
 
+**title is required for sidebar nav.** If `PageBlueprint` doesn't have `title` set (either directly or inherited from `createFrontendPlugin`), the page won't appear in the sidebar navigation. Always set `title` and `icon` on the plugin or the page.
+
 ## ApiBlueprint
 
 ```tsx
@@ -76,7 +78,7 @@ EntityCardBlueprint.make({
 
 ## Nav items
 
-`NavItemBlueprint` was removed. Nav items are now auto-discovered from `PageBlueprint` extensions with `title`, `icon`, and `routeRef`. No separate blueprint needed.
+`NavItemBlueprint` was removed in `@backstage/frontend-plugin-api` ^0.17.x. Nav items are now auto-discovered from `PageBlueprint` extensions with `title`, `icon`, and `routeRef`. No separate blueprint needed. Plugins targeting RHDH versions before this change may still need `NavItemBlueprint`.
 
 ## Plugin and Module Exports
 
@@ -96,6 +98,11 @@ export const translationsModule = createFrontendModule({
 });
 ```
 
+**Translation modules are NOT auto-discovered** by `app.packages: all`. They
+need a separate entry point — re-export as default from a dedicated file and
+add as its own export in `package.json`. See `references/dev-app.md` for the
+pattern.
+
 ## Package Exports
 
 ### New NFS-only plugins
@@ -113,21 +120,28 @@ scalprum config, no `dist-scalprum/`. The app discovers and loads it via
 No scalprum section needed. No `export-dynamic-plugin` step. Package as a
 standard npm package in an OCI image for deployment.
 
-### Migrated plugins (alpha approach — default)
+### Migrated plugins (NFS default, legacy preserved)
 
-NFS at `./alpha`, legacy unchanged at root. No breaking changes for consumers:
+RHDH's current migration pattern makes NFS the root export (`.`) and moves the
+old frontend system to `./legacy`:
 
 ```json
 { "exports": {
     ".": "./src/index.ts",
-    "./alpha": "./src/alpha.tsx",
+    "./legacy": "./src/legacy.ts",
     "./package.json": "./package.json"
   },
-  "typesVersions": { "*": { "alpha": ["src/alpha.tsx"] } } }
+  "typesVersions": { "*": { "legacy": ["src/legacy.ts"] } } }
 ```
 
-- `src/index.ts` — existing legacy exports (unchanged)
-- `src/alpha.tsx` — NFS plugin (`createFrontendPlugin`, Blueprints)
+- `src/index.ts` — NFS plugin (`createFrontendPlugin`, Blueprints)
+- `src/legacy.ts` — old system (`createPlugin`, `createRoutableExtension`) with `@deprecated` tags
+
+Some older plugins still use the `./alpha` pattern (NFS at `./alpha`, legacy at
+root). That pattern is being phased out — new migrations should put NFS at root.
+
+**Always check a plugin's `package.json` exports** before assuming where NFS
+lives — it could be at `.`, `./alpha`, or a custom path.
 
 The `scalprum.exposedModules` entries some plugins still have are transition
 baggage — NFS apps don't load through scalprum. Remove when legacy is dropped.
