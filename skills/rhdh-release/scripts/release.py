@@ -619,38 +619,38 @@ def cmd_teams(args: argparse.Namespace, fmt: OutputFormatter) -> None:
 
 
 def cmd_team_breakdown(args: argparse.Namespace, fmt: OutputFormatter) -> None:
-    """Per-team issue counts for a release (requires parse_issues.py --enrich)."""
+    """Per-team issue counts for a release using JQL team filter."""
     version = args.version
-    jql = jql_mod.render("open_issues", version=version)
-    issues = _acli_json_enriched(jql, select="key,summary,status,team")
-
     teams = _fetch_teams(category="Engineering")
-
-    counts: dict[str, int] = {}
-    for issue in issues:
-        team = issue.get("team", "Unassigned") or "Unassigned"
-        norm = _normalize_team_name(team)
-        counts[norm] = counts.get(norm, 0) + 1
 
     rows = []
     for t in teams:
         name = t["team_name"]
-        norm = _normalize_team_name(name)
-        count = counts.pop(norm, 0)
+        cid = t.get("cloud_id", "")
+        if not cid:
+            rows.append(
+                {
+                    "team_name": name,
+                    "cloud_id": "",
+                    "count": 0,
+                    "leads": t.get("leads", ""),
+                    "slack_handles": t.get("slack_handles", []),
+                }
+            )
+            continue
+        jql, url = jql_mod.render_with_url("open_issues_by_team", version=version, cloud_id=cid)
+        count = _acli_count(jql, fmt)
+        fmt.log_info(f"{name:<25} {count:>5}")
         rows.append(
             {
                 "team_name": name,
-                "team_id": t.get("team_id"),
+                "cloud_id": cid,
                 "count": count,
+                "jira_url": url,
                 "leads": t.get("leads", ""),
                 "slack_handles": t.get("slack_handles", []),
             }
         )
-
-    matched_norms = {_normalize_team_name(t["team_name"]) for t in teams}
-    for norm_name, count in sorted(counts.items()):
-        if norm_name not in matched_norms:
-            rows.append({"team_name": norm_name, "count": count})
 
     fmt.header(f"RHDH {version} — Issues by Team")
     for r in rows:
@@ -793,27 +793,23 @@ def cmd_slack_feature_freeze_update(args: argparse.Namespace, fmt: OutputFormatt
     rn_jql, rn_url = jql_mod.render_with_url("release_notes", version=version)
     rn_count = _acli_count(rn_jql, fmt)
 
-    ff_jql = jql_mod.render("feature_freeze_issues", version=version)
-    issues = _acli_json_enriched(ff_jql, select="key,summary,status,team")
-
-    team_counts: dict[str, int] = {}
-    for issue in issues:
-        team = issue.get("team", "Unassigned") or "Unassigned"
-        norm = _normalize_team_name(team)
-        team_counts[norm] = team_counts.get(norm, 0) + 1
-
     team_lines = []
     for t in teams:
         name = t["team_name"]
-        norm = _normalize_team_name(name)
-        count = team_counts.get(norm, 0)
+        cid = t.get("cloud_id", "")
+        if not cid:
+            continue
+        jql, url = jql_mod.render_with_url(
+            "feature_freeze_issues_by_team", version=version, cloud_id=cid
+        )
+        count = _acli_count(jql, fmt)
         slack_handles = t.get("slack_handles", [])
         lead_slack = slack_handles[0] if slack_handles else t.get("leads", "")
         team_lines.append(
             {
                 "TEAM_NAME": name,
                 "ISSUE_COUNT": str(count),
-                "JIRA_LINK": jql_mod.jira_url(ff_jql),
+                "JIRA_LINK": url,
                 "LEAD_SLACK": lead_slack,
             }
         )
@@ -898,27 +894,23 @@ def cmd_slack_code_freeze_update(args: argparse.Namespace, fmt: OutputFormatter)
     fs_jql, fs_url = jql_mod.render_with_url("feature_subtasks", version=version)
     fs_count = _acli_count(fs_jql, fmt)
 
-    cf_jql = jql_mod.render("code_freeze_issues", version=version)
-    issues = _acli_json_enriched(cf_jql, select="key,summary,status,team")
-
-    team_counts: dict[str, int] = {}
-    for issue in issues:
-        team = issue.get("team", "Unassigned") or "Unassigned"
-        norm = _normalize_team_name(team)
-        team_counts[norm] = team_counts.get(norm, 0) + 1
-
     team_lines = []
     for t in teams:
         name = t["team_name"]
-        norm = _normalize_team_name(name)
-        count = team_counts.get(norm, 0)
+        cid = t.get("cloud_id", "")
+        if not cid:
+            continue
+        jql, url = jql_mod.render_with_url(
+            "code_freeze_issues_by_team", version=version, cloud_id=cid
+        )
+        count = _acli_count(jql, fmt)
         slack_handles = t.get("slack_handles", [])
         lead_slack = slack_handles[0] if slack_handles else t.get("leads", "")
         team_lines.append(
             {
                 "TEAM_NAME": name,
                 "TEAM_ISSUE_COUNT": str(count),
-                "JIRA_LINK": jql_mod.jira_url(cf_jql),
+                "JIRA_LINK": url,
                 "LEAD_SLACK": lead_slack,
             }
         )

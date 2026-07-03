@@ -73,6 +73,7 @@ def render(
     *,
     version: str | None = None,
     issue_type: str | None = None,
+    cloud_id: str | None = None,
     path: Path | None = None,
 ) -> str:
     """Render a JQL template with placeholder substitution."""
@@ -81,6 +82,8 @@ def render(
         jql = jql.replace("{{RELEASE_VERSION}}", version)
     if issue_type is not None:
         jql = jql.replace("{{ISSUE_TYPE}}", issue_type)
+    if cloud_id is not None:
+        jql = jql.replace("{{CLOUD_ID}}", cloud_id)
     return jql
 
 
@@ -94,10 +97,11 @@ def render_with_url(
     *,
     version: str | None = None,
     issue_type: str | None = None,
+    cloud_id: str | None = None,
     path: Path | None = None,
 ) -> tuple[str, str]:
     """Render a JQL template and return (jql, jira_url)."""
-    jql = render(name, version=version, issue_type=issue_type, path=path)
+    jql = render(name, version=version, issue_type=issue_type, cloud_id=cloud_id, path=path)
     return jql, jira_url(jql)
 
 

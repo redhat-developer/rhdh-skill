@@ -51,7 +51,7 @@ Include link to source: [RHDH Team Mapping](https://docs.google.com/spreadsheets
 <gotchas>
 
 - By default only active teams are returned. The CLI filters by `status = Active` in the Google Sheet.
-- The `team_id` is the numeric ID used by `parse_issues.py --enrich` for team-based filtering — the Team custom field cannot be queried via JQL directly.
+- The `cloud_id` is the Jira Cloud team identifier used in JQL via `"Team[Team]" = "{{CLOUD_ID}}"` for fast team-based filtering. Cloud IDs are in the "Cloud ID" column of the RHDH Team Mapping spreadsheet.
 
 </gotchas>
 

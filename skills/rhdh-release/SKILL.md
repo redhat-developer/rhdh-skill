@@ -11,8 +11,8 @@ compatibility: "acli on PATH. Python 3 + gog CLI for Google Sheets/Docs."
 
 <essential_principles>
 
-<principle name="use_parse_issues_for_team_counts">
-Always use `parse_issues.py --enrich` for team counts — never count manually. The Team custom field cannot be queried via JQL. Use `acli jira workitem search --limit 500 --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich` and filter by team in the output.
+<principle name="use_cloud_id_for_team_queries">
+Use `"Team[Team]" = "{{CLOUD_ID}}"` in JQL to filter by team. Cloud IDs are in the RHDH Team Mapping spreadsheet (column "Cloud ID"). Use the `open_issues_by_team`, `feature_freeze_issues_by_team`, or `code_freeze_issues_by_team` JQL templates. This is fast and does not require `parse_issues.py --enrich`.
 </principle>
 
 <principle name="include_jira_links">
