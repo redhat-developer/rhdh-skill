@@ -116,12 +116,12 @@ project in (RHDHPlan, rhidp) AND issuetype = feature AND fixVersion = "{{RELEASE
 Find issues missing Release Note Type field.
 
 ```jql
-project in (RHIDP, "Red Hat Developer Hub Bugs", "RHDH Support", rhdhplan) and issuetype in (Feature, bug) and "Release Note Type" is EMPTY and fixVersion = "{{RELEASE_VERSION}}"
+project in (RHIDP, "Red Hat Developer Hub Bugs", "RHDH Support", rhdhplan) and issuetype in (Feature, bug) and ("Release Note Type" not in ("Release Note Not Required") or "release note type" is empty) and ("Release Note Status" not in ("In Progress", Proposed, Done) or "Release Note Text[Paragraph]" is empty or "Release Note Type[Dropdown]" is empty) and summary !~ "CVE-*" and (resolution not in (obsolete, duplicate, "Won't Do") or resolution is empty) and fixVersion = "{{RELEASE_VERSION}}"
 ```
 
 - **Placeholders:** `{{RELEASE_VERSION}}`
-- **Example:** `... AND "Release Note Type" is EMPTY and fixVersion = "1.9.0"`
-- **Notes:** Critical for documentation — must be filled before release.
+- **Example:** `... and fixVersion = "2.1.0"`
+- **Notes:** Critical for documentation — must be filled before release. Excludes CVEs, obsolete/duplicate/Won't Do resolutions, and issues marked "Release Note Not Required". Checks that Release Note Status, Text, and Type are all properly completed.
 
 ## blockers
 
