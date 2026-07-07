@@ -12,7 +12,7 @@ compatibility: "acli on PATH. Python 3 + gog CLI for Google Sheets/Docs."
 <essential_principles>
 
 <principle name="use_parse_issues_for_team_counts">
-Always use `parse_issues.py --enrich` for team counts — never count manually. The Team custom field cannot be queried via JQL. Use `acli jira workitem search --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich` and filter by team in the output.
+Always use `parse_issues.py --enrich` for team counts — never count manually. The Team custom field cannot be queried via JQL. Use `acli jira workitem search --limit 500 --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich` and filter by team in the output.
 </principle>
 
 <principle name="include_jira_links">

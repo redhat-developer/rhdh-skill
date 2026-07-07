@@ -25,7 +25,7 @@ If the CLI succeeds, use its output directly. If it fails, follow the manual ste
 Use the `open_issues` JQL from `references/jql-release.md` with a priority filter:
 
 ```bash
-acli jira workitem search --jql 'project IN (RHIDP, RHDHBugs, RHDHPLAN, RHDHSUPP) AND fixVersion = "{{RELEASE_VERSION}}" AND status != closed AND issuetype = bug AND priority = Blocker' --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich
+acli jira workitem search --jql 'project IN (RHIDP, RHDHBugs, RHDHPLAN, RHDHSUPP) AND fixVersion = "{{RELEASE_VERSION}}" AND status != closed AND issuetype = bug AND priority = Blocker' --limit 500 --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich
 ```
 
 ## Step 3 (fallback): Format output

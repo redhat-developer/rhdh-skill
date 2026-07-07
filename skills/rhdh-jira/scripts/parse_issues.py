@@ -8,7 +8,7 @@ deeply nested JSON into clean output.
 
 Usage:
   # Flatten piped JSON (no enrichment — works with whatever fields are present)
-  acli jira workitem search --jql "project = RHIDP" --json | python parse_issues.py
+  acli jira workitem search --jql "project = RHIDP" --limit 500 --json | python parse_issues.py
 
   # Enrich piped search results with full custom fields (calls acli view per issue)
   acli jira workitem search --jql "project = RHIDP" --limit 20 --json | python parse_issues.py --enrich
@@ -17,13 +17,13 @@ Usage:
   acli jira workitem view RHIDP-123 --fields "*all" --json | python parse_issues.py
 
   # Select specific fields
-  acli jira workitem search --jql "..." --json | python parse_issues.py --enrich -s key,summary,team,story_points
+  acli jira workitem search --jql "..." --limit 500 --json | python parse_issues.py --enrich -s key,summary,team,story_points
 
   # Filter by team (the #1 use case — team is not JQL-filterable)
-  acli jira workitem search --jql "..." --json | python parse_issues.py --enrich -f team="RHDH Install"
+  acli jira workitem search --jql "..." --limit 500 --json | python parse_issues.py --enrich -f team="RHDH Install"
 
   # CSV export
-  acli jira workitem search --jql "..." --json | python parse_issues.py -s key,summary,status --csv
+  acli jira workitem search --jql "..." --limit 500 --json | python parse_issues.py -s key,summary,status --csv
 """
 
 import argparse
@@ -298,7 +298,7 @@ def main():
     if sys.stdin.isatty():
         print("Error: pipe JSON from acli to stdin.", file=sys.stderr)
         print(
-            '  acli jira workitem search --jql "..." --json | python parse_issues.py',
+            '  acli jira workitem search --jql "..." --limit 500 --json | python parse_issues.py',
             file=sys.stderr,
         )
         sys.exit(2)

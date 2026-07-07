@@ -26,7 +26,7 @@ If the CLI succeeds, use its `slack_message` field directly (it's the filled tem
 Run the `release-dates` workflow or fetch directly:
 
 ```bash
-acli jira workitem search --jql "project=rhdhplan AND issuetype=feature AND component=release AND status != closed" --json
+acli jira workitem search --jql "project=rhdhplan AND issuetype=feature AND component=release AND status != closed" --limit 500 --json
 ```
 
 Then for the matching release issue:
@@ -58,7 +58,7 @@ acli jira workitem search --jql 'project in (RHIDP, "Red Hat Developer Hub Bugs"
 Use the `feature_freeze_issues` JQL as the base, then filter by team using `parse_issues.py`:
 
 ```bash
-acli jira workitem search --jql 'project IN (RHIDP, RHDHBugs, RHDHPLAN, RHDHSUPP) AND fixVersion = "{{RELEASE_VERSION}}" and resolution is EMPTY AND component not in (AI, Build, Certification, "Continuous Improvement", Documentation, Knowledge, Performance, Quality, Quickstart, Release, "RHDH Local", Security, Segment, Serviceability, Support, "Team Operations", "Test Framework", "Test Infrastructure", "Upstream & Community", UX) AND Type not in (Bug, Vulnerability, sub-task) AND status not in ("Dev Complete", "Release Pending", Done, Closed) AND (labels is EMPTY OR labels != stretch-goal)' --limit 200 --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich -s key,summary,status,team
+acli jira workitem search --jql 'project IN (RHIDP, RHDHBugs, RHDHPLAN, RHDHSUPP) AND fixVersion = "{{RELEASE_VERSION}}" and resolution is EMPTY AND component not in (AI, Build, Certification, "Continuous Improvement", Documentation, Knowledge, Performance, Quality, Quickstart, Release, "RHDH Local", Security, Segment, Serviceability, Support, "Team Operations", "Test Framework", "Test Infrastructure", "Upstream & Community", UX) AND Type not in (Bug, Vulnerability, sub-task) AND status not in ("Dev Complete", "Release Pending", Done, Closed) AND (labels is EMPTY OR labels != stretch-goal)' --limit 500 --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich -s key,summary,status,team
 ```
 
 Group results by team and count per team.

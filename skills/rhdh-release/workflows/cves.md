@@ -25,7 +25,7 @@ If the CLI succeeds, use its output directly. If it fails, follow the manual ste
 Use the `cves` JQL from `references/jql-release.md`:
 
 ```bash
-acli jira workitem search --jql 'project IN (RHIDP, rhdhbugs) AND fixVersion = "{{RELEASE_VERSION}}" and issuetype in (weakness, Vulnerability, bug) and summary ~ "CVE*"' --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich
+acli jira workitem search --jql 'project IN (RHIDP, rhdhbugs) AND fixVersion = "{{RELEASE_VERSION}}" and issuetype in (weakness, Vulnerability, bug) and summary ~ "CVE*"' --limit 500 --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich
 ```
 
 ## Step 3 (fallback): Get count

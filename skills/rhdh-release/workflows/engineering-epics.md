@@ -31,7 +31,7 @@ acli jira workitem search --jql 'project IN (RHIDP) AND fixVersion = "{{RELEASE_
 ## Step 3 (fallback): Get EPIC details (if needed)
 
 ```bash
-acli jira workitem search --jql 'project IN (RHIDP) AND fixVersion = "{{RELEASE_VERSION}}" and issuetype = epic and status not in (closed, "Release Pending", "Dev Complete")' --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich -s key,summary,status,assignee
+acli jira workitem search --jql 'project IN (RHIDP) AND fixVersion = "{{RELEASE_VERSION}}" and issuetype = epic and status not in (closed, "Release Pending", "Dev Complete")' --limit 500 --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich -s key,summary,status,assignee
 ```
 
 ## Step 4 (fallback): Format output

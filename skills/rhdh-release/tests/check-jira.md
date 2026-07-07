@@ -53,7 +53,7 @@ Then for each remaining query, substitute `{{RELEASE_VERSION}}` with the discove
 Run one query through the enrichment pipeline to verify `parse_issues.py` works:
 
 ```bash
-acli jira workitem search --jql "project=rhdhplan AND issuetype=feature AND component=release AND status != closed" --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich -s key,summary,status
+acli jira workitem search --jql "project=rhdhplan AND issuetype=feature AND component=release AND status != closed" --limit 500 --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich -s key,summary,status
 ```
 
 - [ ] Returns structured output with key, summary, status columns

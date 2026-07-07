@@ -31,7 +31,7 @@ acli jira workitem search --jql 'project in (RHIDP, "Red Hat Developer Hub Bugs"
 ## Step 3 (fallback): Get details (if needed)
 
 ```bash
-acli jira workitem search --jql 'project in (RHIDP, "Red Hat Developer Hub Bugs", "RHDH Support", rhdhplan) and issuetype in (Feature, bug) and "Release Note Type" is EMPTY and fixVersion = "{{RELEASE_VERSION}}"' --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich -s key,summary,status,issuetype
+acli jira workitem search --jql 'project in (RHIDP, "Red Hat Developer Hub Bugs", "RHDH Support", rhdhplan) and issuetype in (Feature, bug) and "Release Note Type" is EMPTY and fixVersion = "{{RELEASE_VERSION}}"' --limit 500 --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich -s key,summary,status,issuetype
 ```
 
 ## Step 4 (fallback): Format output

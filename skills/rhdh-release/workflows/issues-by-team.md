@@ -34,13 +34,13 @@ Filter to category "Engineering" and status "Active". This gives team names and 
 Fetch all open issues for the release, enriched with team data:
 
 ```bash
-acli jira workitem search --jql 'project IN (RHIDP, RHDHBugs, RHDHPLAN, RHDHSUPP) AND fixVersion = "{{RELEASE_VERSION}}" AND status != closed' --limit 200 --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich -s key,summary,status,team
+acli jira workitem search --jql 'project IN (RHIDP, RHDHBugs, RHDHPLAN, RHDHSUPP) AND fixVersion = "{{RELEASE_VERSION}}" AND status != closed' --limit 500 --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich -s key,summary,status,team
 ```
 
 To filter to a specific team by team ID:
 
 ```bash
-acli jira workitem search --jql 'project IN (RHIDP, RHDHBugs, RHDHPLAN, RHDHSUPP) AND fixVersion = "{{RELEASE_VERSION}}" AND status != closed' --limit 200 --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich -f team_id={{TEAM_ID}} -s key,summary,status
+acli jira workitem search --jql 'project IN (RHIDP, RHDHBugs, RHDHPLAN, RHDHSUPP) AND fixVersion = "{{RELEASE_VERSION}}" AND status != closed' --limit 500 --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich -f team_id={{TEAM_ID}} -s key,summary,status
 ```
 
 **Important:** Always use `parse_issues.py --enrich` for team counts — the Team field is a custom field that cannot be queried via JQL directly.
@@ -60,7 +60,7 @@ For each active engineering team, count the matching issues and build a Jira sea
 <gotchas>
 
 - The Team custom field **cannot** be used in JQL. Always use `parse_issues.py --enrich` to filter by team.
-- Use `--limit 200` or `--paginate` to get all results — default page size is 30.
+- Use `--limit 500` or `--paginate` to get all results — default page size is 30.
 - For announcement workflows, use the specific freeze-scoped JQL (e.g., `feature_freeze_issues`) as the base query instead of `open_issues`.
 
 </gotchas>

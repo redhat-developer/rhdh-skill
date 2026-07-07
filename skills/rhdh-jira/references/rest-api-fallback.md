@@ -10,7 +10,7 @@ The REST API v3 search endpoint (`/rest/api/3/search`) returns **HTTP 410 Gone**
 
 **Search priority order:**
 
-1. `acli jira workitem search` (with `--limit 200` or `--paginate`)
+1. `acli jira workitem search` (with `--limit 500` or `--paginate`)
 2. GraphQL `issueSearchStable` (beta, requires experimental header)
 3. REST search is **not available** on this instance
 

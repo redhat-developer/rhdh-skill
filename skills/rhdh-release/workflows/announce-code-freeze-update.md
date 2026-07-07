@@ -26,7 +26,7 @@ If the CLI succeeds, use its `slack_message` field directly (it's the filled tem
 Run the `release-dates` workflow or fetch directly:
 
 ```bash
-acli jira workitem search --jql "project=rhdhplan AND issuetype=feature AND component=release AND status != closed" --json
+acli jira workitem search --jql "project=rhdhplan AND issuetype=feature AND component=release AND status != closed" --limit 500 --json
 ```
 
 Then for the matching release issue:
@@ -64,7 +64,7 @@ acli jira workitem search --jql 'project in (RHDHPlan) AND issuetype = sub-task 
 Use the `code_freeze_issues` JQL (all open issues), then filter by team:
 
 ```bash
-acli jira workitem search --jql 'project IN (RHIDP, RHDHBugs, RHDHPLAN, RHDHSUPP) AND fixVersion = "{{RELEASE_VERSION}}" AND status != closed' --limit 200 --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich -s key,summary,status,team
+acli jira workitem search --jql 'project IN (RHIDP, RHDHBugs, RHDHPLAN, RHDHSUPP) AND fixVersion = "{{RELEASE_VERSION}}" AND status != closed' --limit 500 --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich -s key,summary,status,team
 ```
 
 Group results by team and count per team.

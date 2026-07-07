@@ -14,20 +14,20 @@ Cheat sheet for `acli jira` commands. For full flag details, run `acli jira <sub
 
 ### Search
 
-> ⚠️ **Default page size is 30 results.** Results beyond 30 are silently dropped with no warning. Always pass `--limit 200` or `--paginate` for bulk queries. Use `--count` first to verify the total matches before fetching.
+> ⚠️ **Default page size is 30 results.** Results beyond 30 are silently dropped with no warning. Always pass `--limit 500` or `--paginate` for bulk queries. Use `--count` first to verify the total matches before fetching.
 
 ```bash
 # JQL search with field selection (always set --limit for bulk)
-acli jira workitem search --jql "project = RHIDP AND status = 'In Progress'" --fields "key,summary,status,assignee" --limit 200
+acli jira workitem search --jql "project = RHIDP AND status = 'In Progress'" --fields "key,summary,status,assignee" --limit 500
 
 # JSON output for full field data
-acli jira workitem search --jql "project = RHIDP" --limit 200 --json
+acli jira workitem search --jql "project = RHIDP" --limit 500 --json
 
 # Count only (check total before fetching)
 acli jira workitem search --jql "project = RHDHBUGS AND status not in (Closed)" --count
 
 # CSV export
-acli jira workitem search --jql "project = RHIDP" --fields "key,summary,status" --csv --limit 200
+acli jira workitem search --jql "project = RHIDP" --fields "key,summary,status" --csv --limit 500
 
 # Fetch all results (paginated)
 acli jira workitem search --jql "project = RHIDP AND sprint in openSprints()" --paginate
@@ -191,7 +191,7 @@ acli jira board list-sprints --id 11374 --state active
 acli jira sprint view --id 65456
 
 # List work items in a sprint
-acli jira sprint list-workitems --sprint 65456 --board 11374
+acli jira sprint list-workitems --sprint 65456 --board 11374 --limit 500
 
 # Create sprint
 acli jira sprint create --name "RHDH COPE 3292" --board 11374
@@ -200,7 +200,7 @@ acli jira sprint create --name "RHDH COPE 3292" --board 11374
 **Sprint JSON gotcha:** `list-workitems --json` returns `{"issues": [...], "maxResults": N, ...}` — NOT a flat array. Extract the `issues` array before piping to `parse_issues.py`:
 
 ```bash
-acli jira sprint list-workitems --sprint 65456 --board 11374 --json | python -c "
+acli jira sprint list-workitems --sprint 65456 --board 11374 --limit 500 --json | python -c "
 import json, sys; json.dump(json.load(sys.stdin)['issues'], sys.stdout)
 " | python scripts/parse_issues.py --enrich -s key,summary,status,story_points
 ```
@@ -219,11 +219,11 @@ acli jira project view --key RHIDP
 
 ```bash
 # Search for saved filters
-acli jira filter search --name "RHDH"
+acli jira filter search --name "RHDH" --limit 500
 
 # List my/favourite filters
-acli jira filter list --my
-acli jira filter list --favourite
+acli jira filter list --my --limit 500
+acli jira filter list --favourite --limit 500
 
 # Get filter details (includes JQL)
 acli jira filter get --id 10001

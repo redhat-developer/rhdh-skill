@@ -27,7 +27,7 @@ If the CLI succeeds, use its output directly. If it fails, follow the manual ste
 Use the `active_release` JQL from `references/jql-release.md`:
 
 ```bash
-acli jira workitem search --jql "project=rhdhplan AND issuetype=feature AND component=release AND status != closed" --json
+acli jira workitem search --jql "project=rhdhplan AND issuetype=feature AND component=release AND status != closed" --limit 500 --json
 ```
 
 ## Step 3 (fallback): Extract dates from each release issue

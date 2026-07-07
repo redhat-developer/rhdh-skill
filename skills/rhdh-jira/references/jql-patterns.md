@@ -76,7 +76,7 @@ project = RHIDP AND issuetype = Story AND 'Parent Link' is EMPTY AND 'Epic Link'
 
 Use `parent = KEY` for all new queries. `Epic Link` and `parentEpic` are legacy.
 
-> ⚠️ Cross-project `parent = KEY` queries (e.g., finding RHIDP Epics under a RHDHPLAN Feature) work reliably via `acli` but may fail via GraphQL `issueSearchStable` or REST search (410 Gone). Always use `acli jira workitem search --jql "parent = KEY" --limit 200` for hierarchy lookups.
+> ⚠️ Cross-project `parent = KEY` queries (e.g., finding RHIDP Epics under a RHDHPLAN Feature) work reliably via `acli` but may fail via GraphQL `issueSearchStable` or REST search (410 Gone). Always use `acli jira workitem search --jql "parent = KEY" --limit 500` for hierarchy lookups.
 
 ## Release & Planning Queries
 
@@ -115,7 +115,7 @@ project = RHDHPAI
 The Team field (`customfield_10001`) cannot be used in JQL. Use `scripts/parse_issues.py`:
 
 ```bash
-acli jira workitem search --jql "project = RHIDP AND sprint in openSprints()" --json \
+acli jira workitem search --jql "project = RHIDP AND sprint in openSprints()" --limit 500 --json \
   | python scripts/parse_issues.py --enrich -f team="RHDH Install" -s key,summary,status,story_points
 ```
 
@@ -170,7 +170,7 @@ Sprints follow: `{Team Name} {Sprint Number}` (e.g., "RHDH COPE 3291", "RHDH Ins
 acli jira board list-sprints --id 11374 --state active
 
 # List work items in a sprint
-acli jira sprint list-workitems --sprint 65456 --board 11374
+acli jira sprint list-workitems --sprint 65456 --board 11374 --limit 500
 ```
 
 ### Saved Filters
@@ -178,7 +178,7 @@ acli jira sprint list-workitems --sprint 65456 --board 11374
 Pre-built JQL filters exist in the instance. Search for them:
 
 ```bash
-acli jira filter search --name "RHDH"
+acli jira filter search --name "RHDH" --limit 500
 ```
 
 These may be more efficient than building JQL from scratch for common queries.
