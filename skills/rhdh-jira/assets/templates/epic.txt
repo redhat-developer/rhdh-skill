@@ -10,7 +10,15 @@ h2. *User Scenarios*
 
 h2. *Dependencies (internal and external)*
 
+h2. *Scope Boundary (what this epic does NOT cover)*
+
 h2. *Acceptance Criteria*
+
+_Each AC below should be a specific, testable outcome — not an activity. Aim for 3+ substantive ACs before the standard checklist._
+_Good: "Audit events are emitted with: timestamp, actor, action, target entity"_
+_Bad: "Implement audit logging"_
+
+<substantive ACs here>
 
 (?) Release Enablement/Demo - Provide necessary release enablement details and documents
 (?) DEV - Upstream code and tests merged: <link to meaningful PR or GitHub Issue>

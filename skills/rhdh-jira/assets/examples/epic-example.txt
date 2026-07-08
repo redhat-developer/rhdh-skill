@@ -22,7 +22,18 @@ h2. *Dependencies (internal and external)*
 * RHDH dynamic plugin system — must not interfere with provider lifecycle
 * RHIDP-600: Admin dashboard health monitoring (internal, parallel)
 
+h2. *Scope Boundary (what this epic does NOT cover)*
+
+* Entity conflict resolution UI — handled by RHIDP-601 (Catalog Admin Dashboard)
+* Provider-specific auth configuration (each provider plugin owns its own auth)
+* Catalog performance optimization for >100k entities — tracked separately in RHIDP-650
+
 h2. *Acceptance Criteria*
+
+* Platform engineer can add a second catalog provider (e.g., GitLab alongside GitHub) via app-config without restarting RHDH
+* Entities from multiple providers appear in unified catalog search results with source attribution
+* Per-provider ingestion status (last sync time, entity count, error count) is queryable via the catalog API
+* Provider failure isolation: one provider failing does not block ingestion from other providers
 
 (?) DEV - Upstream code and tests merged: provider registration + entity merge logic
 (?) DEV - Upstream documentation merged: multi-source configuration guide

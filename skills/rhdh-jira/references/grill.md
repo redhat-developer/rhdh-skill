@@ -97,6 +97,48 @@ Skip challenges that clearly don't apply. Don't ask about docs for a CI pipeline
 - **Overlap**: During the duplicate check (which runs after the grill), if related issues were found, revisit scope: "This overlaps with {KEY}. Should this issue be scoped to only the non-overlapping parts?"
 - **Scope creep markers**: If the user keeps adding "also it should..." or "and maybe we could..." — pause and ask: "We're growing the scope. Should some of this be a follow-up issue?"
 
+### Challenge epic independence
+
+When creating an Epic (especially under a parent Feature), challenge whether it is independently shippable or is really an implementation detail of a sibling Epic:
+
+- "Could this be acceptance criteria on [sibling Epic] instead of its own Epic?"
+- "Does this Epic produce a separately testable, deployable, or documentable artifact?"
+- "If you removed this Epic, would the parent Feature have a functional gap — or would a sibling Epic just grow by a few ACs?"
+
+**Signals that an Epic should be folded into a sibling:**
+
+- Ships in the same PR or package as another Epic under the same Feature
+- Has no independent acceptance criteria beyond "implement X" (where X is a detail of a broader capability)
+- Cannot be demoed or documented independently of a sibling
+- Its User Scenarios are identical to a sibling's
+- Sized XS while sibling Epics cover the same technical domain
+
+When folding is warranted, recommend adding scope as ACs on the sibling Epic instead of creating a new one.
+
+### Challenge AC quality
+
+After the user provides acceptance criteria, verify they are specific, testable, and substantive:
+
+- **Minimum count**: An Epic must have at least 3 substantive ACs beyond the standard DEV/QE/DOC checklist items. If it has fewer, push: "The standard checklist items are process gates, not functional acceptance criteria. What does 'done' look like for a user or operator?"
+- **Verifiable outcomes**: Each AC should specify a verifiable outcome, not an activity. Flag activity-style ACs: "Implement audit logging" → should be "Audit events are emitted with: timestamp, actor, action, target entity."
+- **Vague language**: Flag ACs containing "works correctly", "is supported", "is handled properly", "is implemented" — these are not testable. Ask: "How would QE verify this? What specific behavior would they check?"
+- **Measurable where possible**: For performance, scale, or capacity ACs, push for numbers: "How many concurrent users? What latency target? What's the minimum throughput?"
+
+### Challenge sibling overlap
+
+When creating an Epic under a Feature that already has sibling Epics:
+
+1. List existing sibling Epics (query `parent = FEATURE-KEY AND issuetype = Epic AND status != Closed`)
+2. For each sibling, compare scope: "Does this new Epic share implementation surface, test surface, or deliverable artifacts with [sibling]?"
+3. Check for overlapping signals:
+   - Same target codebase or package
+   - Same dependencies listed
+   - User Scenarios that describe the same user journey
+   - ACs that would be verified by the same tests
+4. If overlap is found: "This overlaps with {KEY} ({summary}). Should this scope be added to {KEY} as additional ACs instead of creating a new Epic?"
+
+This catches cases where two Epics have different summaries but overlapping scope (e.g., "OCI Registry Ingestion" and "OCI Connector" that target the same package).
+
 ### Probe risks and unknowns
 
 - "What could go wrong with this approach?"
@@ -139,6 +181,9 @@ Not every behavior applies to every type. Use this as a guide:
 | Completeness: security | ✅ | ✅ | ✅ | ✅ | ❌ |
 | Completeness: migration | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Challenge scope | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Challenge epic independence | ❌ | ✅ | ❌ | ❌ | ❌ |
+| Challenge AC quality | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Challenge sibling overlap | ❌ | ✅ | ❌ | ❌ | ❌ |
 | Probe risks | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Cross-reference | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Validate before creating | ✅ | ✅ | ✅ | ✅ | ✅ |

@@ -13,6 +13,22 @@ Two entry modes:
 
 If chained, the parent Feature key is known. If standalone, ask: "Is this Epic part of an existing Feature? [Feature key / no]"
 
+### Step 1.5 — Sibling Awareness
+
+When creating an Epic under a parent Feature, check for existing sibling Epics before drafting:
+
+1. Query existing siblings: `parent = FEATURE-KEY AND issuetype = Epic AND status != Closed`
+2. Present the sibling list with summaries:
+   > "This Feature already has these Epics:"
+   > - RHIDP-100: Entity-Provider SDK (M)
+   > - RHIDP-101: OCI Skill Registry (S)
+   >
+   > "Which of these does the new Epic relate to? Does it overlap with any?"
+3. Carry sibling context into the grill — the grill's "Challenge epic independence" and "Challenge sibling overlap" behaviors use this list.
+4. If the proposed Epic overlaps with an existing sibling, recommend adding scope as ACs on the sibling instead of creating a new Epic.
+
+Skip this step for standalone Epics (no parent Feature).
+
 ### Step 2 — Draft from Context
 
 Load `assets/templates/epic.txt` for structure and `assets/examples/epic-example.txt` for tone calibration.
@@ -139,6 +155,26 @@ If yes:
    - The issue grill narrows to: implementation specifics, story points, approach
 3. Each Story/Task is automatically linked to the parent Epic via `parent` field
 4. Type inference runs per slice (Story if user-facing, Task if internal)
+
+#### Batch Review (Feature → Epics)
+
+When decomposing a Feature into multiple Epics (chained creation), run a batch review before finalizing any of them:
+
+1. **Propose all Epics first**: Collect the full set of proposed Epics as a summary table before creating any:
+
+   | # | Epic Summary | Size | Key Dependencies | Overlaps with |
+   |---|-------------|------|------------------|---------------|
+   | 1 | Entity-Provider SDK | M | upstream catalog API | — |
+   | 2 | OCI Skill Registry | S | #1 (SDK) | — |
+   | 3 | Annotation Scheme | XS | #1 (SDK) | #1 (same package) |
+
+2. **Cross-epic overlap check**: "Do any two of these Epics share implementation — would they naturally ship in the same PR or package?" Flag pairs that overlap.
+
+3. **Count challenge**: If >5 Epics are proposed under a single Feature, flag: "That's a lot of Epics. Are any of these implementation details that should be ACs on a broader Epic?"
+
+4. **Consolidation check**: If multiple XS/S Epics target the same technical domain, suggest merging: "Epics #1 and #3 both target the SDK package — could #3 be ACs on #1?"
+
+5. **User decides**: Allow the user to merge, drop, or proceed before creation begins. Only create Epics after the batch is approved.
 
 ## Error Handling
 

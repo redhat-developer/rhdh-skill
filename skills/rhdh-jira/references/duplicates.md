@@ -84,6 +84,38 @@ The duplicate check is automatic and does not prompt the user before searching. 
 4. If possibly related found: present candidates and ask "Still create?"
 5. If no matches: proceed with creation silently
 
+## Sibling Scope Check
+
+In addition to summary-keyword duplicate detection, check for functional scope overlap between sibling issues under the same parent. This catches cases where two issues have different summaries but overlapping implementation scope.
+
+### When to run
+
+Run when creating an Epic under a Feature (or a Story under an Epic) that already has sibling issues of the same type.
+
+### Steps
+
+1. **Fetch siblings**: Query `parent = PARENT-KEY AND issuetype = TYPE AND status != Closed` to get existing sibling issues.
+2. **Fetch sibling descriptions**: For each sibling, fetch its full description (not just summary). Use `acli jira workitem view KEY --json` or REST API.
+3. **Compare scope dimensions**: Check the proposed issue's scope against each sibling across these dimensions:
+
+   | Dimension | Overlap signal |
+   |-----------|---------------|
+   | User Scenarios | Same user journey described in both |
+   | Dependencies | Same upstream or internal dependencies listed |
+   | Target artifacts | Same codebase, package, or module targeted |
+   | Acceptance Criteria | ACs that would be verified by the same tests |
+
+4. **Flag overlap**: If 2+ dimensions overlap with a sibling:
+   > "This overlaps with {KEY} ({summary}): same [target artifacts / user scenarios / dependencies]. Should this scope be added as ACs on {KEY} instead of creating a new issue?"
+
+5. **No overlap**: Proceed silently — don't report "no siblings overlap" unless asked.
+
+### Limits
+
+- Check at most 10 siblings. If a Feature has more than 10 open Epics, that's itself a signal worth flagging (see `references/sizing.md`).
+- Description-based comparison is fuzzy — present findings as "appears to overlap" rather than "is a duplicate."
+- This supplements, not replaces, the keyword-based pre-creation check above.
+
 ## Error Handling
 
 | Error | Action |

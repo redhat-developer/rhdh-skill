@@ -70,3 +70,5 @@ Use these to challenge sizing during issue creation:
 | XL Epic or Feature | "This is the largest size — can it be split into smaller deliverables?" |
 | 13-point Story | "Unbound scope — split into smaller stories or create a spike to reduce unknowns." |
 | XS Feature | "This might be small enough to be an Epic directly — does it need Feature-level tracking?" |
+| Multiple XS/S Epics under same Feature | "Several XS/S Epics under one Feature often signal implementation details, not independent capabilities. Could these be ACs on a single S/M Epic?" |
+| >5 Epics under one Feature | "That's a lot of Epics for one Feature. Review the set — are any of these really implementation details or subtasks of a broader Epic?" |
