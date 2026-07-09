@@ -19,9 +19,9 @@ import slack_templates  # noqa: E402
 
 
 class TestJqlLoadTemplates:
-    def test_loads_13_templates(self):
+    def test_loads_16_templates(self):
         templates = jql.load_templates()
-        assert len(templates) == 13
+        assert len(templates) == 16
 
     def test_known_template_names(self):
         names = jql.list_templates()
@@ -38,6 +38,9 @@ class TestJqlLoadTemplates:
         assert "blockers" in names
         assert "feature_freeze_issues" in names
         assert "code_freeze_issues" in names
+        assert "open_issues_by_team" in names
+        assert "feature_freeze_issues_by_team" in names
+        assert "code_freeze_issues_by_team" in names
 
 
 class TestJqlGetTemplate:
