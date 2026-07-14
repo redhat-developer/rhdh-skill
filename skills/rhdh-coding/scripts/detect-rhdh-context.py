@@ -21,13 +21,36 @@ def detect_plugin_id(pkg: dict) -> str:
     return pkg.get("backstage", {}).get("pluginId", "")
 
 
-def detect_frontend_system(src: Path) -> str:
+def _file_contains(path: Path, pattern: str) -> bool:
+    if not path.exists():
+        return False
+    try:
+        return pattern in path.read_text(errors="replace")
+    except OSError:
+        return False
+
+
+def _has_nfs_at_root(src: Path, pkg: dict) -> bool:
+    exports = pkg.get("exports", {})
+    if "./legacy" in exports:
+        return True
+    for ext in ("ts", "tsx"):
+        if _file_contains(src / f"index.{ext}", "createFrontendPlugin"):
+            return True
+    return False
+
+
+def detect_frontend_system(src: Path, pkg: dict) -> str:
     if (src / "alpha.tsx").exists() or (src / "alpha.ts").exists():
         plugin_ts = src / "plugin.ts"
         plugin_tsx = src / "plugin.tsx"
         if plugin_ts.exists() or plugin_tsx.exists():
             return "dual"
         return "nfs"
+
+    if _has_nfs_at_root(src, pkg):
+        has_legacy = (src / "legacy.ts").exists() or (src / "legacy.tsx").exists()
+        return "dual" if has_legacy else "nfs"
 
     if (src / "plugin.ts").exists() or (src / "plugin.tsx").exists():
         return "legacy"
@@ -49,20 +72,32 @@ def detect_extensions(src: Path) -> list:
         if not f.exists():
             continue
         content = f.read_text(errors="replace")
-        for match in re.finditer(
-            r"createRoutableExtension\(\s*\{[^}]*name:\s*['\"](\w+)['\"]", content
-        ):
-            extensions.append({"name": match.group(1), "type": "routable"})
-        for match in re.finditer(
-            r"createComponentExtension\(\s*\{[^}]*name:\s*['\"](\w+)['\"]", content
-        ):
-            extensions.append({"name": match.group(1), "type": "component"})
+        for ext_type, factory in [
+            ("routable", "createRoutableExtension"),
+            ("component", "createComponentExtension"),
+        ]:
+            for match in re.finditer(rf"(?:(\w+)\s*=\s*)?{factory}\(", content):
+                name_match = re.search(
+                    r"name:\s*['\"](\w+)['\"]",
+                    content[match.end() : match.end() + 500],
+                )
+                name = name_match.group(1) if name_match else (match.group(1) or "unnamed")
+                extensions.append({"name": name, "type": ext_type})
     return extensions
 
 
 def detect_nfs_blueprints(src: Path) -> list:
+    candidates = [
+        src / "alpha.tsx",
+        src / "alpha.ts",
+        src / "index.ts",
+        src / "index.tsx",
+        src / "plugin.ts",
+        src / "plugin.tsx",
+    ]
     blueprints = []
-    for f in [src / "alpha.tsx", src / "alpha.ts"]:
+    seen = set()
+    for f in candidates:
         if not f.exists():
             continue
         content = f.read_text(errors="replace")
@@ -73,8 +108,9 @@ def detect_nfs_blueprints(src: Path) -> list:
             "ApiBlueprint",
             "SubPageBlueprint",
         ]:
-            if bp_type in content:
+            if bp_type in content and bp_type not in seen:
                 blueprints.append(bp_type)
+                seen.add(bp_type)
     return blueprints
 
 
@@ -155,7 +191,7 @@ def main():
         "packageName": pkg.get("name", "unknown"),
         "backstageRole": detect_backstage_role(pkg),
         "pluginId": detect_plugin_id(pkg),
-        "frontendSystem": detect_frontend_system(src),
+        "frontendSystem": detect_frontend_system(src, pkg),
         "muiVersion": detect_mui_version(deps),
         "extensions": detect_extensions(src),
         "nfsBlueprints": detect_nfs_blueprints(src),

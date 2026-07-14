@@ -139,6 +139,7 @@ old frontend system to `./legacy`:
 
 Some older plugins still use the `./alpha` pattern (NFS at `./alpha`, legacy at
 root). That pattern is being phased out — new migrations should put NFS at root.
+For migration steps, use the `nfs-migration` skill.
 
 **Always check a plugin's `package.json` exports** before assuming where NFS
 lives — it could be at `.`, `./alpha`, or a custom path.
