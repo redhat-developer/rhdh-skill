@@ -119,6 +119,30 @@ Track work across the four RHDH Jira projects.
 
 - **[rhdh-test-plan-review](./skills/rhdh-test-plan-review/SKILL.md)** — Reviews an RHDH test plan Jira ticket and suggests platform/integration version updates based on support lifecycle pages and RHDH release milestones
 
+### Backport
+
+Automate or semi-automate backporting changes to RHDH release branches.
+
+- **[backport-auto](./skills/backport-auto/SKILL.md)** — Fully automated end-to-end backport workflow. Detects plugin, resets workspace, cherry-picks with AI conflict resolution, creates and merges PRs, handles Version Packages, updates overlays, and creates changelog PR. Zero intervention required.
+
+- **[backport-create](./skills/backport-create/SKILL.md)** — Semi-manual workflow for controlled backports. Creates backport PRs and stops for user review. You manually review and merge PRs, then run `backport-finish` to complete. Use when you need control over PR review and merging.
+
+- **[backport-finish](./skills/backport-finish/SKILL.md)** — Completes the backport workflow after manual PR merges. Handles Version Packages detection/merge, release branch sync, overlays update, and changelog PR. Use after `backport-create` and manual PR merges.
+
+```bash
+# Full automation
+/backport-auto 1.10 3456
+
+# Step-by-step with control
+/backport-create 1.10 3456
+# ... manually review and merge PRs ...
+/backport-finish 1.10 3456
+```
+
+### Orchestration
+
+- **[rhdh](./skills/rhdh/SKILL.md)** — Entry point and router. Detects your environment, runs `doctor` checks, maintains a cross-session worklog, and routes to the right skill. Start here if you're not sure what you need.
+
 ### Repository Readiness
 
 - **[agent-ready](./skills/agent-ready/SKILL.md)** — Assess RHDH repositories against agentready criteria and address each gap. RHDH-aware: detects the repo from its remote URL, uses `rhdh-repos.md` context to pre-fill `AGENTS.md` and skip inapplicable findings. Supports single-repo and batch modes (assess all RHDH repos in one pass).
