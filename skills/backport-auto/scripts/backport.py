@@ -13,6 +13,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -46,6 +47,53 @@ def log_step(n: int, title: str) -> None:
 def die(msg: str, code: int = EXIT_FAILURE) -> None:
     log(f"Error: {msg}")
     sys.exit(code)
+
+
+# ---------------------------------------------------------------------------
+# Git state helpers — save/restore branch and stash
+# ---------------------------------------------------------------------------
+
+def save_git_state() -> tuple[str, bool]:
+    result = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        capture_output=True, text=True,
+    )
+    original_branch = result.stdout.strip()
+    if original_branch == "HEAD":
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True,
+        )
+        original_branch = result.stdout.strip()
+
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        capture_output=True, text=True,
+    )
+    had_changes = bool(status.stdout.strip())
+
+    if had_changes:
+        log("  Stashing local changes before backport...")
+        subprocess.run(
+            ["git", "stash", "push", "-u", "-m", "backport-auto: pre-backport stash"],
+            capture_output=True, text=True,
+        )
+
+    return original_branch, had_changes
+
+
+def restore_git_state(original_branch: str, had_changes: bool) -> None:
+    log(f"\n  Restoring original branch: {original_branch}")
+    subprocess.run(
+        ["git", "checkout", original_branch],
+        capture_output=True, text=True,
+    )
+    if had_changes:
+        log("  Restoring stashed changes...")
+        subprocess.run(
+            ["git", "stash", "pop"],
+            capture_output=True, text=True,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +177,6 @@ class BackportState:
     overlays_branch: str = ""
 
     reset_commit: str = ""
-    overlays_dir: str = ""
 
     conflict_files: list[str] = field(default_factory=list)
 
@@ -184,7 +231,7 @@ Examples:
         "--mode",
         choices=["auto", "create", "finish"],
         default="auto",
-        help="auto: full workflow, create: steps 1-8, finish: steps 9-13",
+        help="auto: full workflow, create: steps 1-7, finish: steps 8-13",
     )
     parser.add_argument("--repo", default=DEFAULT_REPO)
     parser.add_argument("--overlays-repo", default=DEFAULT_OVERLAYS_REPO)
@@ -362,24 +409,24 @@ def step3_check_backported(state: BackportState, *, force: bool = False) -> None
 def step4_reset_workspace(state: BackportState) -> None:
     log_step(4, "Reset workspace branch to overlays baseline")
 
-    state.overlays_dir = tempfile.mkdtemp(prefix=f"overlays-{state.release}-")
-    log(f"  Cloning overlays repo to {state.overlays_dir}...")
+    log("  Fetching source.json from overlays repo...")
+    source_json_path = f"workspaces/{state.plugin}/source.json"
+    result = run_gh([
+        "api", f"repos/{state.overlays_repo}/contents/{source_json_path}",
+        "--jq", ".content",
+        "-H", "Accept: application/vnd.github.v3+json",
+        "--method", "GET",
+        "-f", f"ref={state.overlays_branch}",
+    ], check=False)
 
-    run_gh(
-        ["repo", "clone", state.overlays_repo, state.overlays_dir, "--", "-b", state.overlays_branch],
-        timeout=120,
-    )
+    if result.returncode != 0 or not result.stdout.strip():
+        die(f"source.json not found at {source_json_path} on branch {state.overlays_branch}")
 
-    source_path = Path(state.overlays_dir) / "workspaces" / state.plugin / "source.json"
-    if not source_path.exists():
-        die(f"source.json not found: {source_path}")
-
-    with open(source_path) as f:
-        source_data = json.load(f)
+    source_data = json.loads(base64.b64decode(result.stdout.strip()))
 
     state.reset_commit = source_data.get("repo-ref", "")
     if not state.reset_commit:
-        die(f"repo-ref is empty in {source_path}")
+        die(f"repo-ref is empty in {source_json_path}")
 
     log(f"  Baseline commit from overlays: {state.reset_commit[:10]}")
 
@@ -471,8 +518,8 @@ def step5_continue(state: BackportState) -> None:
 def step6_push_to_fork(state: BackportState) -> None:
     log_step(6, "Push backport branch to fork")
 
-    result = run_gh_json(["api", "user", "--jq", ".login"])
-    state.fork_owner = result.strip() if isinstance(result, str) else str(result)
+    result = run_gh(["api", "user", "--jq", ".login"])
+    state.fork_owner = result.stdout.strip()
 
     run_git(["push", "origin", state.backport_branch])
     log(f"  Pushed {state.backport_branch} to fork ({state.fork_owner})")
@@ -485,36 +532,45 @@ def step6_push_to_fork(state: BackportState) -> None:
 def step7_create_pr1(state: BackportState, *, merge: bool = True) -> None:
     log_step(7, "Create PR #1 (backport → release)")
 
-    body = (
-        f"Backport of #{state.pr_num} to release-{state.release}\n\n"
-        f"**Original PR:** {state.pr_url}\n"
-        f"**Plugin:** {state.plugin}\n"
-        f"**Release:** {state.release}\n\n"
-        f"Cherry-picked commit: `{state.commit_sha[:10]}`\n\n"
-        "---\nAuto-generated by backport skill."
-    )
-
-    run_gh([
-        "pr", "create",
-        "--repo", state.repo,
-        "--base", state.release_branch,
-        "--head", f"{state.fork_owner}:{state.backport_branch}",
-        "--title", f"backport: #{state.pr_num} to release-{state.release}",
-        "--body", body,
-    ])
-
-    pr_data = run_gh_json([
+    existing = run_gh_json([
         "pr", "list",
         "--repo", state.repo,
-        "--head", f"{state.fork_owner}:{state.backport_branch}",
-        "--json", "number",
-        "--jq", ".[0].number",
+        "--base", state.release_branch,
+        "--state", "open",
+        "--json", "number,headRefName",
     ])
-    state.pr1_num = int(pr_data) if pr_data else 0
-    if not state.pr1_num:
-        die("Failed to get PR #1 number after creation")
+    if existing:
+        for pr in existing:
+            if pr.get("headRefName") == state.backport_branch:
+                state.pr1_num = pr["number"]
+                log(f"  PR #1 already exists: #{state.pr1_num}")
+                break
 
-    log(f"  PR #1 created: #{state.pr1_num}")
+    if not state.pr1_num:
+        body = (
+            f"Backport of #{state.pr_num} to release-{state.release}\n\n"
+            f"**Original PR:** {state.pr_url}\n"
+            f"**Plugin:** {state.plugin}\n"
+            f"**Release:** {state.release}\n\n"
+            f"Cherry-picked commit: `{state.commit_sha[:10]}`\n\n"
+            "---\nAuto-generated by backport skill."
+        )
+
+        create_result = run_gh([
+            "pr", "create",
+            "--repo", state.repo,
+            "--base", state.release_branch,
+            "--head", f"{state.fork_owner}:{state.backport_branch}",
+            "--title", f"backport: #{state.pr_num} to release-{state.release}",
+            "--body", body,
+        ])
+
+        pr_url_match = re.search(r"/pull/(\d+)", create_result.stdout)
+        if not pr_url_match:
+            die("Failed to get PR #1 number from gh pr create output")
+        state.pr1_num = int(pr_url_match.group(1))
+
+        log(f"  PR #1 created: #{state.pr1_num}")
 
     if merge:
         log("  Monitoring CI...")
@@ -533,45 +589,51 @@ def step8_create_pr2(state: BackportState, *, merge: bool = True) -> None:
 
     run_git(["fetch", "upstream"])
 
-    body = (
-        f"Backport of #{state.pr_num} to release {state.release}\n\n"
-        f"Original PR: {state.pr_url}\n"
-        f"Backport PR #1: #{state.pr1_num}\n\n"
-        "This PR triggers the Version Packages workflow.\n\n"
-        "**Do not edit manually** — auto-generated by backport skill."
-    )
-
-    run_gh([
-        "pr", "create",
-        "--repo", state.repo,
-        "--base", state.workspace_branch,
-        "--head", state.release_branch,
-        "--title", f"chore: sync {state.plugin} release-{state.release} to workspace",
-        "--body", body,
-    ])
-
-    pr_data = run_gh_json([
+    existing = run_gh_json([
         "pr", "list",
         "--repo", state.repo,
-        "--head", state.release_branch,
         "--base", state.workspace_branch,
+        "--head", state.release_branch,
+        "--state", "open",
         "--json", "number",
-        "--jq", ".[0].number",
     ])
-    state.pr2_num = int(pr_data) if pr_data else 0
-    if not state.pr2_num:
-        die("Failed to get PR #2 number after creation")
+    if existing and len(existing) > 0:
+        state.pr2_num = existing[0]["number"]
+        log(f"  PR #2 already exists: #{state.pr2_num}")
+    else:
+        body = (
+            f"Backport of #{state.pr_num} to release {state.release}\n\n"
+            f"Original PR: {state.pr_url}\n"
+            f"Backport PR #1: #{state.pr1_num}\n\n"
+            "This PR triggers the Version Packages workflow.\n\n"
+            "**Do not edit manually** — auto-generated by backport skill."
+        )
 
-    log(f"  PR #2 created: #{state.pr2_num}")
-    log(f"    {state.release_branch} → {state.workspace_branch}")
+        create_result = run_gh([
+            "pr", "create",
+            "--repo", state.repo,
+            "--base", state.workspace_branch,
+            "--head", state.release_branch,
+            "--title", f"chore: sync {state.plugin} release-{state.release} to workspace",
+            "--body", body,
+        ])
 
-    pr_owner = run_gh_json([
+        pr_url_match = re.search(r"/pull/(\d+)", create_result.stdout)
+        if not pr_url_match:
+            die("Failed to get PR #2 number from gh pr create output")
+        state.pr2_num = int(pr_url_match.group(1))
+
+        log(f"  PR #2 created: #{state.pr2_num}")
+        log(f"    {state.release_branch} → {state.workspace_branch}")
+
+    pr_owner_result = run_gh([
         "pr", "view", str(state.pr2_num),
         "--repo", state.repo,
         "--json", "headRepositoryOwner",
         "--jq", ".headRepositoryOwner.login",
     ])
-    if isinstance(pr_owner, str) and pr_owner != "redhat-developer":
+    pr_owner = pr_owner_result.stdout.strip()
+    if pr_owner and pr_owner != "redhat-developer":
         die(
             f"PR #2 head is from '{pr_owner}', not 'redhat-developer'.\n"
             "Version Packages workflow will NOT trigger from fork PRs."
@@ -653,13 +715,13 @@ def merge_pr(pr_num: int, repo: str) -> None:
 def wait_for_merged(pr_num: int, repo: str, *, timeout: int = 300) -> None:
     elapsed = 0
     while elapsed < timeout:
-        result = run_gh_json([
+        result = run_gh([
             "pr", "view", str(pr_num),
             "--repo", repo,
             "--json", "state",
             "--jq", ".state",
         ])
-        if isinstance(result, str) and result.strip() == "MERGED":
+        if result.stdout.strip() == "MERGED":
             return
         time.sleep(10)
         elapsed += 10
@@ -710,13 +772,13 @@ def poll_for_vp_update(
 ) -> None:
     elapsed = 0
     while elapsed < timeout:
-        current = run_gh_json([
+        current_result = run_gh([
             "pr", "view", str(vp_pr_num),
             "--repo", repo,
             "--json", "headRefOid",
             "--jq", ".headRefOid",
         ])
-        if isinstance(current, str) and current.strip() != before_sha:
+        if current_result.stdout.strip() != before_sha:
             log(f"  VP PR #{vp_pr_num} updated (new commit)")
             return
         log(f"  Waiting for VP PR update... ({elapsed}s)")
@@ -816,43 +878,78 @@ def step10_sync_release_branch(state: BackportState) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Step 11 — Update overlays repository
+# Step 11 — Update overlays via GitHub Actions workflow
 # ---------------------------------------------------------------------------
 
-def update_source_json(path: Path, new_commit: str) -> None:
-    with open(path) as f:
-        data = json.load(f)
-    data["repo-ref"] = new_commit
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
-        f.write("\n")
+OVERLAYS_UPDATE_WORKFLOW = "update-plugins-repo-refs.yaml"
 
 
-def update_metadata_version(metadata_dir: Path, version: str) -> list[str]:
-    updated: list[str] = []
-    if not metadata_dir.is_dir():
-        return updated
-    for ext in ("*.yaml", "*.yml"):
-        for yaml_file in sorted(metadata_dir.glob(ext)):
-            content = yaml_file.read_text()
-            new_content = re.sub(
-                r"^version: .*$",
-                f'version: "{version}"',
-                content,
-                flags=re.MULTILINE,
-            )
-            if new_content != content:
-                yaml_file.write_text(new_content)
-                updated.append(yaml_file.name)
-    return updated
+def poll_workflow_run(
+    overlays_repo: str,
+    workflow_name: str,
+    *,
+    started_after: str,
+    timeout: int = 300,
+    interval: int = 15,
+) -> dict | None:
+    elapsed = 0
+    while elapsed < timeout:
+        runs = run_gh_json([
+            "run", "list",
+            "--repo", overlays_repo,
+            "--workflow", workflow_name,
+            "--limit", "5",
+            "--json", "databaseId,status,conclusion,createdAt",
+        ])
+        if runs:
+            for run in runs:
+                if run.get("createdAt", "") >= started_after:
+                    status = run.get("status", "")
+                    if status == "completed":
+                        return run
+                    log(f"  Workflow run {run['databaseId']}: {status} ({elapsed}s)")
+                    break
+        time.sleep(interval)
+        elapsed += interval
+    return None
+
+
+def find_overlays_pr(
+    overlays_repo: str,
+    plugin: str,
+    overlays_branch: str,
+    *,
+    timeout: int = 600,
+    interval: int = 20,
+) -> int:
+    elapsed = 0
+    while elapsed < timeout:
+        result = run_gh_json(
+            [
+                "pr", "list",
+                "--repo", overlays_repo,
+                "--base", overlays_branch,
+                "--search", f"{plugin} in:title",
+                "--state", "open",
+                "--json", "number",
+                "--jq", ".[0].number",
+            ],
+            check=False,
+        )
+        if result and int(result):
+            return int(result)
+        log(f"  Waiting for overlays PR... ({elapsed}s)")
+        time.sleep(interval)
+        elapsed += interval
+    return 0
 
 
 def poll_publish_result(
     pr_num: int,
     overlays_repo: str,
     *,
-    timeout: int = 300,
-    interval: int = 15,
+    timeout: int = 900,
+    interval: int = 30,
 ) -> tuple[bool, str]:
     elapsed = 0
     while elapsed < timeout:
@@ -867,188 +964,83 @@ def poll_publish_result(
         if not result or not result.get("comments"):
             continue
 
-        latest = result["comments"][-1].get("body", "")
-        if "validation error" in latest.lower():
-            return False, latest
-        if any(kw in latest.lower() for kw in ("success", "published", "completed")):
-            return True, latest
+        for comment in reversed(result["comments"]):
+            body = comment.get("body", "")
+            if "publish workflow" not in body.lower():
+                continue
+            if "completed with failure" in body.lower():
+                return False, body
+            if "completed with success" in body.lower():
+                return True, body
+            break
 
         log(f"  Waiting for /publish result... ({elapsed}s)")
 
     return False, ""
 
 
-def fix_metadata_from_publish_errors(
-    plugin: str,
-    error_text: str,
-    overlays_dir: Path,
-) -> list[str]:
-    fixed: list[str] = []
-    for line in error_text.split("\n"):
-        if "mismatch" not in line.lower():
-            continue
-        parts = line.split()
-        if not parts:
-            continue
-        yaml_file = parts[0]
-        m = re.search(r'expected "([^"]+)"', line)
-        if not m:
-            continue
-        expected_ver = m.group(1)
-        metadata_path = overlays_dir / "workspaces" / plugin / "metadata" / yaml_file
-        if metadata_path.exists():
-            content = metadata_path.read_text()
-            new_content = re.sub(
-                r"^version: .*$",
-                f'version: "{expected_ver}"',
-                content,
-                flags=re.MULTILINE,
-            )
-            metadata_path.write_text(new_content)
-            fixed.append(yaml_file)
-            log(f"    Fixed {yaml_file}: version → {expected_ver}")
-    return fixed
-
-
 def step11_update_overlays(state: BackportState) -> None:
-    log_step(11, "Update overlays repository")
+    log_step(11, "Update overlays via GitHub Actions workflow")
 
-    overlays_dir = Path(state.overlays_dir)
-    run_git(["fetch", "origin"], cwd=overlays_dir)
-    run_git(["checkout", state.overlays_branch], cwd=overlays_dir)
-    run_git(["pull", "origin", state.overlays_branch], cwd=overlays_dir)
+    timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
-    existing = run_gh_json(
-        [
-            "pr", "list",
-            "--repo", state.overlays_repo,
-            "--base", state.overlays_branch,
-            "--search", f"{state.plugin} in:title",
-            "--state", "open",
-            "--json", "number,headRefName",
-            "--jq", ".[0]",
-        ],
-        check=False,
-    )
-
-    source_path = overlays_dir / "workspaces" / state.plugin / "source.json"
-    metadata_dir = overlays_dir / "workspaces" / state.plugin / "metadata"
-
-    if existing and isinstance(existing, dict) and existing.get("number"):
-        existing_pr_num = existing["number"]
-        existing_branch = existing["headRefName"]
-        log(f"  Existing overlays PR found: #{existing_pr_num}")
-
-        run_git(["checkout", existing_branch], cwd=overlays_dir)
-        run_git(["pull", "origin", existing_branch], cwd=overlays_dir, check=False)
-
-        update_source_json(source_path, state.vp_commit)
-        updated_meta = update_metadata_version(metadata_dir, state.vp_version)
-
-        run_git(["add", f"workspaces/{state.plugin}/"], cwd=overlays_dir)
-        run_git([
-            "commit", "-m",
-            f"chore: update {state.plugin} repo-ref to {state.vp_commit[:10]}\n\n"
-            f"Backport of {state.repo}#{state.pr_num} to {state.release}\n"
-            f"Version Packages commit: {state.vp_commit}",
-        ], cwd=overlays_dir)
-        run_git(["push", "origin", existing_branch], cwd=overlays_dir)
-
-        state.overlays_pr_num = existing_pr_num
-        log(f"  Updated existing overlays PR #{existing_pr_num}")
-    else:
-        log("  Creating new overlays PR...")
-
-        update_source_json(source_path, state.vp_commit)
-        updated_meta = update_metadata_version(metadata_dir, state.vp_version)
-
-        log(f"  Updated source.json: repo-ref → {state.vp_commit[:10]}")
-        if updated_meta:
-            log(f"  Updated metadata: {', '.join(updated_meta)}")
-
-        branch_name = f"update-{state.plugin}-{state.release}-pr{state.pr_num}"
-        run_git(["checkout", "-b", branch_name], cwd=overlays_dir)
-        run_git(["add", f"workspaces/{state.plugin}/"], cwd=overlays_dir)
-        run_git([
-            "commit", "-m",
-            f"chore: update {state.plugin} to {state.vp_version}\n\n"
-            f"Backport of {state.repo}#{state.pr_num} to {state.release}\n\n"
-            f"Changes:\n"
-            f"- Updated source.json repo-ref: {state.vp_commit}\n"
-            f"- Updated metadata files version: {state.vp_version}\n\n"
-            f"Version Packages commit: {state.vp_commit}",
-        ], cwd=overlays_dir)
-        run_git(["push", "origin", branch_name], cwd=overlays_dir)
-
-        fork_owner_result = run_gh_json(["api", "user", "--jq", ".login"])
-        fork_owner = fork_owner_result.strip() if isinstance(fork_owner_result, str) else str(fork_owner_result)
-
-        body = (
-            f"Updates {state.plugin} source to Version Packages commit\n\n"
-            f"**Backport details:**\n"
-            f"- Original PR: {state.repo}#{state.pr_num}\n"
-            f"- Release: {state.release}\n"
-            f"- Version Packages commit: `{state.vp_commit[:10]}`\n\n"
-            f"**Changes:**\n"
-            f"- Updated `workspaces/{state.plugin}/source.json`\n"
-            f"- Updated `workspaces/{state.plugin}/metadata/*.yaml`\n\n"
-            "---\nAuto-generated by backport skill."
-        )
-
-        run_gh([
-            "pr", "create",
-            "--repo", state.overlays_repo,
-            "--base", state.overlays_branch,
-            "--head", f"{fork_owner}:{branch_name}",
-            "--title", f"chore: update {state.plugin} for {state.release} release",
-            "--body", body,
-        ])
-
-        pr_result = run_gh_json([
-            "pr", "list",
-            "--repo", state.overlays_repo,
-            "--head", f"{fork_owner}:{branch_name}",
-            "--json", "number",
-            "--jq", ".[0].number",
-        ])
-        state.overlays_pr_num = int(pr_result) if pr_result else 0
-        log(f"  Overlays PR created: #{state.overlays_pr_num}")
-
-    # /publish
-    log("  Issuing /publish...")
+    log(f"  Triggering '{OVERLAYS_UPDATE_WORKFLOW}' with single-branch={state.overlays_branch}...")
     run_gh([
-        "pr", "comment", str(state.overlays_pr_num),
+        "workflow", "run", OVERLAYS_UPDATE_WORKFLOW,
         "--repo", state.overlays_repo,
-        "--body", "/publish",
+        "-f", f"single-branch={state.overlays_branch}",
     ])
 
-    publish_ok, publish_output = poll_publish_result(
-        state.overlays_pr_num, state.overlays_repo,
+    log("  Waiting for workflow run to complete...")
+    run_result = poll_workflow_run(
+        state.overlays_repo, OVERLAYS_UPDATE_WORKFLOW,
+        started_after=timestamp,
+        timeout=600,
     )
 
-    if not publish_ok and publish_output:
-        log("  /publish failed — fixing metadata versions...")
-        fixed = fix_metadata_from_publish_errors(
-            state.plugin, publish_output, overlays_dir,
-        )
-        if fixed:
-            run_git(["add", f"workspaces/{state.plugin}/metadata/"], cwd=overlays_dir)
-            run_git([
-                "commit", "-m",
-                f"fix: update metadata versions for {state.plugin}\n\n"
-                "Fixed version mismatches reported by /publish validation",
-            ], cwd=overlays_dir)
-            run_git(["push", "origin", "HEAD"], cwd=overlays_dir)
+    if not run_result:
+        log("  Warning: workflow run not found or timed out")
+        log("  Checking if overlays PR was created anyway...")
+    elif run_result.get("conclusion") != "success":
+        log(f"  Warning: workflow run completed with: {run_result.get('conclusion')}")
+        log(f"  Run ID: {run_result.get('databaseId')}")
 
-            log("  Retrying /publish...")
-            run_gh([
-                "pr", "comment", str(state.overlays_pr_num),
-                "--repo", state.overlays_repo,
-                "--body", "/publish",
-            ])
-            publish_ok, _ = poll_publish_result(
-                state.overlays_pr_num, state.overlays_repo,
-            )
+    pr_num = find_overlays_pr(
+        state.overlays_repo, state.plugin, state.overlays_branch,
+    )
+    if not pr_num:
+        die(
+            "Overlays PR not found after workflow run.\n"
+            f"Check: https://github.com/{state.overlays_repo}/actions/workflows/{OVERLAYS_UPDATE_WORKFLOW}"
+        )
+    state.overlays_pr_num = pr_num
+    log(f"  Overlays PR found: #{state.overlays_pr_num}")
+
+    log("  Adding /ok-to-test label...")
+    run_gh([
+        "pr", "edit", str(state.overlays_pr_num),
+        "--repo", state.overlays_repo,
+        "--add-label", "ok-to-test",
+    ], check=False)
+
+    log("  Checking for auto-publish...")
+    time.sleep(30)
+    publish_ok, publish_output = poll_publish_result(
+        state.overlays_pr_num, state.overlays_repo,
+        timeout=300,
+    )
+
+    if not publish_ok and not publish_output:
+        log("  Auto-publish not triggered — issuing /publish manually...")
+        run_gh([
+            "pr", "comment", str(state.overlays_pr_num),
+            "--repo", state.overlays_repo,
+            "--body", "/publish",
+        ])
+        publish_ok, publish_output = poll_publish_result(
+            state.overlays_pr_num, state.overlays_repo,
+            timeout=900,
+        )
 
     if publish_ok:
         log("  /publish succeeded — waiting for all CI (may take 30+ min)...")
@@ -1058,6 +1050,8 @@ def step11_update_overlays(state: BackportState) -> None:
         log(f"  Overlays PR #{state.overlays_pr_num} merged")
     else:
         log(f"  Warning: /publish did not succeed — PR #{state.overlays_pr_num} left open")
+        if publish_output:
+            log(f"  Publish output: {publish_output[:200]}")
         log("  Manual intervention required")
 
 
@@ -1067,6 +1061,10 @@ def step11_update_overlays(state: BackportState) -> None:
 
 def step12_changelog_pr(state: BackportState) -> None:
     log_step(12, "Create changelog PR to main")
+
+    if not state.fork_owner:
+        result = run_gh(["api", "user", "--jq", ".login"])
+        state.fork_owner = result.stdout.strip()
 
     run_git(["fetch", "upstream"])
 
@@ -1126,7 +1124,7 @@ def step12_changelog_pr(state: BackportState) -> None:
         f"This tracks what was backported to the {state.release} release."
     )
 
-    run_gh([
+    create_result = run_gh([
         "pr", "create",
         "--repo", state.repo,
         "--base", "main",
@@ -1135,14 +1133,10 @@ def step12_changelog_pr(state: BackportState) -> None:
         "--body", body,
     ])
 
-    pr_result = run_gh_json([
-        "pr", "list",
-        "--repo", state.repo,
-        "--head", f"{state.fork_owner}:{changelog_branch}",
-        "--json", "number",
-        "--jq", ".[0].number",
-    ])
-    state.changelog_pr_num = int(pr_result) if pr_result else 0
+    pr_url_match = re.search(r"/pull/(\d+)", create_result.stdout)
+    if not pr_url_match:
+        die("Failed to get changelog PR number from gh pr create output")
+    state.changelog_pr_num = int(pr_url_match.group(1))
     log(f"  Changelog PR created: #{state.changelog_pr_num}")
 
     log("  Monitoring CI...")
@@ -1206,32 +1200,29 @@ def print_create_summary(
             "release": state.release,
             "original_pr": state.pr_num,
             "pr1": state.pr1_num,
-            "pr2": state.pr2_num,
-            "status": "prs_created",
+            "status": "pr1_created",
         }
         json.dump(result, sys.stdout, indent=2)
         print()
     else:
         log("")
         log("=" * 40)
-        log("BACKPORT PRs CREATED")
+        log("BACKPORT PR CREATED")
         log("=" * 40)
         log("")
         log(f"Plugin: {state.plugin}")
         log(f"Release: {state.release}")
         log(f"Original PR: #{state.pr_num}")
         log("")
-        log("PRs created:")
-        log(f"  1. Backport to release: #{state.pr1_num}")
-        log(f"     {state.backport_branch} → {state.release_branch}")
-        log(f"  2. Sync to workspace:   #{state.pr2_num}")
-        log(f"     {state.release_branch} → {state.workspace_branch}")
+        log(f"PR #1: #{state.pr1_num}")
+        log(f"  {state.backport_branch} → {state.release_branch}")
+        log(f"  https://github.com/{state.repo}/pull/{state.pr1_num}")
         log("")
-        log("NEXT STEPS (manual):")
+        log("NEXT STEPS:")
         log(f"  1. Review and merge PR #{state.pr1_num}")
-        log(f"  2. Review and merge PR #{state.pr2_num}")
-        log("  3. Wait for Version Packages PR")
-        log(f"  4. Run: python scripts/backport.py {state.release} {state.pr_num} --mode finish")
+        log(f"  2. Run: python scripts/backport.py {state.release} {state.pr_num} --mode finish")
+        log(f"     (creates PR #2: {state.release_branch} → {state.workspace_branch},")
+        log("      then handles Version Packages, overlays, and changelog)")
         log("")
         log("=" * 40)
 
@@ -1261,24 +1252,41 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     log("=" * 16 + " Using Backport Skill " + "=" * 16)
 
+    original_branch, had_changes = save_git_state()
+    log(f"  Saved state: branch={original_branch}, stashed={had_changes}")
+
+    try:
+        return _run(args, original_branch, had_changes)
+    except SystemExit as e:
+        code = e.code if isinstance(e.code, int) else 1
+        if code != EXIT_CONFLICT:
+            restore_git_state(original_branch, had_changes)
+        raise
+    except Exception:
+        restore_git_state(original_branch, had_changes)
+        raise
+
+
+def _run(args, original_branch: str, had_changes: bool) -> int:
     if args.continue_from:
         state = BackportState.load(args.continue_from)
         state.mode = args.mode
         step5_continue(state)
         step6_push_to_fork(state)
 
-        merge = args.mode == "auto"
-        step7_create_pr1(state, merge=merge)
-        step8_create_pr2(state, merge=merge)
+        step7_create_pr1(state, merge=(args.mode == "auto"))
 
         if args.mode == "create":
+            restore_git_state(original_branch, had_changes)
             print_create_summary(state, json_output=args.json_output)
             return EXIT_SUCCESS
 
+        step8_create_pr2(state, merge=True)
         step9_detect_version_packages(state)
         step10_sync_release_branch(state)
         step11_update_overlays(state)
         step12_changelog_pr(state)
+        restore_git_state(original_branch, had_changes)
         step13_summary(state, json_output=args.json_output)
         return EXIT_SUCCESS
 
@@ -1303,23 +1311,26 @@ def main(argv: list[str] | None = None) -> int:
         step5_cherry_pick(state)
         step6_push_to_fork(state)
 
-        merge = args.mode == "auto"
-        step7_create_pr1(state, merge=merge)
-        step8_create_pr2(state, merge=merge)
+        step7_create_pr1(state, merge=(args.mode == "auto"))
 
         if args.mode == "create":
+            restore_git_state(original_branch, had_changes)
             print_create_summary(state, json_output=args.json_output)
             return EXIT_SUCCESS
+
+        step8_create_pr2(state, merge=True)
 
     if args.mode == "finish":
         step1_fetch_pr(state)
         step2_detect_plugin(state)
         validate_finish_prerequisites(state)
+        step8_create_pr2(state, merge=True)
 
     step9_detect_version_packages(state)
     step10_sync_release_branch(state)
     step11_update_overlays(state)
     step12_changelog_pr(state)
+    restore_git_state(original_branch, had_changes)
     step13_summary(state, json_output=args.json_output)
     return EXIT_SUCCESS
 

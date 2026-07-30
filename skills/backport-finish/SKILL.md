@@ -19,9 +19,10 @@ The agent's role is:
 </principle>
 
 <principle name="assume_prs_merged">
-This skill assumes PR #1 and PR #2 from backport-create are ALREADY MERGED.
+This skill assumes PR #1 from backport-create is ALREADY MERGED.
+It creates PR #2 (release → workspace) and handles the rest of the workflow.
 
-The script validates this. If PRs are not merged, it exits with an error and instructions.
+The script validates that PR #1 is merged. If not, it exits with an error.
 </principle>
 
 </essential_principles>
@@ -29,11 +30,11 @@ The script validates this. If PRs are not merged, it exits with an error and ins
 ## Prerequisites
 
 - **`gh` CLI** — installed and authenticated
-- **Git access** — to `rhdh-plugins` and `rhdh-plugin-export-overlays`
-- **Fork** — of both repos with `origin` remote pointing to fork
+- **Git access** — to `rhdh-plugins`
+- **Fork** — of `rhdh-plugins` with `origin` remote pointing to fork
 - **`upstream` remote** — pointing to `redhat-developer/rhdh-plugins`
 - **Python 3.9+** — for the backport script
-- **PR #1 and PR #2** from `backport-create` must be **MERGED**
+- **PR #1** from `backport-create` must be **MERGED**
 
 ---
 
@@ -58,10 +59,11 @@ The script validates this. If PRs are not merged, it exits with an error and ins
 python ../backport-auto/scripts/backport.py <release> <pr_source> --mode finish
 ```
 
-The script runs steps 9-13:
+The script runs steps 8-13:
+8. Create and merge PR #2 (release → workspace, from upstream) — release branch now has the backported changes
 9. Detect and merge Version Packages PR (handles both new and existing VP PR)
 10. Sync release branch from workspace
-11. Update overlays (source.json + metadata), /publish, wait for CI, merge
+11. Trigger overlays update workflow, /publish, wait for CI, merge
 12. Create and merge changelog PR to main
 13. Print summary
 

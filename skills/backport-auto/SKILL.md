@@ -48,8 +48,8 @@ See `references/ai-conflict-resolution.md` for detailed resolution strategies.
 ## Prerequisites
 
 - **`gh` CLI** — installed and authenticated
-- **Git access** — to `rhdh-plugins` and `rhdh-plugin-export-overlays`
-- **Fork** — of both repos with `origin` remote pointing to fork
+- **Git access** — to `rhdh-plugins`
+- **Fork** — of `rhdh-plugins` with `origin` remote pointing to fork
 - **`upstream` remote** — pointing to `redhat-developer/rhdh-plugins`
 - **Python 3.9+** — for the backport script
 
@@ -85,11 +85,11 @@ The script handles all 13 steps:
 4. Reset workspace branch to overlays baseline
 5. Cherry-pick commit(s)
 6. Push backport branch to fork
-7. Create and merge PR #1 (fork → release branch)
-8. Create and merge PR #2 (release → workspace, from upstream)
+7. Create PR #1 (fork → release branch), monitor CI, merge
+8. Create PR #2 (release → workspace, from upstream) — only AFTER PR #1 merges so release branch has the changes
 9. Detect and merge Version Packages PR
 10. Sync release branch from workspace
-11. Update overlays (source.json + metadata), /publish, wait for CI, merge
+11. Trigger overlays update workflow, /publish, wait for CI, merge
 12. Create and merge changelog PR to main
 13. Print summary
 
@@ -128,8 +128,8 @@ The script prints a summary to stderr. With `--json`, structured output goes to 
 | Flag | Description |
 |------|-------------|
 | `--mode auto` | Full workflow (default) |
-| `--mode create` | Steps 1-8 only, creates PRs and stops |
-| `--mode finish` | Steps 9-13 only, assumes PRs already merged |
+| `--mode create` | Steps 1-7 only, creates PR #1 and stops |
+| `--mode finish` | Steps 8-13, creates PR #2 (after PR #1 merge) then completes |
 | `--continue-from FILE` | Resume after conflict resolution |
 | `--force` | Skip already-backported check |
 | `--json` | Structured JSON output to stdout |

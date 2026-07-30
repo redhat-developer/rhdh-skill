@@ -67,7 +67,7 @@ resolution flow as backport-auto/SKILL.md. See `../backport-auto/references/ai-c
 python ../backport-auto/scripts/backport.py <release> <pr_source> --mode create
 ```
 
-The script runs steps 1-8:
+The script runs steps 1-7:
 1. Parse arguments and fetch PR details
 2. Auto-detect plugin from PR files
 3. Check if already backported
@@ -75,9 +75,10 @@ The script runs steps 1-8:
 5. Cherry-pick commit(s)
 6. Push backport branch to fork
 7. Create PR #1 (fork → release branch)
-8. Create PR #2 (release → workspace)
 
-Then STOPS and prints PR URLs + next-step instructions.
+Then STOPS and prints the PR URL + next-step instructions.
+PR #2 is NOT created yet — it must wait until PR #1 is merged so the
+release branch has the backported changes.
 
 ### Step 2 — Handle conflicts (if exit code 2)
 
@@ -93,8 +94,8 @@ python ../backport-auto/scripts/backport.py <release> <pr_source> --mode create 
 ### Step 3 — Report results
 
 The script prints a summary with:
-- PR #1 and PR #2 URLs
-- Next-step instructions (review, merge, then run `/backport-finish`)
+- PR #1 URL
+- Next-step instructions (review, merge PR #1, then run `/backport-finish`)
 
 ---
 
