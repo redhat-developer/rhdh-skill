@@ -2,9 +2,9 @@
 name: rhdh-deploy-local-plugin
 description: >-
   Build, package, and deploy a local RHDH/BCP plugin as an OCI image to an
-  OpenShift cluster for testing. Handles GHCR auth, OCI annotation generation,
-  image build, push, ConfigMap update, and pod rollout. Use when the user asks
-  to "test on cluster", "deploy plugin to cluster", "build OCI image",
+  OpenShift cluster for testing. Uses rhdh-cli for export and packaging,
+  handles GHCR auth, push, ConfigMap update, and pod rollout. Use when the
+  user asks to "test on cluster", "deploy plugin to cluster", "build OCI image",
   "push plugin to GHCR", "verify dynamic plugin on OpenShift",
   "test my changes on cluster", or "deploy local changes".
 ---
@@ -31,16 +31,15 @@ This applies to ALL steps including Step 0. Run the echo command in the terminal
 If any step fails validation, STOP immediately with a clear error message and documentation link. Do NOT proceed to the next step. The user must fix the issue before continuing.
 </principle>
 
-<principle name="directory_layout">
-The OCI image must contain an extracted directory — NOT a `.tgz` archive.
-Structure: `/<plugin-short-name>/package.json`, `/<plugin-short-name>/dist/`, etc.
-Violating this causes: `ENOENT: no such file or directory, open '.../package.json'`
-</principle>
+<principle name="use_rhdh_cli">
+Always use `@red-hat-developer-hub/cli` for export and OCI packaging. The CLI handles:
+- Dynamic plugin export (`plugin export` → creates `dist-dynamic/`)
+- OCI image creation with correct directory structure (`plugin package --tag`)
+- Automatic `io.backstage.dynamic-packages` annotation
+- Prints the `dynamic-plugins.yaml` entry to use on the cluster
 
-<principle name="annotation_mandatory">
-Every OCI image must carry the `io.backstage.dynamic-packages` annotation (base64-encoded JSON).
-Without it: `InstallException: No plugins found in OCI image`.
-Always use `--no-cache` to ensure the annotation is applied (podman caching can silently skip it).
+Do NOT manually create Containerfiles, generate annotations, or call `podman build` directly.
+Docs: https://docs.redhat.com/en/documentation/red_hat_developer_hub/1.9/html/installing_and_viewing_plugins_in_red_hat_developer_hub/assembly-third-party-plugins
 </principle>
 
 </essential_principles>
@@ -61,7 +60,6 @@ Verify all tools are present. Print a status table using `[PASS]` / `[FAIL]` / `
 | `oc` | `oc version --client` | https://docs.openshift.com/container-platform/latest/cli_reference/openshift_cli/getting-started-cli.html |
 | `gh` | `gh --version` | https://cli.github.com/manual/installation |
 | `npx` | `npx --version` | https://nodejs.org/en/download |
-| `python3` | `python3 --version` | https://www.python.org/downloads/ |
 | `yarn` | `yarn --version` | https://yarnpkg.com/getting-started/install |
 
 ### Must-have auth checks
@@ -85,12 +83,11 @@ Verify all tools are present. Print a status table using `[PASS]` / `[FAIL]` / `
  [PASS]  oc — v4.17.0
  [PASS]  gh — v2.70.0
  [PASS]  npx — v10.9.4
- [PASS]  python3 — v3.14.3
  [PASS]  yarn — v4.9.1
  [PASS]  gh auth — authenticated as its-mitesh-kumar
  [PASS]  write:packages — scope present
  [PASS]  GHCR login — active
- [WARN]  oc cluster — not logged in (will need login in Step 6)
+ [WARN]  oc cluster — not logged in (will need login in Step 4)
 ```
 
 **If ANY must-have check fails:** Print the fix command, documentation link, and STOP.
@@ -113,12 +110,27 @@ Identify what to deploy. Gather from user or infer from current working director
 | `PLUGIN` | Directory name under `plugins/` (infer from cwd or ask) |
 | `NAMESPACE` | Namespace where RHDH runs on the cluster (ask user) |
 | `CLUSTER_API` | Cluster API URL (ask if `oc whoami` fails) |
+| `GHCR_USER` | From `gh api user -q .login` |
 
-Auto-derived variables (resolved later in Step 3):
-- `GHCR_USER` — from `gh api user -q .login`
-- `PLUGIN_SHORT` — from `dist-dynamic/package.json` (name without scope and `-dynamic`)
-- `VERSION` — from `dist-dynamic/package.json`
+Derive from plugin's `package.json`:
+- `PLUGIN_SHORT` — package name without scope and `-dynamic` suffix
+- `VERSION` — from `version` field
 - `TAG` — pattern: `bs_<backstage-version>__<plugin-version>-test`
+
+```bash
+GHCR_USER=$(gh api user -q .login)
+cd workspaces/${WORKSPACE}/plugins/${PLUGIN}
+PLUGIN_SHORT=$(node -p "require('./package.json').name.replace(/@[^/]+\//, '').replace(/-dynamic$/, '')")
+VERSION=$(node -p "require('./package.json').version")
+BS_VERSION=$(node -p "require('./package.json').backstage?.supportedVersions || require('../../../backstage.json')?.version || 'unknown'")
+TAG="bs_${BS_VERSION}__${VERSION}-test"
+
+echo "  Plugin: ${PLUGIN_SHORT}"
+echo "  Version: ${VERSION}"
+echo "  Tag: ${TAG}"
+echo "  GHCR user: ${GHCR_USER}"
+echo "  Image: ghcr.io/${GHCR_USER}/rhdh-plugin-export-overlays/${PLUGIN_SHORT}:${TAG}"
+```
 
 **Wait for user response if workspace/namespace are not clear.**
 
@@ -126,137 +138,44 @@ Auto-derived variables (resolved later in Step 3):
 
 ---
 
-## Step 2 — Build & Export
+## Step 2 — Build, Export & Package
 
 ```
-echo "================ Step 2 — Build & Export ==========="
+echo "================ Step 2 — Build, Export & Package ==========="
 ```
 
 ```bash
-cd workspaces/${WORKSPACE}
 echo "  Running yarn tsc..."
 yarn tsc
 
-cd plugins/${PLUGIN}
 echo "  Running yarn build..."
 yarn build
 
 echo "  Exporting as dynamic plugin..."
-npx @red-hat-developer-hub/cli plugin export
+npx @red-hat-developer-hub/cli@latest plugin export
+
+echo "  Packaging as OCI image..."
+npx @red-hat-developer-hub/cli@latest plugin package \
+  --tag ghcr.io/${GHCR_USER}/rhdh-plugin-export-overlays/${PLUGIN_SHORT}:${TAG}
 ```
 
-**Validation:** Check output for `detected backstage feature:` lines, e.g.:
-```
-detected backstage feature: ./alpha => @backstage/FrontendPlugin
-detected backstage feature: ./<name>-translations-module => @backstage/FrontendModule
-```
+**Validation:** The `plugin package` command should:
+1. Print `detected backstage feature:` lines (e.g., `./alpha => @backstage/FrontendPlugin`)
+2. Print the `dynamic-plugins.yaml` entry to use on the cluster
+3. Exit with code 0
 
-**If no features detected:** STOP — the plugin's `package.json` is missing `exports` entries or the plugin does not create Backstage features. See `references/oci-structure.md` for the expected package.json structure.
+**If `plugin export` fails:** Check `yarn build` output for TypeScript errors. Run `yarn tsc` separately to diagnose.
+
+**If `plugin package` fails:**
+- Container tool not found: add `--container-tool docker` or ensure `podman` is on PATH
+- Permission denied: check container runtime is running (`podman machine start` on macOS)
 
 ---
 
-## Step 3 — Generate OCI Annotation
+## Step 3 — Push to GHCR
 
 ```
-echo "================ Step 3 — Generate OCI Annotation ==========="
-```
-
-```bash
-cd dist-dynamic
-
-PLUGIN_SHORT=$(python3 -c "
-import json
-pkg = json.load(open('package.json'))
-print(pkg['name'].replace('@red-hat-developer-hub/', '').replace('@backstage-community/', '').replace('-dynamic', ''))
-")
-VERSION=$(python3 -c "import json; print(json.load(open('package.json'))['version'])")
-BS_VERSION=$(python3 -c "import json; print(json.load(open('package.json')).get('backstage',{}).get('supported-versions','unknown'))")
-TAG="bs_${BS_VERSION}__${VERSION}-test"
-GHCR_USER=$(gh api user -q .login)
-
-echo "  Plugin short name: ${PLUGIN_SHORT}"
-echo "  Version: ${VERSION}"
-echo "  Backstage version: ${BS_VERSION}"
-echo "  Tag: ${TAG}"
-echo "  GHCR user: ${GHCR_USER}"
-
-ANNOTATION=$(python3 -c "
-import json, base64
-pkg = json.load(open('package.json'))
-short_name = pkg['name'].replace('@red-hat-developer-hub/', '').replace('@backstage-community/', '').replace('-dynamic', '')
-annotation = [{short_name: {
-    'name': pkg['name'],
-    'version': pkg['version'],
-    'backstage': pkg.get('backstage', {}),
-    'repository': pkg.get('repository', {}),
-    'license': pkg.get('license', 'Apache-2.0')
-}}]
-print(base64.b64encode(json.dumps(annotation).encode()).decode())
-")
-
-echo "  Annotation generated (${#ANNOTATION} chars)"
-```
-
-**Validation:** `ANNOTATION` must be non-empty. If empty, the `package.json` is malformed — check `backstage.features` field exists.
-
----
-
-## Step 4 — Build OCI Image
-
-```
-echo "================ Step 4 — Build OCI Image ==========="
-```
-
-```bash
-echo -e "Containerfile\n.dockerignore" > .dockerignore
-
-cat <<EOF > Containerfile
-FROM scratch
-COPY --chmod=755 . /${PLUGIN_SHORT}/
-EOF
-
-echo "  Building image: ghcr.io/${GHCR_USER}/rhdh-plugin-export-overlays/${PLUGIN_SHORT}:${TAG}"
-
-podman build --no-cache --platform linux/amd64 \
-  --annotation "io.backstage.dynamic-packages=${ANNOTATION}" \
-  -t ghcr.io/${GHCR_USER}/rhdh-plugin-export-overlays/${PLUGIN_SHORT}:${TAG} \
-  -f Containerfile .
-```
-
-**Validation:** Exit code 0 and output contains `Successfully tagged`.
-
----
-
-## Step 5 — Verify Image
-
-```
-echo "================ Step 5 — Verify Image ==========="
-```
-
-```bash
-podman inspect ghcr.io/${GHCR_USER}/rhdh-plugin-export-overlays/${PLUGIN_SHORT}:${TAG} | \
-  python3 -c "
-import json, sys, base64
-d = json.load(sys.stdin)
-ann = d[0].get('Annotations', {}).get('io.backstage.dynamic-packages', '')
-if not ann:
-    print(' [FAIL]  io.backstage.dynamic-packages annotation MISSING')
-    sys.exit(1)
-decoded = json.loads(base64.b64decode(ann))
-features = list(decoded[0].values())[0].get('backstage', {}).get('features', {})
-print(' [PASS]  Annotation present')
-print(f' [PASS]  Features: {json.dumps(features)}')
-"
-```
-
-**Hard gate:** If annotation is missing, STOP. Rebuild with `--no-cache`.
-
----
-
-## Step 6 — Push to GHCR
-
-```
-echo "================ Step 6 — Push to GHCR ==========="
+echo "================ Step 3 — Push to GHCR ==========="
 ```
 
 ```bash
@@ -284,13 +203,13 @@ echo ""
 
 ---
 
-## Step 7 — Deploy to Cluster
+## Step 4 — Deploy to Cluster
 
 ```
-echo "================ Step 7 — Deploy to Cluster ==========="
+echo "================ Step 4 — Deploy to Cluster ==========="
 ```
 
-### 7.1 — Ensure cluster login
+### 4.1 — Ensure cluster login
 
 ```bash
 if ! oc whoami &>/dev/null; then
@@ -302,7 +221,7 @@ fi
 echo " [PASS]  Cluster: $(oc whoami --show-server)"
 ```
 
-### 7.2 — Update ConfigMap
+### 4.2 — Update ConfigMap
 
 ```bash
 oc get configmap dynamic-plugins -n ${NAMESPACE} \
@@ -318,7 +237,7 @@ oc create configmap dynamic-plugins \
 echo "  ConfigMap updated"
 ```
 
-### 7.3 — Restart pod
+### 4.3 — Restart pod
 
 ```bash
 oc delete pod -n ${NAMESPACE} -l app.kubernetes.io/instance=redhat-developer-hub
@@ -327,10 +246,10 @@ echo "  Pod deleted, waiting for new pod..."
 
 ---
 
-## Step 8 — Validate Deployment
+## Step 5 — Validate Deployment
 
 ```
-echo "================ Step 8 — Validate Deployment ==========="
+echo "================ Step 5 — Validate Deployment ==========="
 ```
 
 ```bash
@@ -347,7 +266,7 @@ if echo "$INSTALL_LOG" | grep -q "Installed"; then
 else
   echo " [FAIL]  Plugin NOT found in init logs"
   echo "  Detail: ${INSTALL_LOG}"
-  echo "  Fix: Check OCI annotation and image structure"
+  echo "  Fix: Check OCI image structure — see references/oci-structure.md"
   exit 1
 fi
 
@@ -403,7 +322,6 @@ echo " [PASS]  Rolled back to official image"
 
 ## When NOT to Use
 
-- **Backend-only plugins** — this skill is for frontend dynamic plugins. Backend plugins follow a different OCI structure.
 - **Plugins already in the overlay CI** — if the plugin is already published via `rhdh-plugin-export-overlays` CI and you just need to bump a version, use the `overlay` skill instead.
 - **Local dev testing** — if you only need to test locally with `yarn start`, use `rhdh-local` skill or `packages: all` in `app-config.yaml`.
 - **Helm chart changes** — this skill deploys plugin OCI images, not Helm value changes.
@@ -416,6 +334,6 @@ echo " [PASS]  Rolled back to official image"
 
 | Reference | Load when... |
 |-----------|-------------|
-| `references/oci-structure.md` | When debugging image build or annotation issues |
+| `references/oci-structure.md` | When debugging image build, annotation issues, or `plugin package` failures |
 
 </reference_index>
