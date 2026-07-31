@@ -36,10 +36,18 @@ Always use `@red-hat-developer-hub/cli` for export and OCI packaging. The CLI ha
 - Dynamic plugin export (`plugin export` → creates `dist-dynamic/`)
 - OCI image creation with correct directory structure (`plugin package --tag`)
 - Automatic `io.backstage.dynamic-packages` annotation
-- Prints the `dynamic-plugins.yaml` entry to use on the cluster
 
 Do NOT manually create Containerfiles, generate annotations, or call `podman build` directly.
 Docs: https://docs.redhat.com/en/documentation/red_hat_developer_hub/1.9/html/installing_and_viewing_plugins_in_red_hat_developer_hub/assembly-third-party-plugins
+</principle>
+
+<principle name="oci_uri_format">
+The `dynamic-plugins.yaml` entry format is a plain OCI URI **without** any `!plugin-name` suffix:
+
+**Correct:** `oci://ghcr.io/user/repo/red-hat-developer-hub-backstage-plugin-quickstart:tag`
+**Wrong:**  `oci://ghcr.io/user/repo/backstage-plugin-quickstart:tag!red-hat-developer-hub-backstage-plugin-quickstart`
+
+The `plugin package` CLI may print an example with the `!` fragment selector — **ignore it**. The current RHDH format does not use this suffix. The image name in the OCI path must match the official overlay naming convention: `<scope>-<package-name>` (e.g., `@red-hat-developer-hub/backstage-plugin-quickstart` → `red-hat-developer-hub-backstage-plugin-quickstart`).
 </principle>
 
 </essential_principles>
@@ -113,14 +121,15 @@ Identify what to deploy. Gather from user or infer from current working director
 | `GHCR_USER` | From `gh api user -q .login` |
 
 Derive from plugin's `package.json`:
-- `PLUGIN_SHORT` — package name without scope and `-dynamic` suffix
+- `PLUGIN_SHORT` — full image name matching overlay convention: `@scope/name` → `scope-name` (with `-dynamic` suffix stripped)
 - `VERSION` — from `version` field
 - `TAG` — pattern: `bs_<backstage-version>__<plugin-version>-test`
 
 ```bash
 GHCR_USER=$(gh api user -q .login)
 cd workspaces/${WORKSPACE}/plugins/${PLUGIN}
-PLUGIN_SHORT=$(node -p "require('./package.json').name.replace(/@[^/]+\//, '').replace(/-dynamic$/, '')")
+# Convert scoped name to overlay image name: @red-hat-developer-hub/backstage-plugin-foo → red-hat-developer-hub-backstage-plugin-foo
+PLUGIN_SHORT=$(node -p "require('./package.json').name.replace('@','').replace('/','-').replace(/-dynamic$/, '')")
 VERSION=$(node -p "require('./package.json').version")
 BS_VERSION=$(node -p "require('./package.json').backstage?.supportedVersions || require('../../../backstage.json')?.version || 'unknown'")
 TAG="bs_${BS_VERSION}__${VERSION}-test"
@@ -192,13 +201,37 @@ podman push ghcr.io/${GHCR_USER}/rhdh-plugin-export-overlays/${PLUGIN_SHORT}:${T
  Docs: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry
 ```
 
-**After successful push:**
+**After successful push — ensure GHCR package is public:**
+
+GHCR packages default to **private** on first push. A private image will cause `skopeo inspect` / `unauthorized` errors when the cluster tries to pull it. Make the package public via the GitHub API:
+
+```bash
+echo "  Ensuring GHCR package is public..."
+gh api --method PATCH /user/packages/container/rhdh-plugin-export-overlays%2F${PLUGIN_SHORT} \
+  -f visibility=public 2>&1
+
+if [ $? -eq 0 ]; then
+  echo " [PASS]  GHCR package is public"
+else
+  echo " [FAIL]  Could not set package visibility to public"
+  echo " Fix: Go to https://github.com/users/${GHCR_USER}/packages/container/package/rhdh-plugin-export-overlays%2F${PLUGIN_SHORT}"
+  echo "       → Package settings → Change visibility → Public"
+  echo " Then retry the deploy step."
+  exit 1
+fi
 ```
-echo ""
-echo " [WARN]  If this is the FIRST push for this package, make it PUBLIC:"
-echo "         https://github.com/users/${GHCR_USER}/packages/container/package/rhdh-plugin-export-overlays%2F${PLUGIN_SHORT}"
-echo "         → Package settings → Change visibility → Public"
-echo ""
+
+**Validation:** Verify the image is publicly accessible before proceeding to deploy:
+
+```bash
+podman pull ghcr.io/${GHCR_USER}/rhdh-plugin-export-overlays/${PLUGIN_SHORT}:${TAG}
+if [ $? -eq 0 ]; then
+  echo " [PASS]  Image is publicly pullable"
+else
+  echo " [FAIL]  Image pull failed — package may still be private"
+  echo " Fix: https://github.com/users/${GHCR_USER}/packages/container/package/rhdh-plugin-export-overlays%2F${PLUGIN_SHORT}"
+  exit 1
+fi
 ```
 
 ---
