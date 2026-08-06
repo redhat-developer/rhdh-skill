@@ -12,7 +12,7 @@ compatibility: "acli on PATH. Python 3 + gog CLI for Google Sheets/Docs."
 <essential_principles>
 
 <principle name="use_cloud_id_for_team_queries">
-Use `"Team[Team]" = "{{CLOUD_ID}}"` in JQL to filter by team. Cloud IDs are in the RHDH Team Mapping spreadsheet (column "Cloud ID"). Use the `open_issues_by_team`, `feature_freeze_issues_by_team`, or `code_freeze_issues_by_team` JQL templates. This is fast and does not require `parse_issues.py --enrich`.
+Use `"Team[Team]" = "{{CLOUD_ID}}"` in JQL to filter by team. Cloud IDs are sourced from the Rich Filter JSON ("Scrum Team" smart filter) when available, or from the RHDH Team Mapping spreadsheet (column "Cloud ID") as fallback. Use the `open_issues_by_team`, `feature_freeze_issues_by_team`, or `code_freeze_issues_by_team` JQL templates. This is fast and does not require `parse_issues.py --enrich`.
 </principle>
 
 <principle name="include_jira_links">
@@ -47,6 +47,13 @@ For team coordination:
 Never read `.jira-token` into context. Always use shell substitution: `"$(cat "$TOKEN_FILE")"`.
 </principle>
 
+<principle name="rich_filter_source_of_truth">
+Use the configured Rich Filter export for its base operational scope, freeze filters,
+release-note queues, Scrum Team IDs, demo/Test Day labels, and ad hoc exported
+queries. Run `python scripts/release.py --json check` before release workflows;
+do not replace a missing required Rich Filter entry with copied JQL.
+</principle>
+
 </essential_principles>
 
 <intake>
@@ -68,7 +75,7 @@ What would you like to do?
 6. **Blocker bugs** — Open blocker bugs for a release
 7. **EPICs** — Engineering EPICs not yet complete
 8. **CVEs** — CVE/vulnerability list for a release
-9. **Release notes** — Outstanding release notes (missing Release Note Type)
+9. **Release notes** — Release-note lifecycle (unclassified, proposed, done, with text)
 
 ### Announcements
 
@@ -76,6 +83,11 @@ What would you like to do?
 11. **Feature Freeze announcement** — Generate Feature Freeze milestone announcement
 12. **Code Freeze update** — Generate Code Freeze status update for Slack
 13. **Code Freeze announcement** — Generate Code Freeze milestone announcement
+
+### Rich Filter Operations
+
+14. **Post Code Freeze** — Issues requiring attention after Code Freeze
+15. **Rich Filter catalog/query** — Inspect or run any exported filter, queue, time series, or custom-ratio query
 
 **Wait for response before proceeding.**
 
@@ -100,6 +112,8 @@ What would you like to do?
 | 11, "feature freeze announcement", "announce feature freeze", "feature freeze reached" | `python scripts/release.py --json slack feature-freeze VERSION` | `workflows/announce-feature-freeze.md` |
 | 12, "code freeze update", "code freeze status", "code freeze progress" | `python scripts/release.py --json slack code-freeze-update VERSION` | `workflows/announce-code-freeze-update.md` |
 | 13, "code freeze announcement", "announce code freeze", "code freeze reached" | `python scripts/release.py --json slack code-freeze VERSION` | `workflows/announce-code-freeze.md` |
+| 14, "post code freeze", "post-freeze", "after code freeze" | `python scripts/release.py --json post-freeze VERSION` | `workflows/post-code-freeze.md` |
+| 15, "rich filter", "filter catalog", "smart filter", "rich queue" | `python scripts/release.py --json rich-filter inventory` | `workflows/rich-filter-catalog.md` |
 
 </routing>
 
@@ -107,12 +121,14 @@ What would you like to do?
 
 | Reference | Purpose | Load when |
 |-----------|---------|-----------|
-| `references/jql-release.md` | 13 release-specific JQL templates | Any Jira query for release data |
+| `references/jql-release.md` | 20 release-specific templates (9 inline + 11 Rich Filter) | Any Jira query for release data |
+| `references/rich-filter-coverage.md` | Export coverage, mappings, and intentional exclusions | Auditing or extending Rich Filter integration |
 | `references/slack-templates.md` | 4 Slack announcement templates | Generating freeze announcements |
-| `references/config.md` | GDrive IDs, project keys, dashboards, gog setup | Looking up config values or links |
+| `references/config.md` | GDrive IDs, project keys, dashboards, Rich Filter config, gog setup | Looking up config values or links |
 | `gog docs cat 13OkypJ3u_7Jq6kEhKhjEFwHQ12oPFDKXVzFjYW4XLdk` | Release process (live Google Doc) | Release process questions, onboarding |
 | `../../rhdh-jira/references/auth.md` | Jira auth setup | Jira prerequisite fails |
 | `../../rhdh-jira/references/acli-commands.md` | acli command reference | Building acli commands |
+| `../../rhdh/references/private-data.md` | Private data repo setup (Rich Filter JSON) | Rich Filter not found or setup questions |
 
 </reference_index>
 

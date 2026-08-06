@@ -93,6 +93,37 @@ Reference of all RHDH-related repositories, what each one is used for, and how t
   - **Environment configuration:** `.env` file for secrets (Keycloak credentials, GitHub tokens). `config/` directory for app-config and dynamic plugin YAML.
 - **Key paths:** `deploy.sh` (main deployment script), `Makefile` (convenience targets), `helm/deploy.sh` (Helm-specific logic), `config/` (app-config and plugin configuration), `.env.example` (environment template)
 
+### rhdh-loadtest
+
+- **Upstream:** <https://github.com/redhat-developer/rhdh-loadtest>
+- **Description:** Container images, Helm charts, ArgoCD resources, and synthetic catalog entities for load testing RHDH at scale. Supports deployments with up to 200 dynamic frontend plugins and 50k catalog entities.
+- **Tech stack:** Helm, ArgoCD, Make, YAML, K6, OpenShift
+- **Key concepts:**
+  - **Synthetic catalog entities:** Pre-built YAML files for 10/100/1,000/10,000 components, groups, systems, APIs, and templates. Referenced via URL in `catalog.locations`.
+  - **Multi-version testing:** Available version targets: `rhdh-17`, `rhdh-18`, `rhdh-19`, `rhdh-110`, `rhdh-110-nfs`, `rhdh-next`.
+  - **Deployment modes:** Helm (`make install-all`) or ArgoCD (`oc apply -f argocd/`). Each version has its own Helm chart under `helm/`.
+  - **Load generator:** Containerized load generator under `load-generator/`.
+- **Key paths:** `catalog/` (synthetic entity YAML files), `helm/` (per-version Helm charts), `argocd/` (ArgoCD app definitions), `load-generator/` (load test runner)
+
+### rhdh-e2e-test-utils
+
+- **Upstream:** <https://github.com/redhat-developer/rhdh-e2e-test-utils>
+- **Description:** Shared test utilities library for RHDH end-to-end tests. Provides reusable helpers, fixtures, and page objects for Playwright-based E2E testing across RHDH repositories.
+- **Tech stack:** Node.js, TypeScript, Yarn 4, Playwright, Node built-in test runner (`node:test`)
+- **Key paths:** `src/` (source code), `docs/` (package and overlay testing documentation)
+
+### rhdh-must-gather
+
+- **Upstream:** <https://github.com/redhat-developer/rhdh-must-gather>
+- **Description:** Diagnostic data collection tool for RHDH deployments on Kubernetes and OpenShift. Collects RHDH-specific logs, configurations, and resources to help support teams troubleshoot issues. Published as `quay.io/rhdh-community/rhdh-must-gather`.
+- **Tech stack:** Bash, Podman/Docker, OpenShift CLI, Helm (Kubernetes mode)
+- **Key concepts:**
+  - **Multi-platform:** Works on both OpenShift (`oc adm must-gather`) and vanilla Kubernetes (via Helm chart from `rhdh-chart`).
+  - **Multi-deployment:** Supports both Helm and Operator-managed RHDH instances.
+  - **Focused collection:** Gathers only RHDH-specific data (logs, configs, resources), not full cluster state.
+  - **Heap dump support:** Optional heap dump collection with `--set gather.heapDump.enabled=true`.
+- **Key paths:** `collection-scripts/` (data gathering scripts), `docs/` (data-collected reference, disconnected environments, heap dumps)
+
 ### rhdh-plugin-export-overlays
 
 - **Upstream:** <https://github.com/redhat-developer/rhdh-plugin-export-overlays>
@@ -118,6 +149,16 @@ Reference of all RHDH-related repositories, what each one is used for, and how t
   - **`update-overlay` action:** Proposes overlay workspace PRs via GitHub API for auto-discovered plugin versions.
   - **Callable workflows:** `export-dynamic.yaml` (single-workspace pipeline), `export-workspaces-as-dynamic.yaml` (multi-workspace orchestrator), `update-plugins-repo-refs.yaml` (npm discovery), `check-backstage-compatibility.yaml` (compatibility report).
   - **Branching:** Single `main` branch only. All consumers reference actions at `@main`.
+
+### rhdh-plugin-export-backstage-backstage
+
+- **Upstream:** <https://github.com/redhat-developer/rhdh-plugin-export-backstage-backstage>
+- **Description:** Exports dynamic plugins directly from the upstream `backstage/backstage` repository for use in RHDH. A GitHub Actions workflow checks out a `backstage/backstage` release tag, exports specified plugins as dynamic plugin archives (`.tgz`), and publishes them as GitHub release assets.
+- **Tech stack:** GitHub Actions, Node.js, NPM packaging
+- **Key concepts:**
+  - **Release-aligned exports:** GitHub releases match `backstage/backstage` tags (e.g., `v1.23.4`). Each release contains `.tgz` plugin archives, `.tgz.integrity` SHA files, and optional `app-config.dynamic.yaml` for frontend wiring.
+  - **Plugin list:** `plugins-list.yaml` defines which plugins to export; skipped plugins are commented with explanations.
+- **Key paths:** `.github/workflows/export-dynamic.yaml` (export workflow), `plugins-list.yaml` (plugin list, on release branches)
 
 ### rhdh-plugin-catalog
 
@@ -146,6 +187,17 @@ Reference of all RHDH-related repositories, what each one is used for, and how t
   - **Branching:** `main` for active development; `1.2` for release maintenance; `changesets-release/<workspace>/main` for automated version PRs.
 - **Key paths:** `workspaces/` (all plugin workspaces), `scripts/ci/` (CI helper scripts), `.github/CODEOWNERS` (per-workspace ownership)
 
+### rhdh-plugin-certification
+
+- **Upstream:** <https://github.com/redhat-developer/rhdh-plugin-certification>
+- **Description:** Certification workflow for third-party plugins with RHDH. Partners submit a `package.yaml` via PR under `partner/<org>/<plugin>/<version>/`, and an automated CI/CD pipeline runs compatibility checks and smoke tests against RHDH.
+- **Tech stack:** GitHub Actions, YAML, Helm
+- **Key concepts:**
+  - **PR-based certification:** Partners fork the repo, add plugin metadata under `partner/`, and submit a PR to trigger the pipeline.
+  - **Automated validation:** CI runs RHDH compatibility checks and basic smoke tests.
+  - **Certified plugins list:** `certified-plugins.yaml` tracks all certified plugins.
+- **Key paths:** `certified-plugins.yaml` (certified plugin registry), `partner/` (partner submissions), `rhdh-helm-values.yaml` (test Helm values)
+
 ### rhdh-dynamic-plugin-factory
 
 - **Upstream:** <https://github.com/redhat-developer/rhdh-dynamic-plugin-factory>
@@ -155,6 +207,15 @@ Reference of all RHDH-related repositories, what each one is used for, and how t
   - **Container-based builds:** Run `podman run` or `docker run` with the factory image to build plugins in an isolated environment.
   - **Used by overlay workflows:** `rhdh-plugin-export-overlays` can use the factory container for local plugin builds.
 - **Key paths:** `Containerfile` (image definition)
+
+### rhdh-skill-private-data
+
+- **Upstream:** <https://gitlab.cee.redhat.com/rhidp/rhdh-skill-private-data>
+- **Description:** Jira Rich Filter exports and operational data used by RHDH skills. Contains exported Rich Filter JSON from the "RHIDP Operational" Jira Rich Filter managed by Matt Reid and Jasper Chui.
+- **Key concepts:**
+  - **Rich Filter exports:** JSON exports from Jira Rich Filters that define project-scoped queries, component exclusion lists, team Cloud ID mappings, and queue definitions. Used by the `rhdh-release` skill to source JQL queries at runtime instead of hardcoding them.
+  - **Discovery:** Located via `rhdh.config.get_repo("private-data")` — configure with `rhdh config set private-data /path`.
+- **Key paths:** `jira-rich-filter/rhidp-operational-rich-filter.json` (Rich Filter export)
 
 ### backstage
 
@@ -168,6 +229,86 @@ Reference of all RHDH-related repositories, what each one is used for, and how t
   - **Release cadence:** Monthly minor releases (`v1.X.0`), patch releases as needed. Individual packages have their own semver; `@backstage/release-manifests` maps package versions to Backstage releases.
   - **Branching:** `master` (not `main`) is the default branch. No long-lived release branches — releases are tags from `master`.
 - **Key paths:** `packages/` (core framework packages), `plugins/` (~155 plugin packages), `docs/` (documentation)
+
+### red-hat-developers-documentation-rhdh
+
+- **Upstream:** <https://github.com/redhat-developer/red-hat-developers-documentation-rhdh>
+- **Description:** Upstream source for RHDH product documentation published at [docs.redhat.com](https://docs.redhat.com/en/documentation/red_hat_developer_hub/). Syncs downstream to `gitlab.cee.redhat.com/red-hat-developers-documentation/rhdh`. All content is in AsciiDoc following Red Hat modular documentation guidelines.
+- **Tech stack:** AsciiDoc, Node.js (build tooling), Vale (style linting), Lychee (link checking), Podman (local builds)
+- **Key concepts:**
+  - **Modular docs:** Content follows Red Hat supplementary style guide and modular documentation reference.
+  - **Jira integration:** PRs require an associated Jira issue (RHDHBUGS, RHIDP, or RHDHPLAN projects).
+  - **Release notes:** Single-sourced from Jira, not maintained in this repo.
+- **Key paths:** `artifacts/` (shared attributes and snippets), `additional-capabilities/` (capability-specific docs)
+
+### rhdh-examples
+
+- **Upstream:** <https://github.com/redhat-developer/rhdh-examples>
+- **Description:** Reference code examples for RHDH product documentation. Contains sample plugins demonstrating catalog backend modules (GitHub org transformer, GitLab org transformer, Keycloak org transformer). For reference only — not maintained to work out of the box across releases.
+- **Key paths:** `plugins/` (example plugin implementations)
+
+### rhdh-techdocs-pipeline
+
+- **Upstream:** <https://github.com/redhat-developer/rhdh-techdocs-pipeline>
+- **Description:** GitHub Actions workflow that builds and publishes TechDocs documentation to an AWS S3 bucket for consumption by RHDH instances configured in external TechDocs builder mode.
+- **Tech stack:** GitHub Actions, MkDocs (techdocs-core, minify plugins), AWS S3
+- **Key concepts:**
+  - **External builder mode:** Docs are pre-built and uploaded to S3, not generated at runtime by Backstage.
+  - **Entity-linked docs:** Uses `backstage.io/techdocs-ref` annotation in `catalog-info.yaml` to link docs to catalog entities.
+- **Key paths:** `.github/workflows/generate-and-publish-techdocs.yaml` (build/publish workflow), `mkdocs.yaml` (MkDocs config), `catalog-info.yaml` (entity definition)
+
+### rhdh-static-content
+
+- **Upstream:** <https://github.com/redhat-developer/rhdh-static-content>
+- **Description:** Static content assets for Red Hat Developer Hub.
+
+### rhdh-adr
+
+- **Upstream:** <https://github.com/redhat-developer/rhdh-adr>
+- **Description:** Architecture Decision Records for RHDH projects. Central repository for cross-project architectural decisions. ADR lifecycle is driven by GitHub PR state: Open = Proposed, Merged = Accepted, Closed = Rejected.
+- **Key concepts:**
+  - **PR-based workflow:** Write ADR using template, open PR, announce in team channel with 1-week review window, merge when consensus reached.
+  - **AI-assisted drafting:** Includes Claude Code `/adr` skill guide (`ADR-AI-GUIDE.md`).
+  - **Existing decisions:** Flavor-based config, plugin catalog CRD, operator plugin config processing, OLMv1 adoption, CRD version management.
+- **Key paths:** `decisions/` (accepted ADRs), `ADR-TEMPLATE.md` (template), `ADR-GUIDE.md` (writing guide), `ADR-APPROVAL-GUIDELINES.md` (review process)
+
+### rhdh-workflows
+
+- **Upstream:** <https://github.com/redhat-developer/rhdh-workflows>
+- **Description:** Collection of reusable GitHub Actions workflows for consumption by other RHDH repositories. Shared CI/CD infrastructure for the RHDH ecosystem.
+- **Tech stack:** GitHub Actions, YAML
+
+### rhdh-fullsend
+
+- **Upstream:** <https://github.com/redhat-developer/rhdh-fullsend>
+- **Description:** Custom sandbox images, deployment documentation, and the `/fullsend` Claude Code skill for the RHDH team's agent infrastructure. Extends the upstream `fullsend-code` image with corepack and yarn for JavaScript monorepo support.
+- **Tech stack:** Docker/Podman, GitHub Actions, Claude Code skills
+- **Key concepts:**
+  - **Custom sandbox image:** `ghcr.io/redhat-developer/rhdh-fullsend-code:latest` adds `corepack enable` and pre-downloaded yarn binary to the upstream `fullsend-code` image.
+  - **`/fullsend` skill:** RHDH-specific Claude Code skill for validating configs, debugging sandboxes, and building custom agents.
+  - **Tags:** `latest` (production), `dev` (non-PR builds), `X.Y.Z` (immutable release), `<sha>` (debugging).
+- **Key paths:** `blueprints/` (infrastructure blueprints), `docs/` (GCP infrastructure, sandbox networking), `.claude/skills/fullsend/` (Claude Code skill)
+
+### rhdh-skill
+
+- **Upstream:** <https://github.com/redhat-developer/rhdh-skill>
+- **Description:** Claude Code skill pack for RHDH plugin development, overlay management, and local testing. Provides agent skills for the RHDH development team's daily workflows. Published via the [Agent Skills](https://agentskills.io) open standard.
+- **Tech stack:** Python (stdlib-only CLIs), Bash, Claude Code skills
+- **Key concepts:**
+  - **Orchestrator skill:** `rhdh` routes to specialized sub-skills (`overlay`, `rhdh-local`, `create-*`, `lifecycle`, `prow`, etc.).
+  - **Skills:** Overlay management, local dev environment, plugin lifecycle, Prow CI, PR review, Jira integration, base image maintenance.
+- **Key paths:** `skills/` (all skill definitions), `CONTEXT.md` (domain language), `docs/adr/` (architectural decisions)
+
+### rhdh-users-skill-pack
+
+- **Upstream:** <https://github.com/redhat-developer/rhdh-users-skill-pack>
+- **Description:** Agent Skills for adopting and using RHDH effectively. Aimed at RHDH end-users (vs `rhdh-skill` which targets the development team). Published via the [Agent Skills](https://agentskills.io) open standard.
+- **Tech stack:** Python (stdlib-only CLIs), Bash, Claude Code skills
+- **Key concepts:**
+  - **`rhdh-templates`:** Interactive authoring and validation for RHDH Software Templates — templatize existing repos, create from scratch, fix common gotchas, validate locally or against a running instance.
+  - **`rhdh-upgrade-helper`:** Upgrade assessment for RHDH — resolves OCI plugin references, validates tags, searches RHDHBUGS Jira for known bugs, filters breaking changes by config, computes a 0–100 Readiness Score.
+  - **`skill-maker`:** Create, audit, and consolidate Agent Skills following the open standard.
+- **Key paths:** `skills/rhdh-templates/` (template authoring skill), `skills/rhdh-upgrade-helper/` (upgrade assessment skill), `skills/skill-maker/` (skill creation tool)
 
 ## Ecosystem Relationships
 
@@ -183,20 +324,40 @@ rhdh (enterprise distribution, github.com)
     +-- rhdh-cli (plugin development tooling)
     +-- rhdh-plugins (Red Hat plugin collection)
     |
-    +-- rhdh-plugin-export-overlays (community plugin packaging & OCI publishing)
-    |       |
-    |       +-- uses rhdh-plugin-export-utils (reusable GitHub Actions)
-    |
-    +-- rhdh-plugin-catalog (midstream plugin builds, OCI artifacts & catalog index)
-    |       syncs from rhdh-plugin-export-overlays
+    +-- Plugin packaging & distribution:
+    |   +-- rhdh-plugin-export-overlays (community plugin packaging & OCI publishing)
+    |   |       uses rhdh-plugin-export-utils (reusable GitHub Actions)
+    |   +-- rhdh-plugin-export-backstage-backstage (upstream backstage plugin exports)
+    |   +-- rhdh-plugin-catalog (midstream plugin builds, OCI artifacts & catalog index)
+    |   |       syncs from rhdh-plugin-export-overlays
+    |   +-- rhdh-plugin-certification (third-party plugin certification)
+    |   +-- rhdh-dynamic-plugin-factory (container for local plugin building)
     |
     +-- Deployment:
     |   +-- rhdh-operator (Kubernetes/OpenShift operator)
     |   +-- rhdh-chart (Helm chart)
     |
-    +-- rhdh-local (local dev/test environment)
-    +-- rhdh-test-instance (automated test environment provisioning)
-    +-- rhdh-dynamic-plugin-factory (container for local plugin building)
+    +-- Testing & diagnostics:
+    |   +-- rhdh-local (local dev/test environment)
+    |   +-- rhdh-test-instance (automated test environment provisioning)
+    |   +-- rhdh-loadtest (load testing infrastructure & synthetic catalog entities)
+    |   +-- rhdh-e2e-test-utils (shared E2E test utilities)
+    |   +-- rhdh-must-gather (diagnostic data collection)
+    |
+    +-- Documentation:
+    |   +-- red-hat-developers-documentation-rhdh (product docs, docs.redhat.com)
+    |   +-- rhdh-examples (reference code for docs)
+    |   +-- rhdh-techdocs-pipeline (TechDocs build & publish to S3)
+    |   +-- rhdh-static-content (static content assets)
+    |   +-- rhdh-adr (architecture decision records)
+    |
+    +-- CI/CD & infrastructure:
+    |   +-- rhdh-workflows (reusable GitHub Actions workflows)
+    |   +-- rhdh-fullsend (agent sandbox images & /fullsend skill)
+    |
+    +-- Agent skills:
+        +-- rhdh-skill (dev team skills — overlay, lifecycle, prow, etc.)
+        +-- rhdh-users-skill-pack (user skills — templates, upgrade helper)
 ```
 
 ## Common Workflows
@@ -205,6 +366,11 @@ rhdh (enterprise distribution, github.com)
 - **Core RHDH changes:** Work in `rhdh`, reference `backstage` for upstream behavior
 - **Deployment/operator changes:** Work in `rhdh-operator` or `rhdh-chart`
 - **Plugin packaging:** Work in `rhdh-plugin-export-overlays` to add/update plugins as dynamic plugins; uses actions from `rhdh-plugin-export-utils`
+- **Plugin certification:** Partners submit to `rhdh-plugin-certification` for third-party plugin validation
 - **Midstream plugin builds:** Work in `rhdh-plugin-catalog` for Konflux pipeline management, catalog index updates, and OCI artifact publishing to Red Hat registries
 - **Base image maintenance:** Use the `base-images-and-rpms` skill (`--analyze` to scan, or full run with scripts from `rhdh-downstream` `build/scripts/`)
 - **CI/CD actions for plugins:** Work in `rhdh-plugin-export-utils` to modify the reusable GitHub Actions
+- **Load testing:** Use `rhdh-loadtest` for synthetic catalog entities and multi-version RHDH deployments
+- **Diagnostics:** Run `rhdh-must-gather` on OpenShift (`oc adm must-gather`) or Kubernetes (Helm chart) to collect RHDH-specific logs and configs
+- **Documentation:** Work in `red-hat-developers-documentation-rhdh` for product docs; use `rhdh-techdocs-pipeline` for TechDocs publishing
+- **Architecture decisions:** Propose ADRs in `rhdh-adr` via PR workflow

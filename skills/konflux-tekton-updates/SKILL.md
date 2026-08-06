@@ -2,9 +2,10 @@
 name: konflux-tekton-updates
 description: >-
   Bumps Konflux Tekton task digests with .tekton/updateDigests.sh --minor --no-push,
-  applies konflux-ci/build-definitions MIGRATION.md pipeline fixes, and regenerates
-  PipelineRuns. Use for rhdh-plugin-catalog, RHDH midstream (4-rhdh), Konflux task
-  minor bumps, prefetch-dependencies-oci-ta, build-image-index, or updateDigests.sh.
+  applies MIGRATION.md pipeline fixes from build-pipeline-tasks (and related repos),
+  and regenerates PipelineRuns. Use for rhdh-plugin-catalog, RHDH midstream (4-rhdh),
+  Konflux task minor bumps, prefetch-dependencies-oci-ta, build-image-index, or
+  updateDigests.sh.
 ---
 
 # Konflux Tekton updates
@@ -52,18 +53,20 @@ cd .tekton
 
 - Updates `tag@sha256` in `.tekton/*.yaml` and `.tekton-templates/*.yaml` (via `TEMPLATEPATH`).
 - On variant B, also updates `.tekton/build-pipeline-rhdh-*.yaml`.
-- Tag changes list `MIGRATION.md` URLs under `konflux-ci/build-definitions`.
+- Tag changes list `MIGRATION.md` URLs via `migrationDocURL` in `updateDigests.sh` (see [references/migration-urls.md](references/migration-urls.md)). Do not use deleted `build-definitions/task/<name>/<tag>/` paths.
+- If `updateDigests.sh` still hard-codes those 404 URLs, update it to use `migrationDocURL`, then re-run or rewrite printed links before opening a browser.
 - Digest-only (no tag bump): `./updateDigests.sh --no-push -q`
 
 Review `git diff` for `quay.io/konflux-ci/tekton-catalog/task-*` changes.
 
 ### 2. Apply migrations
 
-For each URL from `updateDigests.sh` (or from the diff):
+For each tag bump from `updateDigests.sh` (or from the diff):
 
-1. Read `MIGRATION.md`.
-2. Apply **only** documented user actions in templates and shared pipelines (see [references/rhdh-midstream.md](references/rhdh-midstream.md) for per-variant file list).
-3. Skip “no action required” sections.
+1. Resolve the live migration doc with [references/migration-urls.md](references/migration-urls.md) (example: [`buildah-oci-ta/MIGRATION.md`](https://github.com/konflux-ci/build-pipeline-tasks/blob/main/task/buildah-oci-ta/MIGRATION.md)).
+2. Fetch raw `MIGRATION.md` (and `CHANGELOG.md` / `migrations/*.sh` if needed).
+3. Apply **only** documented user actions in templates and shared pipelines (see [references/rhdh-midstream.md](references/rhdh-midstream.md) for per-variant file list).
+4. Skip “no action required” sections.
 
 If PLRs still contain removed params (e.g. `dev-package-managers`) but templates are fixed, migrations are incomplete until step 3.
 
@@ -81,6 +84,8 @@ cd .tekton
 | `rhdh-1-rhel-9` | `1` | `rhdh-hub-1-push.yaml` |
 | `rhdh-1.9-rhel-9` | `1.9` | `rhdh-hub-1-9-push.yaml` |
 | `rhdh-1.10-rhel-9` | `1.10` | `rhdh-hub-1-10-push.yaml` |
+
+On **main** / next midstream trees whose CEL already uses `target_branch == "main"`, after regen with `-t 2` (or similar), restore CEL/`on-push-for-*` to `main` if the generator rewrote them to `release-<version>`.
 
 - **Variant A:** also patch `rhdh-rag-content-<N>-{push,pull}.yaml` by hand (inline `pipelineSpec`, not generated).
 - **Variant B:** hub/operator PLRs regenerate from `rhdh-hub.yaml` / `rhdh-operator.yaml`; `build-pipeline-*.yaml` is edited directly, not by the generator.
@@ -101,9 +106,12 @@ Use live `MIGRATION.md` as source of truth. Common cases:
 | `build-image-index` 0.2→0.3 | Remove `COMMIT_SHA` / `IMAGE_EXPIRES_AFTER` from **build-image-index** task only; keep on buildah (`build-container`) and prefetch |
 | `init` 0.3→0.4 | No pipeline changes |
 | `init` 0.4.1→0.4.2 | Remove broken auto-added `sast-target-dirs` pipeline param if present |
+| `init` 0.4.2→0.4.3 | Add opt-in pipeline params `source-date-epoch`, `rewrite-timestamp`, `omit-history` and wire to buildah as `SOURCE_DATE_EPOCH` / `REWRITE_TIMESTAMP` / `OMIT_HISTORY` |
+| `show-sbom` / `summary` (deprecated) | Remove `show-sbom` / `show-summary` finally tasks (migration scripts delete them) |
 
 ## Anti-patterns
 
+- Opening or fetching `build-definitions/blob/main/task/<name>/<full-tag>/MIGRATION.md` (deleted; use [migration-urls.md](references/migration-urls.md)).
 - Pushing without `--no-push` / `--nopush` and human sign-off.
 - Leaving removed task params (`dev-package-managers`, `COMMIT_SHA` on `build-image-index`).
 - Skipping `generatePipelineRuns.sh` after fixing templates while PLRs still reference old params.

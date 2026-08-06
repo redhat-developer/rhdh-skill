@@ -30,18 +30,18 @@ acli jira workitem search --jql 'project IN (RHIDP, RHDHBugs, RHDHPLAN, RHDHSUPP
 
 ## Step 3 (fallback): Get feature demos count
 
-Use the `feature_demos` JQL from `references/jql-release.md`:
+Use the `feature_demos` template composed from the Rich Filter `demo` entry:
 
 ```bash
-acli jira workitem search --jql 'project in (RHDHPlan, RHIDP) AND issuetype = feature AND labels = demo AND fixVersion = "{{RELEASE_VERSION}}" AND status != closed' --count
+python scripts/release.py --json rich-filter query static demo --version "{{RELEASE_VERSION}}" --count
 ```
 
 ## Step 4 (fallback): Get test day features count
 
-Use the `test_day_features` JQL:
+Use the `test_day_features` template composed from the Rich Filter `Test Day` entry:
 
 ```bash
-acli jira workitem search --jql 'Project in (RHDHPlan, rhidp) AND issuetype = feature AND labels = rhdh-testday AND fixVersion = "{{RELEASE_VERSION}}" AND status != closed' --count
+python scripts/release.py --json rich-filter query static "Test Day" --version "{{RELEASE_VERSION}}" --count
 ```
 
 ## Step 5 (fallback): Get total open issues count

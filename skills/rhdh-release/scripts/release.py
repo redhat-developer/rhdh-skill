@@ -18,7 +18,7 @@ import re
 import shutil
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 _scripts_dir = Path(__file__).resolve().parent
@@ -26,6 +26,7 @@ if str(_scripts_dir) not in sys.path:
     sys.path.insert(0, str(_scripts_dir))
 
 import jql as jql_mod  # noqa: E402
+import rich_filter as rf_mod  # noqa: E402
 import slack_templates as slack_mod  # noqa: E402
 from formatters import OutputFormatter  # noqa: E402
 
@@ -189,6 +190,59 @@ def _parse_date(raw: str) -> str | None:
         except ValueError:
             continue
     return None
+
+
+_MILESTONE_LABELS = {
+    "feature_freeze": r"\bFeature Freeze\b",
+    "code_freeze": r"\bCode Freeze\b",
+    "doc_freeze": r"\bDocs? Freeze\b",
+    "go_no_go": r"\bGo/No Go\b",
+    "ga_announce": r"\bGA Announce\b",
+}
+
+
+def _adf_text(node: dict) -> str:
+    """Render the text and date values from an Atlassian Document Format node."""
+    if node.get("type") == "text":
+        return node.get("text", "")
+    if node.get("type") == "date":
+        try:
+            timestamp = int(node.get("attrs", {}).get("timestamp"))
+            return datetime.fromtimestamp(timestamp / 1000, timezone.utc).date().isoformat()
+        except (TypeError, ValueError, OverflowError):
+            return ""
+    return " ".join(filter(None, (_adf_text(child) for child in node.get("content", []))))
+
+
+def _adf_table_rows(node: dict) -> list[str]:
+    """Return rendered rows from an ADF document's tables."""
+    rows = []
+    if node.get("type") == "tableRow":
+        rows.append(" | ".join(_adf_text(cell).strip() for cell in node.get("content", [])))
+    for child in node.get("content", []):
+        rows.extend(_adf_table_rows(child))
+    return rows
+
+
+def _extract_milestone_dates(description: dict | str | None) -> dict[str, str]:
+    """Extract release milestone dates from ADF table rows or legacy plain text."""
+    dates = {key: "TBD" for key in _MILESTONE_LABELS}
+    if isinstance(description, dict):
+        lines = _adf_table_rows(description)
+    elif isinstance(description, str):
+        lines = description.splitlines()
+    else:
+        return dates
+
+    for line in lines:
+        parsed_date = re.search(r"\b\d{4}-\d{2}-\d{2}\b", line)
+        if not parsed_date:
+            continue
+        for key, label_pattern in _MILESTONE_LABELS.items():
+            if re.search(label_pattern, line, re.IGNORECASE):
+                dates[key] = parsed_date.group(0)
+                break
+    return dates
 
 
 def _row_date(cells: list[str]) -> str | None:
@@ -382,11 +436,24 @@ def _acli_view_json(issue_key: str) -> dict:
 
 
 def _fetch_teams(category: str | None = None) -> list[dict]:
-    """Fetch team mapping from Google Sheets via gog."""
+    """Fetch team metadata and overlay Rich Filter Cloud IDs when available."""
     rows = _gog_sheets_get(TEAM_SHEET_ID, "Team")
     if not rows:
         raise RuntimeError("Team sheet is empty")
-    return _parse_teams(rows, category_filter=category)
+    teams = _parse_teams(rows, category_filter=category)
+
+    rich_filter_teams = rf_mod.scrum_teams() or []
+    cloud_ids = {
+        _normalize_team_name(team.get("name", "")): team.get("cloud_id", "")
+        for team in rich_filter_teams
+        if team.get("cloud_id")
+    }
+    for team in teams:
+        cloud_id = cloud_ids.get(_normalize_team_name(team["team_name"]))
+        if cloud_id:
+            team["cloud_id"] = cloud_id
+
+    return teams
 
 
 # ---------------------------------------------------------------------------
@@ -394,8 +461,19 @@ def _fetch_teams(category: str | None = None) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
+def _init_rich_filter() -> Path | None:
+    """Attempt to locate and configure the Rich Filter JSON.
+
+    Returns the path if found, None otherwise.
+    """
+    rf_path = rf_mod.discover()
+    if rf_path:
+        jql_mod.set_rich_filter_path(rf_path)
+    return rf_path
+
+
 def cmd_check(_args: argparse.Namespace, fmt: OutputFormatter) -> None:
-    """Verify prerequisites: acli, .jira-token, gog, gog-auth."""
+    """Verify prerequisites: acli, .jira-token, gog, gog-auth, rich-filter."""
     checks = []
 
     acli_path = shutil.which("acli")
@@ -406,12 +484,12 @@ def cmd_check(_args: argparse.Namespace, fmt: OutputFormatter) -> None:
             "message": acli_path or "not found on PATH",
         }
     )
-
     token_file = Path.home() / ".jira-token"
     checks.append(
         {
             "name": ".jira-token",
             "status": "pass" if token_file.exists() else "warn",
+            "optional": True,
             "message": str(token_file)
             if token_file.exists()
             else "missing (optional — acli may authenticate via other methods)",
@@ -462,8 +540,36 @@ def cmd_check(_args: argparse.Namespace, fmt: OutputFormatter) -> None:
             }
         )
 
-    all_pass = all(c["status"] == "pass" for c in checks)
+    rf_path = rf_mod.discover()
+    checks.append(
+        {
+            "name": "rich-filter",
+            "status": "pass" if rf_path else "warn",
+            "message": str(rf_path)
+            if rf_path
+            else "not found (required for data-driven release JQL)",
+        }
+    )
+    if rf_path:
+        validation_errors = rf_mod.validate(rf_path)
+        checks.append(
+            {
+                "name": "rich-filter-contract",
+                "status": "fail" if validation_errors else "pass",
+                "message": "; ".join(validation_errors)
+                if validation_errors
+                else "all required filters and queues are available",
+            }
+        )
+
+    all_pass = all(
+        c["status"] == "pass" or (c["status"] == "warn" and c.get("optional", False))
+        for c in checks
+    )
     has_fail = any(c["status"] == "fail" for c in checks)
+    has_actionable_warning = any(
+        c["status"] == "warn" and not c.get("optional", False) for c in checks
+    )
 
     for c in checks:
         if c["status"] == "pass":
@@ -476,7 +582,7 @@ def cmd_check(_args: argparse.Namespace, fmt: OutputFormatter) -> None:
     next_steps = []
     if has_fail:
         next_steps.append("Fix failing checks before running other commands")
-    if not all_pass:
+    if has_actionable_warning:
         next_steps.append("See: references/config.md for setup instructions")
 
     fmt.success({"checks": checks, "all_pass": all_pass}, next_steps=next_steps or None)
@@ -496,17 +602,8 @@ def cmd_dates(_args: argparse.Namespace, fmt: OutputFormatter) -> None:
         summary = issue.get("fields", {}).get("summary", "")
 
         detail = _acli_view_json(key)
-        desc = ""
         desc_field = detail.get("fields", {}).get("description", {})
-        if isinstance(desc_field, dict):
-            desc = json.dumps(desc_field)
-        elif isinstance(desc_field, str):
-            desc = desc_field
-
-        dates = {}
-        for label in ["Feature Freeze", "Code Freeze", "Doc Freeze", "Go/No Go", "GA Announce"]:
-            m = re.search(rf"{re.escape(label)}[:\s]*(\d{{4}}-\d{{2}}-\d{{2}})", desc)
-            dates[label.lower().replace(" ", "_").replace("/", "_")] = m.group(1) if m else "TBD"
+        dates = _extract_milestone_dates(desc_field)
 
         version_m = re.search(r"(\d+\.\d+(?:\.\d+)?)", summary)
         if not version_m:
@@ -694,7 +791,23 @@ def cmd_epics(args: argparse.Namespace, fmt: OutputFormatter) -> None:
     """List outstanding Engineering EPICs for a release."""
     version = args.version
     jql, url = jql_mod.render_with_url("epics", version=version)
-    issues = _acli_json_enriched(jql, select="key,summary,status,assignee")
+    result = _run(["acli", "jira", "workitem", "search", "--jql", jql, "--limit", "1000", "--json"])
+    raw_issues = json.loads(result.stdout)
+    issues = []
+    for raw_issue in raw_issues:
+        fields = raw_issue.get("fields", {})
+        status = fields.get("status") or {}
+        assignee = fields.get("assignee") or {}
+        issues.append(
+            {
+                "key": raw_issue.get("key", ""),
+                "summary": fields.get("summary", ""),
+                "status": status.get("name", "") if isinstance(status, dict) else str(status),
+                "assignee": assignee.get("displayName", "Unassigned")
+                if isinstance(assignee, dict)
+                else str(assignee),
+            }
+        )
     count = len(issues)
 
     fmt.header(f"RHDH {version} — Outstanding EPICs")
@@ -739,25 +852,73 @@ def cmd_cves(args: argparse.Namespace, fmt: OutputFormatter) -> None:
 
 
 def cmd_notes(args: argparse.Namespace, fmt: OutputFormatter) -> None:
-    """Count issues missing Release Note Type."""
+    """Report release-note lifecycle counts."""
     version = args.version
-    jql, url = jql_mod.render_with_url("release_notes", version=version)
-    count = _acli_count(jql, fmt)
+    lifecycle_templates = {
+        "unclassified": "release_notes",
+        "proposed": "release_notes_proposed",
+        "done": "release_notes_done",
+        "with_text": "release_notes_with_text",
+    }
+    lifecycle = {}
+    for stage, template_name in lifecycle_templates.items():
+        jql, url = jql_mod.render_with_url(template_name, version=version)
+        lifecycle[stage] = {"count": _acli_count(jql, fmt), "jira_url": url}
 
     dashboard_url = "https://issues.redhat.com/secure/Dashboard.jspa?selectPageId=12382090"
 
     fmt.header(f"RHDH {version} — Release Notes")
-    fmt.log_info(f"Outstanding: {count} issues missing Release Note Type")
+    for stage, data in lifecycle.items():
+        fmt.log_info(f"{stage.replace('_', ' ').title()}: {data['count']}")
     fmt.log_info(f"Dashboard: {dashboard_url}")
 
     fmt.success(
         {
             "version": version,
-            "outstanding_count": count,
-            "jira_url": url,
+            "outstanding_count": lifecycle["unclassified"]["count"],
+            "jira_url": lifecycle["unclassified"]["jira_url"],
+            "lifecycle": lifecycle,
             "dashboard_url": dashboard_url,
         }
     )
+
+
+def cmd_post_freeze(args: argparse.Namespace, fmt: OutputFormatter) -> None:
+    """Count release-scoped work matching the Post Code Freeze filter."""
+    version = args.version
+    jql, url = jql_mod.render_with_url("post_code_freeze_issues", version=version)
+    count = _acli_count(jql, fmt)
+    fmt.header(f"RHDH {version} — Post Code Freeze")
+    fmt.log_info(f"Issues requiring post-freeze attention: {count}")
+    fmt.success({"version": version, "count": count, "jira_url": url})
+
+
+def cmd_rich_filter_inventory(_args: argparse.Namespace, fmt: OutputFormatter) -> None:
+    """List all query-bearing entries and presentation metadata."""
+    data = rf_mod.inventory()
+    if data is None:
+        raise RuntimeError("Rich Filter export not found")
+    fmt.header(data.get("name", "Rich Filter"))
+    fmt.success(data)
+
+
+def cmd_rich_filter_query(args: argparse.Namespace, fmt: OutputFormatter) -> None:
+    """Compose any exported Rich Filter query with optional release scope."""
+    fragment = rf_mod.fragment(args.kind, args.name, group=args.group)
+    jql = jql_mod.compose_fragment(fragment, version=args.version)
+    url = jql_mod.jira_url(jql)
+    data = {
+        "kind": args.kind,
+        "group": args.group,
+        "name": args.name,
+        "version": args.version,
+        "jql": jql,
+        "jira_url": url,
+    }
+    if args.count:
+        data["count"] = _acli_count(jql, fmt)
+    fmt.header(f"Rich Filter {args.kind}: {args.name}")
+    fmt.success(data)
 
 
 # ---------------------------------------------------------------------------
@@ -776,10 +937,8 @@ def _get_freeze_date(version: str, date_key: str) -> str:
         if version in summary:
             detail = _acli_view_json(issue["key"])
             desc_field = detail.get("fields", {}).get("description", {})
-            desc = json.dumps(desc_field) if isinstance(desc_field, dict) else str(desc_field or "")
-            m = re.search(rf"{re.escape(date_key)}[:\s]*(\d{{4}}-\d{{2}}-\d{{2}})", desc)
-            if m:
-                return m.group(1)
+            key = date_key.lower().replace(" ", "_").replace("/", "_")
+            return _extract_milestone_dates(desc_field).get(key, "TBD")
     return "TBD"
 
 
@@ -1036,6 +1195,29 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("notes", help="Missing release notes count")
     p.add_argument("version", help="Release version (e.g. 1.9.0)")
 
+    p = sub.add_parser("post-freeze", help="Post Code Freeze issue count")
+    p.add_argument("version", help="Release version (e.g. 1.9.0)")
+
+    rich_filter_parser = sub.add_parser("rich-filter", help="Rich Filter catalog and queries")
+    rich_filter_sub = rich_filter_parser.add_subparsers(dest="rich_filter_command")
+    rich_filter_sub.add_parser("inventory", help="List all exported filter data")
+    p = rich_filter_sub.add_parser("query", help="Compose any exported query")
+    p.add_argument(
+        "kind",
+        choices=[
+            "static",
+            "smart",
+            "queue",
+            "time-series",
+            "ratio-numerator",
+            "ratio-denominator",
+        ],
+    )
+    p.add_argument("name", help="Exported entry name")
+    p.add_argument("--group", help="Smart filter group name (required for kind=smart)")
+    p.add_argument("--version", help="Optional release version scope")
+    p.add_argument("--count", action="store_true", help="Run the composed query with acli")
+
     slack_parser = sub.add_parser("slack", help="Slack announcement templates")
     slack_sub = slack_parser.add_subparsers(dest="slack_command")
 
@@ -1065,6 +1247,7 @@ COMMANDS = {
     "epics": cmd_epics,
     "cves": cmd_cves,
     "notes": cmd_notes,
+    "post-freeze": cmd_post_freeze,
 }
 
 SLACK_COMMANDS = {
@@ -1072,6 +1255,11 @@ SLACK_COMMANDS = {
     "feature-freeze": cmd_slack_feature_freeze,
     "code-freeze-update": cmd_slack_code_freeze_update,
     "code-freeze": cmd_slack_code_freeze,
+}
+
+RICH_FILTER_COMMANDS = {
+    "inventory": cmd_rich_filter_inventory,
+    "query": cmd_rich_filter_query,
 }
 
 
@@ -1099,6 +1287,14 @@ def main(argv: list[str] | None = None) -> None:
             )
             sys.exit(1)
         handler = SLACK_COMMANDS.get(args.slack_command)
+    elif args.command == "rich-filter":
+        if not args.rich_filter_command:
+            fmt.error(
+                "MISSING_SUBCOMMAND",
+                "rich-filter requires a subcommand: " + ", ".join(sorted(RICH_FILTER_COMMANDS)),
+            )
+            sys.exit(1)
+        handler = RICH_FILTER_COMMANDS.get(args.rich_filter_command)
     else:
         handler = COMMANDS.get(args.command)
 
@@ -1107,6 +1303,7 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(1)
 
     try:
+        _init_rich_filter()
         handler(args, fmt)
     except subprocess.CalledProcessError as e:
         fmt.error(
@@ -1117,6 +1314,16 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(1)
     except RuntimeError as e:
         fmt.error("RUNTIME_ERROR", str(e), next_steps=["Run: python scripts/release.py check"])
+        sys.exit(1)
+    except (KeyError, ValueError) as e:
+        fmt.error(
+            "CONFIGURATION_ERROR",
+            str(e),
+            next_steps=[
+                "Run: python scripts/release.py check",
+                "See: references/config.md",
+            ],
+        )
         sys.exit(1)
 
 

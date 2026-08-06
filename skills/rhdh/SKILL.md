@@ -123,16 +123,22 @@ What would you like to do?
 
 9. **Review Test Plan content** — Reviews an RHDH test plan Jira ticket and suggests platform/integration version updates based on support lifecycle pages and RHDH release milestones
 
+### Testing Strategy Tasks
+
+*For deciding where a test belongs in the RHDH ecosystem*
+
+10. **Test placement** — Propose the right repo, test layer, location, and scaffolding for a change
+
 ### Release Management Tasks
 
 *For RHDH release tracking, status, announcements*
 
-10. **Release management** — Release dates, status, team breakdown, freeze announcements, blocker bugs, CVEs, release notes
+11. **Release management** — Release dates, status, team breakdown, freeze announcements, blocker bugs, CVEs, release notes
 
 ### General Tasks
 
-11. **Check environment** — Run doctor, configure paths
-12. **View/search activity** — Review worklog, todos
+12. **Check environment** — Run doctor, configure paths
+13. **View/search activity** — Review worklog, todos
 
 **Wait for response before proceeding.**
 </intake>
@@ -186,11 +192,19 @@ What would you like to do?
 
 **To route:** Read `../rhdh-test-plan-review/SKILL.md` and follow its intake process.
 
+### Test Placement Routes
+
+| Response | Skill |
+|----------|-------|
+| 10, "where should I test", "test placement", "does this need a cluster", "which repo does this test belong in", "should this be an e2e test", "test layer" | Route to `test-placement` skill |
+
+**To route:** Read `../test-placement/SKILL.md` and follow its instructions.
+
 ### Release Management Routes
 
 | Response | Skill |
 |----------|-------|
-| 10, "release", "release manager", "release dates", "release status", "feature freeze", "code freeze", "blocker bugs", "CVEs", "release notes", "team breakdown", "freeze announcement" | Route to `@rhdh-release` skill |
+| 11, "release", "release manager", "release dates", "release status", "feature freeze", "code freeze", "blocker bugs", "CVEs", "release notes", "team breakdown", "freeze announcement" | Route to `@rhdh-release` skill |
 
 **To route:** Read `../rhdh-release/SKILL.md` and follow its intake process.
 
@@ -206,8 +220,8 @@ What would you like to do?
 
 | Response | Action |
 |----------|--------|
-| 11, "doctor", "setup", "config" | Use CLI commands below |
-| 12, "log", "todo", "activity" | Use tracking commands below |
+| 12, "doctor", "setup", "config" | Use CLI commands below |
+| 13, "log", "todo", "activity" | Use tracking commands below |
 
 </routing>
 
@@ -239,7 +253,8 @@ $RHDH config set cli /path         # Set rhdh-cli location
 $RHDH config set plugins /path     # Set rhdh-plugins location
 $RHDH config set operator /path    # Set rhdh-operator location
 $RHDH config set chart /path       # Set rhdh-chart location
-$RHDH config set catalog /path     # Set rhdh-plugin-catalog location
+$RHDH config set catalog /path       # Set rhdh-plugin-catalog location
+$RHDH config set private-data /path  # Set rhdh-skill-private-data location
 ```
 
 **Workspace operations:**
@@ -334,6 +349,7 @@ Todos must be **self-contained**—a new session should understand the task with
 **GitHub CLI (PRs, CI, workflows):** references/github-reference.md
 **Version Matrix:** references/versions.md — RHDH/Backstage version compatibility, create-app versions
 **Slack Notifications:** references/slack-notification.md — Slack ping templates, handle mapping, channel routing
+**Private Data:** references/private-data.md — private data repo setup and sync (Rich Filter exports)
 </reference_index>
 
 <skills_index>
@@ -347,6 +363,7 @@ Todos must be **self-contained**—a new session should understand the task with
 | rhdh-local | Enable/disable/test plugins in local RHDH | `../rhdh-local/SKILL.md` |
 | rhdh-pr-review | PR code review and live cluster testing | `../rhdh-pr-review/SKILL.md` |
 | rhdh-test-plan-review | Reviews an RHDH test plan Jira ticket and suggests platform/integration version updates | `../rhdh-test-plan-review/SKILL.md` |
+| test-placement | Propose where to test a change: repo, test layer, location, and scaffolding | `../test-placement/SKILL.md` |
 | rhdh-release | Release dates, status tracking, team coordination, freeze announcements, blocker bugs, CVEs, release notes | `../rhdh-release/SKILL.md` |
 
 ### Shared References

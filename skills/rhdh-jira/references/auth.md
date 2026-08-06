@@ -1,10 +1,36 @@
 # Authentication and Token Setup
 
-Shared authentication for REST API and GraphQL calls. Both use the same `.jira-token` file with basic auth.
+There are **two separate auth mechanisms** — they use the same API token but store it independently:
+
+| Mechanism | Used by | Stored in |
+|-----------|---------|-----------|
+| **acli credential store** | `acli` CLI commands | `~/.config/acli/jira_config.yaml` (managed by `acli jira auth login`) |
+| **`.jira-token` file** | REST API and GraphQL fallback (curl) | Next to the `acli` binary |
+
+Both must be configured. When a token expires, **both** must be updated.
 
 **Never read the `.jira-token` file into context.** Pass it to `curl -u` via shell substitution.
 
-## Token File
+## acli Authentication
+
+Authenticate acli using an API token (not OAuth):
+
+```bash
+# Generate a token at https://id.atlassian.com/manage-profile/security/api-tokens
+# Then feed it to acli:
+echo 'YOUR_API_TOKEN' | acli jira auth login --site redhat.atlassian.net --email your-email@example.com --token
+```
+
+If `.jira-token` is already set up, re-auth acli from it (email is extracted from the token file):
+
+```bash
+JIRA_EMAIL=$(cut -d: -f1 ~/.local/bin/.jira-token)
+cut -d: -f2 ~/.local/bin/.jira-token | acli jira auth login --site redhat.atlassian.net --email "$JIRA_EMAIL" --token
+```
+
+Smoke test: `acli jira project list --recent 1`
+
+## .jira-token File (REST/GraphQL)
 
 The `.jira-token` file lives next to the `acli` executable (same directory). Format is a single line:
 
@@ -68,7 +94,8 @@ The `ORG_ID` is visible in the Atlassian admin URL: `https://admin.atlassian.com
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
+| `acli` says unauthorized but `curl -u` works | acli has its own credential store, separate from `.jira-token` | Re-auth acli: `JIRA_EMAIL=$(cut -d: -f1 ~/.local/bin/.jira-token); cut -d: -f2 ~/.local/bin/.jira-token \| acli jira auth login --site redhat.atlassian.net --email "$JIRA_EMAIL" --token` |
 | 401 on REST/GraphQL calls | `.jira-token` is bare token without email prefix | Format must be `email:token` |
-| 401 after token was working | API token expired or revoked | User must regenerate at Atlassian account settings |
+| 401 after token was working | API token expired or revoked | Regenerate at [Atlassian API tokens](https://id.atlassian.com/manage-profile/security/api-tokens), update **both** `.jira-token` and acli (`auth login --token`) |
 | `acli auth status` says unauthorized | False negative — `auth status` checks OAuth, not API tokens | Ignore. Use `acli jira project list --recent 1` as smoke test |
 | `.jira-token` not found | File is next to symlink, not the real binary | `setup.py` uses `resolve()` to follow symlinks — place file next to real binary |

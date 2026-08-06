@@ -67,12 +67,8 @@ project IN (RHIDP, rhdhbugs) AND fixVersion = "{{RELEASE_VERSION}}" and issuetyp
 
 Find features tagged for demonstration.
 
-```jql
-project in (RHDHPlan, RHIDP) AND issuetype = feature AND labels = demo AND fixVersion = "{{RELEASE_VERSION}}" AND status != closed
-```
-
+- **Source:** Rich Filter — "demo" static filter
 - **Placeholders:** `{{RELEASE_VERSION}}`
-- **Example:** `... AND labels = demo AND fixVersion = "1.9.0" AND status != closed`
 - **Notes:** Features that need demo preparation.
 
 ## feature_subtasks
@@ -91,12 +87,8 @@ project in (RHDHPlan) AND issuetype = sub-task AND fixVersion = "{{RELEASE_VERSI
 
 Find features designated for Test Day.
 
-```jql
-Project in (RHDHPlan, rhidp) AND issuetype = feature AND labels = rhdh-testday AND fixVersion = "{{RELEASE_VERSION}}" AND status != closed
-```
-
+- **Source:** Rich Filter — "Test Day" static filter
 - **Placeholders:** `{{RELEASE_VERSION}}`
-- **Example:** `... AND labels = rhdh-testday AND fixVersion = "1.9.0" AND status != closed`
 - **Notes:** Features ready for Test Day validation.
 
 ## features_added_to_release
@@ -115,13 +107,30 @@ project in (RHDHPlan, rhidp) AND issuetype = feature AND fixVersion = "{{RELEASE
 
 Find issues missing Release Note Type field.
 
-```jql
-project in (RHIDP, "Red Hat Developer Hub Bugs", "RHDH Support", rhdhplan) and issuetype in (Feature, bug) and ("Release Note Type" not in ("Release Note Not Required") or "release note type" is empty) and ("Release Note Status" not in ("In Progress", Proposed, Done) or "Release Note Text[Paragraph]" is empty or "Release Note Type[Dropdown]" is empty) and summary !~ "CVE-*" and (resolution not in (obsolete, duplicate, "Won't Do") or resolution is empty) and fixVersion = "{{RELEASE_VERSION}}"
-```
-
+- **Source:** Rich Filter — "RNs Unclassified" rich queue
 - **Placeholders:** `{{RELEASE_VERSION}}`
-- **Example:** `... AND "Release Note Type" is EMPTY and fixVersion = "1.9.0"`
 - **Notes:** Critical for documentation — must be filled before release.
+
+## release_notes_proposed
+
+Find issues with proposed or in-progress release notes and non-empty text.
+
+- **Source:** Rich Filter — "RNs Proposed" rich queue
+- **Placeholders:** `{{RELEASE_VERSION}}`
+
+## release_notes_done
+
+Find issues with completed release notes and non-empty text.
+
+- **Source:** Rich Filter — "RNs Done" rich queue
+- **Placeholders:** `{{RELEASE_VERSION}}`
+
+## release_notes_with_text
+
+Find release-scoped issues that have release-note text.
+
+- **Source:** Rich Filter — "Has RN Text" rich queue
+- **Placeholders:** `{{RELEASE_VERSION}}`
 
 ## blockers
 
@@ -139,23 +148,24 @@ project IN (RHIDP, RHDHBugs, RHDHPLAN, RHDHSUPP) AND fixVersion = "{{RELEASE_VER
 
 Find feature work outstanding at Feature Freeze.
 
-```jql
-project IN (RHIDP, RHDHBugs, RHDHPLAN, RHDHSUPP) AND fixVersion = "{{RELEASE_VERSION}}" and resolution is EMPTY AND component not in ("AEM Migration", AI, "AI Demo", Conference, Build, Certification, "Continuous Improvement", Documentation, JTBD, Knowledge, Performance, Quality, Quickstart, Release, "RHDH Local", "RHDH Plugin Repo", Security, "Security Tooling", Segment, Serviceability, Support, "Team Operations", "Test Framework", "Test Infrastructure", "Upstream & Community", UX) AND Type not in (Bug, Vulnerability, sub-task) AND status not in ("Dev Complete", "Release Pending", Done, Closed) AND (labels is EMPTY OR labels != stretch-goal)
-```
-
+- **Source:** Rich Filter — "Feature Freeze" static filter
 - **Placeholders:** `{{RELEASE_VERSION}}`
-- **Notes:** Excludes infrastructure/ops components and bugs. Use for Feature Freeze announcements. The component exclusion list filters out non-feature work that shouldn't block Feature Freeze.
+- **Notes:** Excludes infrastructure/ops components and bugs. Use for Feature Freeze announcements.
 
 ## code_freeze_issues
 
 Find all issues outstanding at Code Freeze.
 
-```jql
-project IN (RHIDP, RHDHBugs, RHDHPLAN, RHDHSUPP) AND fixVersion = "{{RELEASE_VERSION}}" and issuetype in (bug, Story, task, Vulnerability) AND status not in ("Release Pending", Closed) AND component not in ("AEM Migration", AI, "AI Demo", Conference, Documentation, JTBD, Knowledge, Performance, Release, "RHDH Plugin Repo", Security, "Security Tooling", Support, "Team Operations", "Upstream & Community") OR issuetype in (feature) AND status not in ("Release Pending", Closed) AND component not in ("AEM Migration", AI, "AI Demo", Conference, Documentation, JTBD, Knowledge, Performance, Release, "RHDH Plugin Repo", Security, "Security Tooling", Support, "Team Operations", "Upstream & Community") OR issuetype in (epic) AND status not in ("Dev Complete", "Release Pending", Closed) AND component not in ("AEM Migration", AI, "AI Demo", Conference, Documentation, JTBD, Knowledge, Performance, Release, "RHDH Plugin Repo", Security, "Security Tooling", Support, "Team Operations", "Upstream & Community")
-```
-
+- **Source:** Rich Filter — "Code Freeze" static filter
 - **Placeholders:** `{{RELEASE_VERSION}}`
-- **Notes:** All open work. Same as `open_issues` — used for Code Freeze announcements.
+- **Notes:** All open work scoped to the release. Use for Code Freeze announcements.
+
+## post_code_freeze_issues
+
+Find release-scoped work requiring attention after Code Freeze.
+
+- **Source:** Rich Filter — "Post Code Freeze" static filter
+- **Placeholders:** `{{RELEASE_VERSION}}`
 
 ## open_issues_by_team
 
@@ -173,20 +183,14 @@ project IN (RHIDP, RHDHBugs, RHDHPLAN, RHDHSUPP) AND fixVersion = "{{RELEASE_VER
 
 Find feature work outstanding at Feature Freeze filtered by team.
 
-```jql
-project IN (RHIDP, RHDHBugs, RHDHPLAN, RHDHSUPP) AND fixVersion = "{{RELEASE_VERSION}}" and resolution is EMPTY AND component not in ("AEM Migration", AI, "AI Demo", Conference, Build, Certification, "Continuous Improvement", Documentation, JTBD, Knowledge, Performance, Quality, Quickstart, Release, "RHDH Local", "RHDH Plugin Repo", Security, "Security Tooling", Segment, Serviceability, Support, "Team Operations", "Test Framework", "Test Infrastructure", "Upstream & Community", UX) AND Type not in (Bug, Vulnerability, sub-task) AND status not in ("Dev Complete", "Release Pending", Done, Closed) AND (labels is EMPTY OR labels != stretch-goal) AND "Team[Team]" = "{{CLOUD_ID}}"
-```
-
+- **Source:** Rich Filter — "Feature Freeze" static filter + Cloud ID
 - **Placeholders:** `{{RELEASE_VERSION}}`, `{{CLOUD_ID}}`
-- **Notes:** Same as `code_freeze_issues` but scoped to a single team by Cloud ID.
+- **Notes:** Same as `feature_freeze_issues` but scoped to a single team by Cloud ID.
 
 ## code_freeze_issues_by_team
 
 Find all issues outstanding at Code Freeze filtered by team.
 
-```jql
-project IN (RHIDP, RHDHBugs, RHDHPLAN, RHDHSUPP) AND fixVersion = "{{RELEASE_VERSION}}" and issuetype in (bug, Story, task, Vulnerability) AND status not in ("Release Pending", Closed) AND component not in ("AEM Migration", AI, "AI Demo", Conference, Documentation, JTBD, Knowledge, Performance, Release, "RHDH Plugin Repo", Security, "Security Tooling", Support, "Team Operations", "Upstream & Community") OR issuetype in (feature) AND status not in ("Release Pending", Closed) AND component not in ("AEM Migration", AI, "AI Demo", Conference, Documentation, JTBD, Knowledge, Performance, Release, "RHDH Plugin Repo", Security, "Security Tooling", Support, "Team Operations", "Upstream & Community") OR issuetype in (epic) AND status not in ("Dev Complete", "Release Pending", Closed) AND component not in ("AEM Migration", AI, "AI Demo", Conference, Documentation, JTBD, Knowledge, Performance, Release, "RHDH Plugin Repo", Security, "Security Tooling", Support, "Team Operations", "Upstream & Community") AND "Team[Team]" = "{{CLOUD_ID}}"
-```
-
+- **Source:** Rich Filter — "Code Freeze" static filter + Cloud ID
 - **Placeholders:** `{{RELEASE_VERSION}}`, `{{CLOUD_ID}}`
 - **Notes:** Same as `code_freeze_issues` but scoped to a single team by Cloud ID.

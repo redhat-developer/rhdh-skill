@@ -109,6 +109,14 @@ SUBMODULE_REPOS: dict[str, dict] = {
         "description": "Upstream Backstage framework",
         "upstream_org": "backstage",
     },
+    "rhdh-skill-private-data": {
+        "has_fork": False,
+        "required": False,
+        "config_key": "private-data",
+        "description": "Jira Rich Filter exports and operational data for RHDH skills",
+        "upstream_host": "gitlab.cee.redhat.com",
+        "upstream_path": "rhidp/rhdh-skill-private-data",
+    },
 }
 
 # GitHub organization for upstream repos

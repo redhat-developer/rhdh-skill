@@ -94,7 +94,9 @@ options:
 
 ## JQL template parsing
 
-Verify that jql.py parses all 13 templates from `references/jql-release.md` and renders them with placeholders.
+Verify that jql.py parses 9 inline templates from `references/jql-release.md`.
+When the Rich Filter is configured, eleven runtime templates are added for a
+total of 20.
 
 ```python3
 import sys; sys.path.insert(0, 'scripts')
@@ -107,19 +109,17 @@ for name in templates:
 ```
 
 ```output
-Templates loaded: 13
+Templates loaded: 11
   active_release
   blockers
-  code_freeze_issues
   cves
   epics
   feature_demos
-  feature_freeze_issues
   feature_subtasks
   features_added_to_release
   open_issues
+  open_issues_by_team
   open_issues_by_type
-  release_notes
   test_day_features
 ```
 
@@ -199,7 +199,7 @@ uv run pytest ../../tests/unit/test_release_cli.py --tb=short -q 2>&1
 
 ## Workflow CLI integration
 
-Verify all 13 workflows have been updated with CLI-first Step 1.
+Verify all 15 workflows have CLI-first instructions.
 
 ```bash
 total=$(ls workflows/*.md | wc -l | tr -d ' '); with_cli=$(grep -l 'Step 1: Run CLI' workflows/*.md | wc -l | tr -d ' '); echo "Workflows with CLI step: $with_cli/$total"

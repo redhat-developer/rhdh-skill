@@ -1,9 +1,44 @@
 """Tests for SKILL.md structure and content validation."""
 
 import re
+from pathlib import Path
 
 import pytest
 import yaml
+
+SKILLS_ROOT = Path(__file__).resolve().parents[2] / "skills"
+ALL_SKILL_MD_FILES = sorted(SKILLS_ROOT.glob("*/SKILL.md"))
+
+
+class TestAllSkillsFrontmatter:
+    """Every skills/*/SKILL.md must have frontmatter valid per the Agent Skills spec."""
+
+    @pytest.fixture(params=ALL_SKILL_MD_FILES, ids=lambda p: p.parent.name)
+    def skill_file(self, request):
+        """Each SKILL.md file in the skills directory."""
+        return request.param
+
+    @pytest.fixture
+    def frontmatter(self, skill_file):
+        """Parse YAML frontmatter from the skill file."""
+        content = skill_file.read_text(encoding="utf-8")
+        match = re.match(r"^---\n(.*?)\n---", content, re.DOTALL)
+        if not match:
+            pytest.fail(f"{skill_file} missing YAML frontmatter")
+        return yaml.safe_load(match.group(1))
+
+    def test_skills_discovered(self):
+        """The glob must find the skills (guards against a moved skills/ dir)."""
+        assert len(ALL_SKILL_MD_FILES) >= 1
+
+    def test_name_matches_directory(self, skill_file, frontmatter):
+        """Frontmatter name must match the skill's directory name."""
+        assert frontmatter.get("name") == skill_file.parent.name
+
+    def test_description_within_spec_limits(self, frontmatter):
+        """Description must be meaningful and within the spec's 1024-char limit."""
+        description = frontmatter.get("description") or ""
+        assert 20 < len(description) <= 1024
 
 
 class TestOrchestratorSkillMd:
@@ -277,6 +312,7 @@ class TestReferenceStructure:
             "jira-reference.md",
             "jira-structure.md",
             "github-tips.md",
+            "private-data.md",
             "rhdh-repos.md",
             "versions.md",
         }

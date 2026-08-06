@@ -19,7 +19,7 @@ Read `skills/rhdh-release/SKILL.md` and verify:
 - [ ] YAML frontmatter has `name: rhdh-release`
 - [ ] YAML frontmatter has `description` (length > 20 chars)
 - [ ] Contains `<essential_principles>` ... `</essential_principles>`
-- [ ] Contains `<intake>` ... `</intake>` with numbered options 1–13
+- [ ] Contains `<intake>` ... `</intake>` with numbered options 1–15
 - [ ] Contains `<routing>` ... `</routing>` with a markdown table
 - [ ] Contains `<reference_index>` ... `</reference_index>`
 - [ ] Contains `<prerequisites>` ... `</prerequisites>`
@@ -44,13 +44,13 @@ List any files missing required sections.
 
 ### 4. Workflow count
 
-- [ ] Exactly 13 workflow files exist in `skills/rhdh-release/workflows/`
+- [ ] Exactly 15 workflow files exist in `skills/rhdh-release/workflows/`
 
 ### 5. JQL template coverage
 
 Read `skills/rhdh-release/references/jql-release.md`. Extract all `## <query_name>` headings.
 
-- [ ] Exactly 13 query templates exist
+- [ ] Exactly 20 query template sections exist (9 with inline JQL, 11 sourced from Rich Filter at runtime)
 
 Then grep all workflow files for references to each query name. Verify:
 
@@ -78,6 +78,7 @@ Verify all local files listed in `<reference_index>` exist:
 - [ ] `references/jql-release.md`
 - [ ] `references/slack-templates.md`
 - [ ] `references/config.md`
+- [ ] `references/rich-filter-coverage.md`
 
 Note: The release process reference uses `gog docs cat` (live Google Doc) — no local file to check.
 
@@ -95,7 +96,7 @@ Read `skills/rhdh-release/references/config.md`:
 
 - [ ] `scripts/formatters.py` exists and is a regular file (not a symlink)
 - [ ] No symlinks remain in `scripts/` (`find scripts/ -type l` returns empty)
-- [ ] Exactly 4 Python scripts: `release.py`, `formatters.py`, `jql.py`, `slack_templates.py`
+- [ ] Exactly 5 Python scripts: `release.py`, `formatters.py`, `jql.py`, `rich_filter.py`, `slack_templates.py`
 
 ### 10. Release CLI existence
 
@@ -118,7 +119,7 @@ Structural Checks — rhdh-release
  1. SKILL.md structure:          PASS/FAIL (details)
  2. Routing → workflow:          PASS/FAIL (details)
  3. Workflow file structure:     PASS/FAIL (details)
- 4. Workflow count:              PASS/FAIL (N/13)
+ 4. Workflow count:              PASS/FAIL (N/15)
  5. JQL template coverage:       PASS/FAIL (details)
  6. Slack template coverage:     PASS/FAIL (details)
  7. Reference file existence:    PASS/FAIL (details)

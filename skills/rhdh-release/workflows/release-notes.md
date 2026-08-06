@@ -1,6 +1,6 @@
-# Workflow: Retrieve Outstanding Release Notes
+# Workflow: Review Release Note Lifecycle
 
-Compile features and bugs missing Release Note Type field.
+Report unclassified, proposed, done, and populated release-note work.
 
 <prerequisites>
 
@@ -18,27 +18,16 @@ Compile features and bugs missing Release Note Type field.
 python scripts/release.py --json notes {{RELEASE_VERSION}}
 ```
 
-If the CLI succeeds, use its output directly. If it fails, follow the manual steps below.
+Use the CLI output directly. If it reports that `release_notes` is unavailable,
+run `python scripts/release.py --json check`, configure the Rich Filter as shown
+in `references/config.md`, and retry. Do not substitute a hardcoded query: the
+Rich Filter is the source of truth for release-note classification.
 
-## Step 2 (fallback): Count issues missing Release Note Type
+Also include the Release Notes Dashboard returned by the CLI.
 
-Use the `release_notes` JQL from `references/jql-release.md`:
-
-```bash
-acli jira workitem search --jql 'project in (RHIDP, "Red Hat Developer Hub Bugs", "RHDH Support", rhdhplan) and issuetype in (Feature, bug) and "Release Note Type" is EMPTY and fixVersion = "{{RELEASE_VERSION}}"' --count
-```
-
-## Step 3 (fallback): Get details (if needed)
-
-```bash
-acli jira workitem search --jql 'project in (RHIDP, "Red Hat Developer Hub Bugs", "RHDH Support", rhdhplan) and issuetype in (Feature, bug) and "Release Note Type" is EMPTY and fixVersion = "{{RELEASE_VERSION}}"' --limit 500 --json | python ~/.claude/skills/rhdh-jira/scripts/parse_issues.py --enrich -s key,summary,status,issuetype
-```
-
-## Step 4 (fallback): Format output
-
-**{{COUNT}} issues missing Release Note Type** — [View in Jira](https://issues.redhat.com/issues/?jql=...)
-
-Also link to the [Release Notes Dashboard](https://issues.redhat.com/secure/Dashboard.jspa?selectPageId=12382090) for full details.
+The lifecycle keys map to `release_notes`, `release_notes_proposed`,
+`release_notes_done`, and `release_notes_with_text` in
+`references/jql-release.md`.
 
 </process>
 
@@ -51,8 +40,8 @@ Also link to the [Release Notes Dashboard](https://issues.redhat.com/secure/Dash
 
 <success_criteria>
 
-- [ ] Count of issues missing Release Note Type
-- [ ] Jira search link to the outstanding items
+- [ ] Counts for unclassified, proposed, done, and issues with release-note text
+- [ ] Jira search link for every lifecycle stage
 - [ ] Link to Release Notes Dashboard
 
 </success_criteria>

@@ -61,7 +61,7 @@ Manage plugins in the [rhdh-plugin-export-overlays](https://github.com/redhat-de
 
 Update Konflux task digests and apply `MIGRATION.md` pipeline changes in [rhdh-plugin-catalog](https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog) or [rhdh](https://gitlab.cee.redhat.com/rhidp/rhdh) midstream.
 
-- **[konflux-tekton-updates](./skills/konflux-tekton-updates/SKILL.md)** — Run `.tekton/updateDigests.sh --minor --no-push`, apply [build-definitions](https://github.com/konflux-ci/build-definitions) task migrations, update shared pipelines/templates and PLR generators. Repo-specific file lists: [plugin-catalog](./skills/konflux-tekton-updates/references/plugin-catalog.md), [RHDH midstream](./skills/konflux-tekton-updates/references/rhdh-midstream.md).
+- **[konflux-tekton-updates](./skills/konflux-tekton-updates/SKILL.md)** — Run `.tekton/updateDigests.sh --minor --no-push`, apply task migrations from [build-pipeline-tasks](https://github.com/konflux-ci/build-pipeline-tasks) (and related repos; see [migration-urls](./skills/konflux-tekton-updates/references/migration-urls.md)), update shared pipelines/templates and PLR generators. Repo-specific file lists: [plugin-catalog](./skills/konflux-tekton-updates/references/plugin-catalog.md), [RHDH midstream](./skills/konflux-tekton-updates/references/rhdh-midstream.md).
 
 ```bash
 npx skills add redhat-developer/rhdh-skill --skill konflux-tekton-updates
@@ -111,6 +111,18 @@ Track work across the four RHDH Jira projects.
   - **[to-issue](./skills/rhdh-jira/references/to-issue.md)** — Create a Story, Task, Bug, or Spike with automatic type inference. Grills on implementation details and story points.
   - **[update-jira-status](./skills/rhdh-jira/references/update-jira-status.md)** — Update an issue with session progress. Detects the related issue, adds a status comment, proposes transitions, and checks upward cascade to parent Epic/Feature.
 
+### PR Workflow
+
+Automate the full PR lifecycle — build, changeset, commit, push, and create — for plugin monorepos.
+
+- **[raise-pr](./skills/raise-pr/SKILL.md)** — Full PR workflow for `rhdh-plugins` and `community-plugins`: detect workspace from staged changes, run build/validation, generate changesets, commit with sign-off, push, and create the GitHub PR. Auto-detects which repo you're in. Supports `--a` auto-approve mode to skip all approval gates. Accepts an optional Jira key or URL to link the PR — adds Web Link, comment, and transitions the issue to Review.
+
+### Bug Fix
+
+Reproduce, diagnose, fix, and PR RHDH plugin bugs from Jira tickets with automated Playwright-based before/after screen recordings.
+
+- **[bug-fix](./skills/bug-fix/SKILL.md)** — End-to-end bug fix workflow: fetch Jira issue, map component to workspace, write Playwright reproduction test with video recording, diagnose root cause, apply fix, verify, and create PR with before/after recordings embedded. Chains into `raise-pr` for the full PR lifecycle including post-PR Jira updates.
+
 ### PR Review
 
 - **[rhdh-pr-review](./skills/rhdh-pr-review/SKILL.md)** — PR code review with inline comments (GitHub, GitLab planned) and live cluster testing for rhdh-operator PRs. Layered architecture: fetch → analyze → post.
@@ -121,13 +133,13 @@ Track work across the four RHDH Jira projects.
 
 ### Backport
 
-Automate or semi-automate backporting changes to RHDH release branches.
+Automate or semi-automate backporting changes to RHDH release branches. Uses `release-x.y/{plugin}` branches directly — supports concurrent backports without conflicts.
 
-- **[backport-auto](./skills/backport-auto/SKILL.md)** — Fully automated end-to-end backport workflow. Detects plugin, resets workspace, cherry-picks with AI conflict resolution, creates and merges PRs, handles Version Packages, updates overlays, and creates changelog PR. Zero intervention required.
+- **[backport-auto](./skills/backport-auto/SKILL.md)** — Fully automated end-to-end backport workflow. Detects plugin, cherry-picks with AI conflict resolution, creates and merges PRs, handles Version Packages, updates overlays, and creates changelog PR. Zero intervention required.
 
-- **[backport-create](./skills/backport-create/SKILL.md)** — Semi-manual workflow for controlled backports. Creates backport PRs and stops for user review. You manually review and merge PRs, then run `backport-finish` to complete. Use when you need control over PR review and merging.
+- **[backport-create](./skills/backport-create/SKILL.md)** — Semi-manual workflow for controlled backports. Creates backport PR and stops for user review. You manually review and merge, then run `backport-finish` to complete.
 
-- **[backport-finish](./skills/backport-finish/SKILL.md)** — Completes the backport workflow after manual PR merges. Handles Version Packages detection/merge, release branch sync, overlays update, and changelog PR. Use after `backport-create` and manual PR merges.
+- **[backport-finish](./skills/backport-finish/SKILL.md)** — Completes the backport workflow after manual PR merge. Handles Version Packages detection/merge, overlays update, and changelog PR.
 
 ```bash
 # Full automation
@@ -135,9 +147,15 @@ Automate or semi-automate backporting changes to RHDH release branches.
 
 # Step-by-step with control
 /backport-create 1.10 3456
-# ... manually review and merge PRs ...
+# ... manually review and merge PR ...
 /backport-finish 1.10 3456
 ```
+
+### Test Placement
+
+Decide where a test belongs across the RHDH ecosystem — which repo, which layer, and how to scaffold it.
+
+- **[test-placement](./skills/test-placement/SKILL.md)** — Given a change, bug, or feature, proposes the right repo (`rhdh-plugins` / `rhdh-plugin-export-overlays` / `rhdh`), the right test layer (L1 unit → L4b cluster e2e), the location, and scaffolding steps. Guiding rule: the cheapest environment that catches the bug wins. Encodes the RHIDP-13501 responsibility split and researched dead-ends so devs don't burn time on them.
 
 ### Orchestration
 
@@ -205,7 +223,7 @@ npx skills add redhat-developer/rhdh-skill -a claude-code
 ### Update
 
 ```bash
-npx skills update rhdh-skill
+npx skills add -g redhat-developer/rhdh-skill -y
 ```
 
 ### Local Checkout (development)
