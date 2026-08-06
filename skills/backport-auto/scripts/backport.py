@@ -12,6 +12,7 @@ Usage:
     python scripts/backport.py 1.10 3456 --mode finish
     python scripts/backport.py 1.10 3456 --continue-from /tmp/backport-state-3456.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -37,6 +38,7 @@ EXIT_CONFLICT = 2
 # Logging
 # ---------------------------------------------------------------------------
 
+
 def log(msg: str) -> None:
     print(msg, file=sys.stderr)
 
@@ -54,22 +56,26 @@ def die(msg: str, code: int = EXIT_FAILURE) -> None:
 # Git state helpers — save/restore branch and stash
 # ---------------------------------------------------------------------------
 
+
 def save_git_state() -> tuple[str, bool]:
     result = subprocess.run(
         ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     original_branch = result.stdout.strip()
     if original_branch == "HEAD":
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         original_branch = result.stdout.strip()
 
     status = subprocess.run(
         ["git", "status", "--porcelain"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     had_changes = bool(status.stdout.strip())
 
@@ -77,7 +83,8 @@ def save_git_state() -> tuple[str, bool]:
         log("  Stashing local changes before backport...")
         subprocess.run(
             ["git", "stash", "push", "-u", "-m", "backport-auto: pre-backport stash"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
 
     return original_branch, had_changes
@@ -87,19 +94,22 @@ def restore_git_state(original_branch: str, had_changes: bool) -> None:
     log(f"\n  Restoring original branch: {original_branch}")
     subprocess.run(
         ["git", "checkout", original_branch],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if had_changes:
         log("  Restoring stashed changes...")
         subprocess.run(
             ["git", "stash", "pop"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
 
 
 # ---------------------------------------------------------------------------
 # Subprocess helpers
 # ---------------------------------------------------------------------------
+
 
 def run_gh(
     args: list[str],
@@ -110,7 +120,10 @@ def run_gh(
     cmd = ["gh"] + args
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout,
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
         )
     except FileNotFoundError:
         die("gh CLI not found. Install from https://cli.github.com/")
@@ -143,7 +156,11 @@ def run_git(
     cmd = ["git"] + args
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd,
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=cwd,
         )
     except FileNotFoundError:
         die("git not found.")
@@ -157,6 +174,7 @@ def run_git(
 # ---------------------------------------------------------------------------
 # State
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class BackportState:
@@ -210,6 +228,7 @@ class BackportState:
 # Argument parsing
 # ---------------------------------------------------------------------------
 
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="RHDH plugin backport automation.",
@@ -233,7 +252,9 @@ Examples:
     parser.add_argument("--repo", default=DEFAULT_REPO)
     parser.add_argument("--overlays-repo", default=DEFAULT_OVERLAYS_REPO)
     parser.add_argument(
-        "--auto-approve", action="store_true", help="Skip confirmation prompts",
+        "--auto-approve",
+        action="store_true",
+        help="Skip confirmation prompts",
     )
     parser.add_argument(
         "--continue-from",
@@ -242,10 +263,15 @@ Examples:
         help="Resume after conflict resolution",
     )
     parser.add_argument(
-        "--force", action="store_true", help="Skip already-backported check",
+        "--force",
+        action="store_true",
+        help="Skip already-backported check",
     )
     parser.add_argument(
-        "--json", action="store_true", dest="json_output", help="JSON output",
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="JSON output",
     )
     return parser.parse_args(argv)
 
@@ -253,6 +279,7 @@ Examples:
 # ---------------------------------------------------------------------------
 # PR source parsing
 # ---------------------------------------------------------------------------
+
 
 def parse_pr_source(pr_source: str) -> tuple[int | None, str | None]:
     if re.fullmatch(r"\d+", pr_source):
@@ -265,16 +292,14 @@ def parse_pr_source(pr_source: str) -> tuple[int | None, str | None]:
         return int(m.group(1)), None
     if re.fullmatch(r"[a-f0-9]{7,40}", pr_source):
         return None, pr_source
-    die(
-        f"Invalid PR source: {pr_source}\n"
-        "Expected: PR number, URL, #N, or commit SHA"
-    )
+    die(f"Invalid PR source: {pr_source}\nExpected: PR number, URL, #N, or commit SHA")
     return None, None
 
 
 # ---------------------------------------------------------------------------
 # Step 1 — Fetch PR details
 # ---------------------------------------------------------------------------
+
 
 def step1_fetch_pr(state: BackportState) -> None:
     log_step(1, "Parse arguments and fetch PR details")
@@ -286,11 +311,18 @@ def step1_fetch_pr(state: BackportState) -> None:
         log(f"Looking up PR for commit {state.commit_sha}...")
         result = run_gh_json(
             [
-                "pr", "list", "--repo", state.repo,
-                "--search", state.commit_sha,
-                "--state", "merged",
-                "--json", "number",
-                "--jq", ".[0].number",
+                "pr",
+                "list",
+                "--repo",
+                state.repo,
+                "--search",
+                state.commit_sha,
+                "--state",
+                "merged",
+                "--json",
+                "number",
+                "--jq",
+                ".[0].number",
             ],
             check=False,
         )
@@ -301,11 +333,17 @@ def step1_fetch_pr(state: BackportState) -> None:
             die(f"Could not find merged PR for commit {state.commit_sha}")
 
     log(f"Fetching PR #{state.pr_num}...")
-    pr_data = run_gh_json([
-        "pr", "view", str(state.pr_num),
-        "--repo", state.repo,
-        "--json", "files,mergeCommit,title,url,state,baseRefName",
-    ])
+    pr_data = run_gh_json(
+        [
+            "pr",
+            "view",
+            str(state.pr_num),
+            "--repo",
+            state.repo,
+            "--json",
+            "files,mergeCommit,title,url,state,baseRefName",
+        ]
+    )
     if not pr_data:
         die(f"PR #{state.pr_num} not found")
 
@@ -329,6 +367,7 @@ def step1_fetch_pr(state: BackportState) -> None:
 # Step 2 — Detect plugin
 # ---------------------------------------------------------------------------
 
+
 def step2_detect_plugin(state: BackportState) -> None:
     log_step(2, "Auto-detect plugin from PR files")
 
@@ -340,8 +379,7 @@ def step2_detect_plugin(state: BackportState) -> None:
 
     if not plugins:
         die(
-            f"No workspace files found in PR #{state.pr_num}.\n"
-            f"Files: {', '.join(state.files[:10])}"
+            f"No workspace files found in PR #{state.pr_num}.\nFiles: {', '.join(state.files[:10])}"
         )
 
     if len(plugins) > 1:
@@ -363,7 +401,9 @@ def step2_detect_plugin(state: BackportState) -> None:
         check=False,
     )
     if not result.stdout.strip():
-        log(f"  Release branch '{state.release_branch}' does not exist — creating from latest tag...")
+        log(
+            f"  Release branch '{state.release_branch}' does not exist — creating from latest tag..."
+        )
         run_git(["fetch", "upstream", "--tags"])
         tag_result = run_git(
             ["tag", "-l", "@redhat-developer/*@*", "--sort=-v:refname"],
@@ -391,6 +431,7 @@ def step2_detect_plugin(state: BackportState) -> None:
 # Step 3 — Check if already backported
 # ---------------------------------------------------------------------------
 
+
 def step3_check_backported(state: BackportState, *, force: bool = False) -> None:
     log_step(3, "Check if already backported")
 
@@ -404,7 +445,9 @@ def step3_check_backported(state: BackportState, *, force: bool = False) -> None
 
     if f"upstream/{state.release_branch}" in branches:
         if force:
-            log(f"  Warning: {state.commit_sha[:10]} already in {state.release_branch} (--force, continuing)")
+            log(
+                f"  Warning: {state.commit_sha[:10]} already in {state.release_branch} (--force, continuing)"
+            )
         else:
             log(f"  Commit {state.commit_sha[:10]} already exists in {state.release_branch}")
             log("  Nothing to backport. Use --force to override.")
@@ -417,6 +460,7 @@ def step3_check_backported(state: BackportState, *, force: bool = False) -> None
 # ---------------------------------------------------------------------------
 # Step 4 — Cherry-pick
 # ---------------------------------------------------------------------------
+
 
 def step4_cherry_pick(state: BackportState) -> None:
     log_step(4, "Create local branch and cherry-pick")
@@ -434,12 +478,11 @@ def step4_cherry_pick(state: BackportState) -> None:
             ["diff", "--name-only", "--diff-filter=U"],
             check=False,
         )
-        state.conflict_files = [
-            f for f in conflict_result.stdout.strip().split("\n") if f
-        ]
+        state.conflict_files = [f for f in conflict_result.stdout.strip().split("\n") if f]
 
         state_path = os.path.join(
-            tempfile.gettempdir(), f"backport-state-{state.pr_num}.json",
+            tempfile.gettempdir(),
+            f"backport-state-{state.pr_num}.json",
         )
         state.save(state_path)
 
@@ -450,8 +493,10 @@ def step4_cherry_pick(state: BackportState) -> None:
         log("")
         log("Resolve conflicts, then re-run with:")
         log("  git add . && git cherry-pick --continue")
-        log(f"  python scripts/backport.py {state.release} {state.pr_num} "
-            f"--continue-from {state_path}")
+        log(
+            f"  python scripts/backport.py {state.release} {state.pr_num} "
+            f"--continue-from {state_path}"
+        )
 
         sys.exit(EXIT_CONFLICT)
 
@@ -472,10 +517,7 @@ def step4_continue(state: BackportState) -> None:
         check=False,
     )
     if result.stdout.strip():
-        die(
-            "Conflict markers still present in:\n"
-            + result.stdout.strip()
-        )
+        die("Conflict markers still present in:\n" + result.stdout.strip())
 
     log("  No conflict markers found — resuming")
 
@@ -483,6 +525,7 @@ def step4_continue(state: BackportState) -> None:
 # ---------------------------------------------------------------------------
 # Step 5 — Push to fork
 # ---------------------------------------------------------------------------
+
 
 def step5_push_to_fork(state: BackportState) -> None:
     log_step(5, "Push backport branch to fork")
@@ -498,16 +541,24 @@ def step5_push_to_fork(state: BackportState) -> None:
 # Step 6 — Create PR #1 (fork → release branch)
 # ---------------------------------------------------------------------------
 
+
 def step6_create_pr1(state: BackportState, *, merge: bool = True) -> None:
     log_step(6, "Create PR #1 (backport → release)")
 
-    existing = run_gh_json([
-        "pr", "list",
-        "--repo", state.repo,
-        "--base", state.release_branch,
-        "--state", "open",
-        "--json", "number,headRefName",
-    ])
+    existing = run_gh_json(
+        [
+            "pr",
+            "list",
+            "--repo",
+            state.repo,
+            "--base",
+            state.release_branch,
+            "--state",
+            "open",
+            "--json",
+            "number,headRefName",
+        ]
+    )
     if existing:
         for pr in existing:
             if pr.get("headRefName") == state.backport_branch:
@@ -525,14 +576,22 @@ def step6_create_pr1(state: BackportState, *, merge: bool = True) -> None:
             "---\nAuto-generated by backport skill."
         )
 
-        create_result = run_gh([
-            "pr", "create",
-            "--repo", state.repo,
-            "--base", state.release_branch,
-            "--head", f"{state.fork_owner}:{state.backport_branch}",
-            "--title", f"backport: #{state.pr_num} to release-{state.release}",
-            "--body", body,
-        ])
+        create_result = run_gh(
+            [
+                "pr",
+                "create",
+                "--repo",
+                state.repo,
+                "--base",
+                state.release_branch,
+                "--head",
+                f"{state.fork_owner}:{state.backport_branch}",
+                "--title",
+                f"backport: #{state.pr_num} to release-{state.release}",
+                "--body",
+                body,
+            ]
+        )
 
         pr_url_match = re.search(r"/pull/(\d+)", create_result.stdout)
         if not pr_url_match:
@@ -553,6 +612,7 @@ def step6_create_pr1(state: BackportState, *, merge: bool = True) -> None:
 # CI helpers
 # ---------------------------------------------------------------------------
 
+
 def poll_ci(
     pr_num: int,
     repo: str,
@@ -562,11 +622,17 @@ def poll_ci(
 ) -> None:
     elapsed = 0
     while elapsed < timeout:
-        result = run_gh_json([
-            "pr", "view", str(pr_num),
-            "--repo", repo,
-            "--json", "statusCheckRollup",
-        ])
+        result = run_gh_json(
+            [
+                "pr",
+                "view",
+                str(pr_num),
+                "--repo",
+                repo,
+                "--json",
+                "statusCheckRollup",
+            ]
+        )
         checks = result.get("statusCheckRollup", []) if result else []
 
         if not checks:
@@ -606,23 +672,35 @@ def poll_ci(
 
 def merge_pr(pr_num: int, repo: str) -> None:
     log(f"  Merging PR #{pr_num}...")
-    run_gh([
-        "pr", "merge", str(pr_num),
-        "--repo", repo,
-        "--squash",
-        "--auto",
-    ])
+    run_gh(
+        [
+            "pr",
+            "merge",
+            str(pr_num),
+            "--repo",
+            repo,
+            "--squash",
+            "--auto",
+        ]
+    )
 
 
 def wait_for_merged(pr_num: int, repo: str, *, timeout: int = 300) -> None:
     elapsed = 0
     while elapsed < timeout:
-        result = run_gh([
-            "pr", "view", str(pr_num),
-            "--repo", repo,
-            "--json", "state",
-            "--jq", ".state",
-        ])
+        result = run_gh(
+            [
+                "pr",
+                "view",
+                str(pr_num),
+                "--repo",
+                repo,
+                "--json",
+                "state",
+                "--jq",
+                ".state",
+            ]
+        )
         if result.stdout.strip() == "MERGED":
             return
         time.sleep(10)
@@ -633,6 +711,7 @@ def wait_for_merged(pr_num: int, repo: str, *, timeout: int = 300) -> None:
 # ---------------------------------------------------------------------------
 # Step 7 — Detect and merge Version Packages PR
 # ---------------------------------------------------------------------------
+
 
 def poll_for_vp_creation(
     plugin: str,
@@ -646,12 +725,20 @@ def poll_for_vp_creation(
     while elapsed < timeout:
         result = run_gh_json(
             [
-                "pr", "list", "--repo", repo,
-                "--base", release_branch,
-                "--search", f"Version Packages ({plugin}) in:title",
-                "--state", "open",
-                "--json", "number",
-                "--jq", ".[0].number",
+                "pr",
+                "list",
+                "--repo",
+                repo,
+                "--base",
+                release_branch,
+                "--search",
+                f"Version Packages ({plugin}) in:title",
+                "--state",
+                "open",
+                "--json",
+                "number",
+                "--jq",
+                ".[0].number",
             ],
             check=False,
         )
@@ -674,12 +761,19 @@ def poll_for_vp_update(
 ) -> None:
     elapsed = 0
     while elapsed < timeout:
-        current_result = run_gh([
-            "pr", "view", str(vp_pr_num),
-            "--repo", repo,
-            "--json", "headRefOid",
-            "--jq", ".headRefOid",
-        ])
+        current_result = run_gh(
+            [
+                "pr",
+                "view",
+                str(vp_pr_num),
+                "--repo",
+                repo,
+                "--json",
+                "headRefOid",
+                "--jq",
+                ".headRefOid",
+            ]
+        )
         if current_result.stdout.strip() != before_sha:
             log(f"  VP PR #{vp_pr_num} updated (new commit)")
             return
@@ -699,12 +793,20 @@ def step7_detect_version_packages(state: BackportState) -> None:
 
     vp_data = run_gh_json(
         [
-            "pr", "list", "--repo", state.repo,
-            "--base", state.release_branch,
-            "--search", f"Version Packages ({state.plugin}) in:title",
-            "--state", "open",
-            "--json", "number,headRefOid",
-            "--jq", ".[0]",
+            "pr",
+            "list",
+            "--repo",
+            state.repo,
+            "--base",
+            state.release_branch,
+            "--search",
+            f"Version Packages ({state.plugin}) in:title",
+            "--state",
+            "open",
+            "--json",
+            "number,headRefOid",
+            "--jq",
+            ".[0]",
         ],
         check=False,
     )
@@ -719,16 +821,24 @@ def step7_detect_version_packages(state: BackportState) -> None:
         log("  Waiting for Version Packages PR to be created...")
         time.sleep(10)
         state.vp_pr_num = poll_for_vp_creation(
-            state.plugin, state.release_branch, state.repo,
+            state.plugin,
+            state.release_branch,
+            state.repo,
         )
 
     log(f"  Version Packages PR: #{state.vp_pr_num}")
 
-    vp_title = run_gh_json([
-        "pr", "view", str(state.vp_pr_num),
-        "--repo", state.repo,
-        "--json", "title,baseRefName",
-    ])
+    vp_title = run_gh_json(
+        [
+            "pr",
+            "view",
+            str(state.vp_pr_num),
+            "--repo",
+            state.repo,
+            "--json",
+            "title,baseRefName",
+        ]
+    )
     if vp_title:
         title = vp_title.get("title", "")
         base = vp_title.get("baseRefName", "")
@@ -742,11 +852,17 @@ def step7_detect_version_packages(state: BackportState) -> None:
     merge_pr(state.vp_pr_num, state.repo)
     wait_for_merged(state.vp_pr_num, state.repo)
 
-    vp_merged = run_gh_json([
-        "pr", "view", str(state.vp_pr_num),
-        "--repo", state.repo,
-        "--json", "mergeCommit,body",
-    ])
+    vp_merged = run_gh_json(
+        [
+            "pr",
+            "view",
+            str(state.vp_pr_num),
+            "--repo",
+            state.repo,
+            "--json",
+            "mergeCommit,body",
+        ]
+    )
     if vp_merged:
         state.vp_commit = vp_merged.get("mergeCommit", {}).get("oid", "")
         state.vp_version = extract_version_from_body(vp_merged.get("body", ""))
@@ -771,13 +887,20 @@ def poll_workflow_run(
 ) -> dict | None:
     elapsed = 0
     while elapsed < timeout:
-        runs = run_gh_json([
-            "run", "list",
-            "--repo", overlays_repo,
-            "--workflow", workflow_name,
-            "--limit", "5",
-            "--json", "databaseId,status,conclusion,createdAt",
-        ])
+        runs = run_gh_json(
+            [
+                "run",
+                "list",
+                "--repo",
+                overlays_repo,
+                "--workflow",
+                workflow_name,
+                "--limit",
+                "5",
+                "--json",
+                "databaseId,status,conclusion,createdAt",
+            ]
+        )
         if runs:
             for run in runs:
                 if run.get("createdAt", "") >= started_after:
@@ -803,13 +926,20 @@ def find_overlays_pr(
     while elapsed < timeout:
         result = run_gh_json(
             [
-                "pr", "list",
-                "--repo", overlays_repo,
-                "--base", overlays_branch,
-                "--search", f"{plugin} in:title",
-                "--state", "open",
-                "--json", "number",
-                "--jq", ".[0].number",
+                "pr",
+                "list",
+                "--repo",
+                overlays_repo,
+                "--base",
+                overlays_branch,
+                "--search",
+                f"{plugin} in:title",
+                "--state",
+                "open",
+                "--json",
+                "number",
+                "--jq",
+                ".[0].number",
             ],
             check=False,
         )
@@ -833,11 +963,17 @@ def poll_publish_result(
         time.sleep(interval)
         elapsed += interval
 
-        result = run_gh_json([
-            "pr", "view", str(pr_num),
-            "--repo", overlays_repo,
-            "--json", "comments",
-        ])
+        result = run_gh_json(
+            [
+                "pr",
+                "view",
+                str(pr_num),
+                "--repo",
+                overlays_repo,
+                "--json",
+                "comments",
+            ]
+        )
         if not result or not result.get("comments"):
             continue
 
@@ -862,15 +998,22 @@ def step8_update_overlays(state: BackportState) -> None:
     timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
     log(f"  Triggering '{OVERLAYS_UPDATE_WORKFLOW}' with single-branch={state.overlays_branch}...")
-    run_gh([
-        "workflow", "run", OVERLAYS_UPDATE_WORKFLOW,
-        "--repo", state.overlays_repo,
-        "-f", f"single-branch={state.overlays_branch}",
-    ])
+    run_gh(
+        [
+            "workflow",
+            "run",
+            OVERLAYS_UPDATE_WORKFLOW,
+            "--repo",
+            state.overlays_repo,
+            "-f",
+            f"single-branch={state.overlays_branch}",
+        ]
+    )
 
     log("  Waiting for workflow run to complete...")
     run_result = poll_workflow_run(
-        state.overlays_repo, OVERLAYS_UPDATE_WORKFLOW,
+        state.overlays_repo,
+        OVERLAYS_UPDATE_WORKFLOW,
         started_after=timestamp,
         timeout=600,
     )
@@ -883,7 +1026,9 @@ def step8_update_overlays(state: BackportState) -> None:
         log(f"  Run ID: {run_result.get('databaseId')}")
 
     pr_num = find_overlays_pr(
-        state.overlays_repo, state.plugin, state.overlays_branch,
+        state.overlays_repo,
+        state.plugin,
+        state.overlays_branch,
     )
     if not pr_num:
         die(
@@ -894,28 +1039,43 @@ def step8_update_overlays(state: BackportState) -> None:
     log(f"  Overlays PR found: #{state.overlays_pr_num}")
 
     log("  Adding /ok-to-test label...")
-    run_gh([
-        "pr", "edit", str(state.overlays_pr_num),
-        "--repo", state.overlays_repo,
-        "--add-label", "ok-to-test",
-    ], check=False)
+    run_gh(
+        [
+            "pr",
+            "edit",
+            str(state.overlays_pr_num),
+            "--repo",
+            state.overlays_repo,
+            "--add-label",
+            "ok-to-test",
+        ],
+        check=False,
+    )
 
     log("  Checking for auto-publish...")
     time.sleep(30)
     publish_ok, publish_output = poll_publish_result(
-        state.overlays_pr_num, state.overlays_repo,
+        state.overlays_pr_num,
+        state.overlays_repo,
         timeout=300,
     )
 
     if not publish_ok and not publish_output:
         log("  Auto-publish not triggered — issuing /publish manually...")
-        run_gh([
-            "pr", "comment", str(state.overlays_pr_num),
-            "--repo", state.overlays_repo,
-            "--body", "/publish",
-        ])
+        run_gh(
+            [
+                "pr",
+                "comment",
+                str(state.overlays_pr_num),
+                "--repo",
+                state.overlays_repo,
+                "--body",
+                "/publish",
+            ]
+        )
         publish_ok, publish_output = poll_publish_result(
-            state.overlays_pr_num, state.overlays_repo,
+            state.overlays_pr_num,
+            state.overlays_repo,
             timeout=900,
         )
 
@@ -935,6 +1095,7 @@ def step8_update_overlays(state: BackportState) -> None:
 # ---------------------------------------------------------------------------
 # Step 9 — Changelog PR
 # ---------------------------------------------------------------------------
+
 
 def step9_changelog_pr(state: BackportState) -> None:
     log_step(9, "Create changelog PR to main")
@@ -985,10 +1146,13 @@ def step9_changelog_pr(state: BackportState) -> None:
     Path(changelog_file).write_text("\n".join(lines))
 
     run_git(["add", changelog_file])
-    run_git([
-        "commit", "-m",
-        f"docs: add {state.plugin} {state.release} changelog for PR #{state.pr_num}",
-    ])
+    run_git(
+        [
+            "commit",
+            "-m",
+            f"docs: add {state.plugin} {state.release} changelog for PR #{state.pr_num}",
+        ]
+    )
     run_git(["push", "origin", changelog_branch])
 
     body = (
@@ -1001,14 +1165,22 @@ def step9_changelog_pr(state: BackportState) -> None:
         f"This tracks what was backported to the {state.release} release."
     )
 
-    create_result = run_gh([
-        "pr", "create",
-        "--repo", state.repo,
-        "--base", "main",
-        "--head", f"{state.fork_owner}:{changelog_branch}",
-        "--title", f"docs: add {state.plugin} {state.release} changelog for backport #{state.pr_num}",
-        "--body", body,
-    ])
+    create_result = run_gh(
+        [
+            "pr",
+            "create",
+            "--repo",
+            state.repo,
+            "--base",
+            "main",
+            "--head",
+            f"{state.fork_owner}:{changelog_branch}",
+            "--title",
+            f"docs: add {state.plugin} {state.release} changelog for backport #{state.pr_num}",
+            "--body",
+            body,
+        ]
+    )
 
     pr_url_match = re.search(r"/pull/(\d+)", create_result.stdout)
     if not pr_url_match:
@@ -1026,6 +1198,7 @@ def step9_changelog_pr(state: BackportState) -> None:
 # ---------------------------------------------------------------------------
 # Step 10 — Summary
 # ---------------------------------------------------------------------------
+
 
 def step10_summary(state: BackportState, *, json_output: bool = False) -> None:
     log_step(10, "Summary")
@@ -1067,7 +1240,9 @@ def step10_summary(state: BackportState, *, json_output: bool = False) -> None:
 
 
 def print_create_summary(
-    state: BackportState, *, json_output: bool = False,
+    state: BackportState,
+    *,
+    json_output: bool = False,
 ) -> None:
     if json_output:
         result = {
@@ -1105,6 +1280,7 @@ def print_create_summary(
 # Finish mode prerequisites
 # ---------------------------------------------------------------------------
 
+
 def validate_finish_prerequisites(state: BackportState) -> None:
     run_git(["fetch", "upstream"])
     result = run_git(
@@ -1121,6 +1297,7 @@ def validate_finish_prerequisites(state: BackportState) -> None:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
