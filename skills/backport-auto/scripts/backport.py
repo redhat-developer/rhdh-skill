@@ -4,6 +4,8 @@
 Cherry-picks changes to release branches, creates sequential PRs,
 handles Version Packages, updates overlays, and creates changelog PRs.
 
+Uses release-x.y/{plugin} branches directly (no workspace/{plugin} intermediary).
+
 Usage:
     python scripts/backport.py 1.10 3456
     python scripts/backport.py 1.10 3456 --mode create
@@ -13,7 +15,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import base64
 import json
 import os
 import re
@@ -172,17 +173,13 @@ class BackportState:
 
     plugin: str = ""
     release_branch: str = ""
-    workspace_branch: str = ""
     backport_branch: str = ""
     overlays_branch: str = ""
-
-    reset_commit: str = ""
 
     conflict_files: list[str] = field(default_factory=list)
 
     fork_owner: str = ""
     pr1_num: int = 0
-    pr2_num: int = 0
 
     vp_pr_num: int = 0
     vp_commit: str = ""
@@ -231,7 +228,7 @@ Examples:
         "--mode",
         choices=["auto", "create", "finish"],
         default="auto",
-        help="auto: full workflow, create: steps 1-7, finish: steps 8-13",
+        help="auto: full workflow, create: steps 1-6, finish: steps 7-10",
     )
     parser.add_argument("--repo", default=DEFAULT_REPO)
     parser.add_argument("--overlays-repo", default=DEFAULT_OVERLAYS_REPO)
@@ -354,14 +351,12 @@ def step2_detect_plugin(state: BackportState) -> None:
         )
 
     state.plugin = plugins.pop()
-    state.release_branch = f"{state.plugin}/release-{state.release}"
-    state.workspace_branch = f"workspace/{state.plugin}"
+    state.release_branch = f"release-{state.release}/{state.plugin}"
     state.backport_branch = f"backport/{state.pr_num}-to-release-{state.release}"
     state.overlays_branch = f"release-{state.release}"
 
     log(f"  Plugin: {state.plugin}")
     log(f"  Release branch: {state.release_branch}")
-    log(f"  Workspace branch: {state.workspace_branch}")
 
     result = run_git(
         ["ls-remote", "--heads", "upstream", f"refs/heads/{state.release_branch}"],
@@ -389,68 +384,24 @@ def step3_check_backported(state: BackportState, *, force: bool = False) -> None
     )
     branches = result.stdout.strip()
 
-    for branch in (state.release_branch, state.workspace_branch):
-        if f"upstream/{branch}" in branches:
-            if force:
-                log(f"  Warning: {state.commit_sha[:10]} already in {branch} (--force, continuing)")
-            else:
-                log(f"  Commit {state.commit_sha[:10]} already exists in {branch}")
-                log("  Nothing to backport. Use --force to override.")
-                sys.exit(EXIT_SUCCESS)
-            return
+    if f"upstream/{state.release_branch}" in branches:
+        if force:
+            log(f"  Warning: {state.commit_sha[:10]} already in {state.release_branch} (--force, continuing)")
+        else:
+            log(f"  Commit {state.commit_sha[:10]} already exists in {state.release_branch}")
+            log("  Nothing to backport. Use --force to override.")
+            sys.exit(EXIT_SUCCESS)
+        return
 
     log(f"  Commit {state.commit_sha[:10]} not yet backported — proceeding")
 
 
 # ---------------------------------------------------------------------------
-# Step 4 — Reset workspace branch to overlays baseline
+# Step 4 — Cherry-pick
 # ---------------------------------------------------------------------------
 
-def step4_reset_workspace(state: BackportState) -> None:
-    log_step(4, "Reset workspace branch to overlays baseline")
-
-    log("  Fetching source.json from overlays repo...")
-    source_json_path = f"workspaces/{state.plugin}/source.json"
-    result = run_gh([
-        "api", f"repos/{state.overlays_repo}/contents/{source_json_path}",
-        "--jq", ".content",
-        "-H", "Accept: application/vnd.github.v3+json",
-        "--method", "GET",
-        "-f", f"ref={state.overlays_branch}",
-    ], check=False)
-
-    if result.returncode != 0 or not result.stdout.strip():
-        die(f"source.json not found at {source_json_path} on branch {state.overlays_branch}")
-
-    source_data = json.loads(base64.b64decode(result.stdout.strip()))
-
-    state.reset_commit = source_data.get("repo-ref", "")
-    if not state.reset_commit:
-        die(f"repo-ref is empty in {source_json_path}")
-
-    log(f"  Baseline commit from overlays: {state.reset_commit[:10]}")
-
-    result = run_git(["cat-file", "-t", state.reset_commit], check=False)
-    if result.returncode != 0:
-        log("  Baseline commit not found locally, fetching...")
-        run_git(["fetch", "upstream"])
-        result = run_git(["cat-file", "-t", state.reset_commit], check=False)
-        if result.returncode != 0:
-            die(f"Baseline commit {state.reset_commit} not found in local repo")
-
-    run_git(["checkout", state.workspace_branch])
-    run_git(["reset", "--hard", state.reset_commit])
-    run_git(["push", "upstream", state.workspace_branch, "--force"])
-
-    log(f"  Reset {state.workspace_branch} to {state.reset_commit[:10]}")
-
-
-# ---------------------------------------------------------------------------
-# Step 5 — Cherry-pick
-# ---------------------------------------------------------------------------
-
-def step5_cherry_pick(state: BackportState) -> None:
-    log_step(5, "Create local branch and cherry-pick")
+def step4_cherry_pick(state: BackportState) -> None:
+    log_step(4, "Create local branch and cherry-pick")
 
     run_git(["fetch", "upstream"])
     run_git(["checkout", "-b", state.backport_branch, f"upstream/{state.release_branch}"])
@@ -489,8 +440,8 @@ def step5_cherry_pick(state: BackportState) -> None:
     log(f"  Cherry-pick successful: {state.commit_sha[:10]}")
 
 
-def step5_continue(state: BackportState) -> None:
-    log_step(5, "Resuming after conflict resolution")
+def step4_continue(state: BackportState) -> None:
+    log_step(4, "Resuming after conflict resolution")
 
     result = run_git(["branch", "--show-current"], check=False)
     current = result.stdout.strip()
@@ -512,11 +463,11 @@ def step5_continue(state: BackportState) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Step 6 — Push to fork
+# Step 5 — Push to fork
 # ---------------------------------------------------------------------------
 
-def step6_push_to_fork(state: BackportState) -> None:
-    log_step(6, "Push backport branch to fork")
+def step5_push_to_fork(state: BackportState) -> None:
+    log_step(5, "Push backport branch to fork")
 
     result = run_gh(["api", "user", "--jq", ".login"])
     state.fork_owner = result.stdout.strip()
@@ -526,11 +477,11 @@ def step6_push_to_fork(state: BackportState) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Step 7 — Create PR #1 (fork → release branch)
+# Step 6 — Create PR #1 (fork → release branch)
 # ---------------------------------------------------------------------------
 
-def step7_create_pr1(state: BackportState, *, merge: bool = True) -> None:
-    log_step(7, "Create PR #1 (backport → release)")
+def step6_create_pr1(state: BackportState, *, merge: bool = True) -> None:
+    log_step(6, "Create PR #1 (backport → release)")
 
     existing = run_gh_json([
         "pr", "list",
@@ -578,73 +529,6 @@ def step7_create_pr1(state: BackportState, *, merge: bool = True) -> None:
         merge_pr(state.pr1_num, state.repo)
         wait_for_merged(state.pr1_num, state.repo)
         log(f"  PR #1 merged: #{state.pr1_num}")
-
-
-# ---------------------------------------------------------------------------
-# Step 8 — Create PR #2 (release → workspace, from upstream)
-# ---------------------------------------------------------------------------
-
-def step8_create_pr2(state: BackportState, *, merge: bool = True) -> None:
-    log_step(8, "Create PR #2 (release → workspace)")
-
-    run_git(["fetch", "upstream"])
-
-    existing = run_gh_json([
-        "pr", "list",
-        "--repo", state.repo,
-        "--base", state.workspace_branch,
-        "--head", state.release_branch,
-        "--state", "open",
-        "--json", "number",
-    ])
-    if existing and len(existing) > 0:
-        state.pr2_num = existing[0]["number"]
-        log(f"  PR #2 already exists: #{state.pr2_num}")
-    else:
-        body = (
-            f"Backport of #{state.pr_num} to release {state.release}\n\n"
-            f"Original PR: {state.pr_url}\n"
-            f"Backport PR #1: #{state.pr1_num}\n\n"
-            "This PR triggers the Version Packages workflow.\n\n"
-            "**Do not edit manually** — auto-generated by backport skill."
-        )
-
-        create_result = run_gh([
-            "pr", "create",
-            "--repo", state.repo,
-            "--base", state.workspace_branch,
-            "--head", state.release_branch,
-            "--title", f"chore: sync {state.plugin} release-{state.release} to workspace",
-            "--body", body,
-        ])
-
-        pr_url_match = re.search(r"/pull/(\d+)", create_result.stdout)
-        if not pr_url_match:
-            die("Failed to get PR #2 number from gh pr create output")
-        state.pr2_num = int(pr_url_match.group(1))
-
-        log(f"  PR #2 created: #{state.pr2_num}")
-        log(f"    {state.release_branch} → {state.workspace_branch}")
-
-    pr_owner_result = run_gh([
-        "pr", "view", str(state.pr2_num),
-        "--repo", state.repo,
-        "--json", "headRepositoryOwner",
-        "--jq", ".headRepositoryOwner.login",
-    ])
-    pr_owner = pr_owner_result.stdout.strip()
-    if pr_owner and pr_owner != "redhat-developer":
-        die(
-            f"PR #2 head is from '{pr_owner}', not 'redhat-developer'.\n"
-            "Version Packages workflow will NOT trigger from fork PRs."
-        )
-
-    if merge:
-        log("  Monitoring CI...")
-        poll_ci(state.pr2_num, state.repo)
-        merge_pr(state.pr2_num, state.repo)
-        wait_for_merged(state.pr2_num, state.repo)
-        log(f"  PR #2 merged: #{state.pr2_num}")
 
 
 # ---------------------------------------------------------------------------
@@ -729,12 +613,12 @@ def wait_for_merged(pr_num: int, repo: str, *, timeout: int = 300) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Step 9 — Detect and merge Version Packages PR
+# Step 7 — Detect and merge Version Packages PR
 # ---------------------------------------------------------------------------
 
 def poll_for_vp_creation(
     plugin: str,
-    workspace_branch: str,
+    release_branch: str,
     repo: str,
     *,
     timeout: int = 300,
@@ -745,7 +629,7 @@ def poll_for_vp_creation(
         result = run_gh_json(
             [
                 "pr", "list", "--repo", repo,
-                "--base", workspace_branch,
+                "--base", release_branch,
                 "--search", f"Version Packages ({plugin}) in:title",
                 "--state", "open",
                 "--json", "number",
@@ -792,13 +676,13 @@ def extract_version_from_body(body: str) -> str:
     return m.group(1) if m else "unknown"
 
 
-def step9_detect_version_packages(state: BackportState) -> None:
-    log_step(9, "Detect and merge Version Packages PR")
+def step7_detect_version_packages(state: BackportState) -> None:
+    log_step(7, "Detect and merge Version Packages PR")
 
     vp_data = run_gh_json(
         [
             "pr", "list", "--repo", state.repo,
-            "--base", state.workspace_branch,
+            "--base", state.release_branch,
             "--search", f"Version Packages ({state.plugin}) in:title",
             "--state", "open",
             "--json", "number,headRefOid",
@@ -817,7 +701,7 @@ def step9_detect_version_packages(state: BackportState) -> None:
         log("  Waiting for Version Packages PR to be created...")
         time.sleep(10)
         state.vp_pr_num = poll_for_vp_creation(
-            state.plugin, state.workspace_branch, state.repo,
+            state.plugin, state.release_branch, state.repo,
         )
 
     log(f"  Version Packages PR: #{state.vp_pr_num}")
@@ -832,8 +716,8 @@ def step9_detect_version_packages(state: BackportState) -> None:
         base = vp_title.get("baseRefName", "")
         if f"Version Packages ({state.plugin})" not in title:
             log(f"  Warning: VP PR title mismatch: {title}")
-        if base != state.workspace_branch:
-            die(f"VP PR base is '{base}', expected '{state.workspace_branch}'")
+        if base != state.release_branch:
+            die(f"VP PR base is '{base}', expected '{state.release_branch}'")
 
     log("  Monitoring CI on VP PR...")
     poll_ci(state.vp_pr_num, state.repo)
@@ -853,32 +737,7 @@ def step9_detect_version_packages(state: BackportState) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Step 10 — Sync release branch from workspace
-# ---------------------------------------------------------------------------
-
-def step10_sync_release_branch(state: BackportState) -> None:
-    log_step(10, "Sync release branch from workspace")
-
-    run_git(["fetch", "upstream"])
-    run_git(["checkout", state.release_branch])
-    run_git(["reset", "--hard", f"upstream/{state.workspace_branch}"])
-
-    result = run_git(
-        ["push", "upstream", state.release_branch, "--force-with-lease"],
-        check=False,
-    )
-    if result.returncode != 0:
-        die(
-            f"Force push to {state.release_branch} rejected.\n"
-            "Someone may have pushed concurrently.\n"
-            + result.stderr.strip()
-        )
-
-    log(f"  Synced {state.release_branch} ← {state.workspace_branch}")
-
-
-# ---------------------------------------------------------------------------
-# Step 11 — Update overlays via GitHub Actions workflow
+# Step 8 — Update overlays via GitHub Actions workflow
 # ---------------------------------------------------------------------------
 
 OVERLAYS_UPDATE_WORKFLOW = "update-plugins-repo-refs.yaml"
@@ -979,8 +838,8 @@ def poll_publish_result(
     return False, ""
 
 
-def step11_update_overlays(state: BackportState) -> None:
-    log_step(11, "Update overlays via GitHub Actions workflow")
+def step8_update_overlays(state: BackportState) -> None:
+    log_step(8, "Update overlays via GitHub Actions workflow")
 
     timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
@@ -1056,11 +915,11 @@ def step11_update_overlays(state: BackportState) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Step 12 — Changelog PR
+# Step 9 — Changelog PR
 # ---------------------------------------------------------------------------
 
-def step12_changelog_pr(state: BackportState) -> None:
-    log_step(12, "Create changelog PR to main")
+def step9_changelog_pr(state: BackportState) -> None:
+    log_step(9, "Create changelog PR to main")
 
     if not state.fork_owner:
         result = run_gh(["api", "user", "--jq", ".login"])
@@ -1147,11 +1006,11 @@ def step12_changelog_pr(state: BackportState) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Step 13 — Summary
+# Step 10 — Summary
 # ---------------------------------------------------------------------------
 
-def step13_summary(state: BackportState, *, json_output: bool = False) -> None:
-    log_step(13, "Summary")
+def step10_summary(state: BackportState, *, json_output: bool = False) -> None:
+    log_step(10, "Summary")
 
     if json_output:
         result = {
@@ -1159,7 +1018,6 @@ def step13_summary(state: BackportState, *, json_output: bool = False) -> None:
             "release": state.release,
             "original_pr": state.pr_num,
             "pr1": state.pr1_num,
-            "pr2": state.pr2_num,
             "vp_pr": state.vp_pr_num,
             "vp_commit": state.vp_commit,
             "vp_version": state.vp_version,
@@ -1180,11 +1038,10 @@ def step13_summary(state: BackportState, *, json_output: bool = False) -> None:
         log(f"Original PR: #{state.pr_num}")
         log("")
         log("All PRs merged:")
-        log(f"  1. Backport PR #1:    #{state.pr1_num}")
-        log(f"  2. Sync PR #2:        #{state.pr2_num}")
-        log(f"  3. Version Packages:  #{state.vp_pr_num}")
-        log(f"  4. Overlays:          #{state.overlays_pr_num}")
-        log(f"  5. Changelog:         #{state.changelog_pr_num}")
+        log(f"  1. Backport PR:       #{state.pr1_num}")
+        log(f"  2. Version Packages:  #{state.vp_pr_num}")
+        log(f"  3. Overlays:          #{state.overlays_pr_num}")
+        log(f"  4. Changelog:         #{state.changelog_pr_num}")
         log("")
         log(f"VP commit: {state.vp_commit}")
         log("")
@@ -1221,8 +1078,7 @@ def print_create_summary(
         log("NEXT STEPS:")
         log(f"  1. Review and merge PR #{state.pr1_num}")
         log(f"  2. Run: python scripts/backport.py {state.release} {state.pr_num} --mode finish")
-        log(f"     (creates PR #2: {state.release_branch} → {state.workspace_branch},")
-        log("      then handles Version Packages, overlays, and changelog)")
+        log("     (handles Version Packages, overlays, and changelog)")
         log("")
         log("=" * 40)
 
@@ -1271,23 +1127,21 @@ def _run(args, original_branch: str, had_changes: bool) -> int:
     if args.continue_from:
         state = BackportState.load(args.continue_from)
         state.mode = args.mode
-        step5_continue(state)
-        step6_push_to_fork(state)
+        step4_continue(state)
+        step5_push_to_fork(state)
 
-        step7_create_pr1(state, merge=(args.mode == "auto"))
+        step6_create_pr1(state, merge=(args.mode == "auto"))
 
         if args.mode == "create":
             restore_git_state(original_branch, had_changes)
             print_create_summary(state, json_output=args.json_output)
             return EXIT_SUCCESS
 
-        step8_create_pr2(state, merge=True)
-        step9_detect_version_packages(state)
-        step10_sync_release_branch(state)
-        step11_update_overlays(state)
-        step12_changelog_pr(state)
+        step7_detect_version_packages(state)
+        step8_update_overlays(state)
+        step9_changelog_pr(state)
         restore_git_state(original_branch, had_changes)
-        step13_summary(state, json_output=args.json_output)
+        step10_summary(state, json_output=args.json_output)
         return EXIT_SUCCESS
 
     pr_num, commit_sha = parse_pr_source(args.pr_source)
@@ -1307,31 +1161,26 @@ def _run(args, original_branch: str, had_changes: bool) -> int:
         step1_fetch_pr(state)
         step2_detect_plugin(state)
         step3_check_backported(state, force=args.force)
-        step4_reset_workspace(state)
-        step5_cherry_pick(state)
-        step6_push_to_fork(state)
+        step4_cherry_pick(state)
+        step5_push_to_fork(state)
 
-        step7_create_pr1(state, merge=(args.mode == "auto"))
+        step6_create_pr1(state, merge=(args.mode == "auto"))
 
         if args.mode == "create":
             restore_git_state(original_branch, had_changes)
             print_create_summary(state, json_output=args.json_output)
             return EXIT_SUCCESS
 
-        step8_create_pr2(state, merge=True)
-
     if args.mode == "finish":
         step1_fetch_pr(state)
         step2_detect_plugin(state)
         validate_finish_prerequisites(state)
-        step8_create_pr2(state, merge=True)
 
-    step9_detect_version_packages(state)
-    step10_sync_release_branch(state)
-    step11_update_overlays(state)
-    step12_changelog_pr(state)
+    step7_detect_version_packages(state)
+    step8_update_overlays(state)
+    step9_changelog_pr(state)
     restore_git_state(original_branch, had_changes)
-    step13_summary(state, json_output=args.json_output)
+    step10_summary(state, json_output=args.json_output)
     return EXIT_SUCCESS
 
 

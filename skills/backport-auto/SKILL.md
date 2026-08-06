@@ -2,8 +2,9 @@
 name: backport-auto
 description: >
   Fully automate the RHDH plugin backport process from PR cherry-pick to changelog.
-  Handles: workspace reset, cherry-pick with AI conflict resolution, sequential PR creation,
-  CI monitoring, auto-merge, Version Packages detection, overlays update, and release sync.
+  Handles: cherry-pick with AI conflict resolution, PR creation,
+  CI monitoring, auto-merge, Version Packages detection, and overlays update.
+  Uses release-x.y/{plugin} branches directly (no workspace/{plugin} intermediary).
   Accepts a release version and PR number/URL. Auto-detects plugin from PR files.
   Use when you need to backport changes to a release branch (e.g., "backport PR #3456 to 1.10").
 ---
@@ -78,20 +79,17 @@ See `references/ai-conflict-resolution.md` for detailed resolution strategies.
 python scripts/backport.py <release> <pr_source> --mode auto
 ```
 
-The script handles all 13 steps:
+The script handles all 10 steps:
 1. Parse arguments and fetch PR details
 2. Auto-detect plugin from PR files
 3. Check if already backported
-4. Reset workspace branch to overlays baseline
-5. Cherry-pick commit(s)
-6. Push backport branch to fork
-7. Create PR #1 (fork → release branch), monitor CI, merge
-8. Create PR #2 (release → workspace, from upstream) — only AFTER PR #1 merges so release branch has the changes
-9. Detect and merge Version Packages PR
-10. Sync release branch from workspace
-11. Trigger overlays update workflow, /publish, wait for CI, merge
-12. Create and merge changelog PR to main
-13. Print summary
+4. Cherry-pick commit(s)
+5. Push backport branch to fork
+6. Create PR #1 (fork → release branch), monitor CI, merge
+7. Detect and merge Version Packages PR
+8. Trigger overlays update workflow, /publish, wait for CI, merge
+9. Create and merge changelog PR to main
+10. Print summary
 
 ### Step 2 — Handle conflicts (if exit code 2)
 
@@ -128,8 +126,8 @@ The script prints a summary to stderr. With `--json`, structured output goes to 
 | Flag | Description |
 |------|-------------|
 | `--mode auto` | Full workflow (default) |
-| `--mode create` | Steps 1-7 only, creates PR #1 and stops |
-| `--mode finish` | Steps 8-13, creates PR #2 (after PR #1 merge) then completes |
+| `--mode create` | Steps 1-6 only, creates PR #1 and stops |
+| `--mode finish` | Steps 7-10, handles Version Packages, overlays, and changelog (after PR #1 merge) |
 | `--continue-from FILE` | Resume after conflict resolution |
 | `--force` | Skip already-backported check |
 | `--json` | Structured JSON output to stdout |

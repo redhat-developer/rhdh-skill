@@ -2,9 +2,9 @@
 name: backport-finish
 description: >
   Complete the backport workflow after manual PR review and merge.
-  Assumes PR #1 and PR #2 are already merged. Handles: Version Packages detection and merge,
-  release branch sync, overlays update, and changelog PR creation.
-  Use after running backport-create and manually merging the PRs.
+  Assumes PR #1 is already merged. Handles: Version Packages detection and merge,
+  overlays update, and changelog PR creation.
+  Use after running backport-create and manually merging the PR.
   Accepts release version and original PR number.
 ---
 
@@ -20,7 +20,7 @@ The agent's role is:
 
 <principle name="assume_prs_merged">
 This skill assumes PR #1 from backport-create is ALREADY MERGED.
-It creates PR #2 (release → workspace) and handles the rest of the workflow.
+It handles Version Packages, overlays update, and changelog.
 
 The script validates that PR #1 is merged. If not, it exits with an error.
 </principle>
@@ -34,7 +34,7 @@ The script validates that PR #1 is merged. If not, it exits with an error.
 - **Fork** — of `rhdh-plugins` with `origin` remote pointing to fork
 - **`upstream` remote** — pointing to `redhat-developer/rhdh-plugins`
 - **Python 3.9+** — for the backport script
-- **PR #1** from `backport-create` must be **MERGED**
+- **PR #1** from `backport-create` must be **MERGED** into the `release-x.y/{plugin}` branch
 
 ---
 
@@ -59,13 +59,11 @@ The script validates that PR #1 is merged. If not, it exits with an error.
 python ../backport-auto/scripts/backport.py <release> <pr_source> --mode finish
 ```
 
-The script runs steps 8-13:
-8. Create and merge PR #2 (release → workspace, from upstream) — release branch now has the backported changes
-9. Detect and merge Version Packages PR (handles both new and existing VP PR)
-10. Sync release branch from workspace
-11. Trigger overlays update workflow, /publish, wait for CI, merge
-12. Create and merge changelog PR to main
-13. Print summary
+The script runs steps 7-10:
+7. Detect and merge Version Packages PR (handles both new and existing VP PR)
+8. Trigger overlays update workflow, /publish, wait for CI, merge
+9. Create and merge changelog PR to main
+10. Print summary
 
 ### Step 2 — Report results
 
@@ -83,7 +81,6 @@ The complete manual workflow:
 
 # 2. Manual review and merge
 #    - Review PR #1, merge when ready
-#    - Review PR #2, merge when ready
 
 # 3. Finish the backport
 /backport-finish 1.10 3456
@@ -95,12 +92,12 @@ The complete manual workflow:
 
 **Use `backport-finish` when:**
 - You already ran `backport-create`
-- You manually merged PR #1 and PR #2
+- You manually merged PR #1
 - You're ready to complete the backport workflow
 
 **Do NOT use when:**
 - You haven't run `backport-create` yet
-- PR #1 or PR #2 are not merged yet
+- PR #1 is not merged yet
 - You want full automation (use `backport-auto` instead)
 
 ---

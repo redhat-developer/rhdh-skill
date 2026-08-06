@@ -1,9 +1,9 @@
 ---
 name: backport-create
 description: >
-  Semi-manual backport workflow - creates backport PRs and stops for user review.
-  Handles: workspace reset, cherry-pick with AI conflict resolution, and PR creation.
-  User reviews and merges PRs manually, then runs backport-finish to complete the workflow.
+  Semi-manual backport workflow - creates backport PR and stops for user review.
+  Handles: cherry-pick with AI conflict resolution and PR creation.
+  User reviews and merges PR manually, then runs backport-finish to complete the workflow.
   Use when you want control over PR review and merging. Accepts release version and PR number/URL.
 ---
 
@@ -21,9 +21,9 @@ The agent's role is:
 <principle name="stop_after_pr_creation">
 This skill creates PRs and STOPS. It does NOT auto-merge or continue to Version Packages.
 
-After creating PR #1 and PR #2, the script prints clear instructions for the user to:
-1. Review the PRs
-2. Merge them manually when ready
+After creating PR #1, the script prints clear instructions for the user to:
+1. Review the PR
+2. Merge it manually when ready
 3. Run /backport-finish to complete the workflow
 </principle>
 
@@ -67,18 +67,15 @@ resolution flow as backport-auto/SKILL.md. See `../backport-auto/references/ai-c
 python ../backport-auto/scripts/backport.py <release> <pr_source> --mode create
 ```
 
-The script runs steps 1-7:
+The script runs steps 1-6:
 1. Parse arguments and fetch PR details
 2. Auto-detect plugin from PR files
 3. Check if already backported
-4. Reset workspace branch to overlays baseline
-5. Cherry-pick commit(s)
-6. Push backport branch to fork
-7. Create PR #1 (fork → release branch)
+4. Cherry-pick commit(s)
+5. Push backport branch to fork
+6. Create PR #1 (fork → release branch)
 
 Then STOPS and prints the PR URL + next-step instructions.
-PR #2 is NOT created yet — it must wait until PR #1 is merged so the
-release branch has the backported changes.
 
 ### Step 2 — Handle conflicts (if exit code 2)
 
