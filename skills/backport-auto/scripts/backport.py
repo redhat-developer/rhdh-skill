@@ -363,10 +363,28 @@ def step2_detect_plugin(state: BackportState) -> None:
         check=False,
     )
     if not result.stdout.strip():
-        die(
-            f"Release branch '{state.release_branch}' does not exist.\n"
-            f"Create it first or check the release version."
+        log(f"  Release branch '{state.release_branch}' does not exist — creating from latest tag...")
+        run_git(["fetch", "upstream", "--tags"])
+        tag_result = run_git(
+            ["tag", "-l", f"@redhat-developer/*@*", "--sort=-v:refname"],
+            check=False,
         )
+        matching_tag = ""
+        for tag in tag_result.stdout.strip().split("\n"):
+            if not tag:
+                continue
+            if f"/{state.plugin}" in tag or state.plugin in tag:
+                matching_tag = tag
+                break
+        if not matching_tag:
+            die(
+                f"No release tag found for plugin '{state.plugin}'.\n"
+                f"Cannot auto-create branch '{state.release_branch}'."
+            )
+        log(f"  Creating branch from tag: {matching_tag}")
+        run_git(["checkout", "-b", state.release_branch, matching_tag])
+        run_git(["push", "upstream", state.release_branch])
+        log(f"  Branch '{state.release_branch}' created and pushed")
 
 
 # ---------------------------------------------------------------------------
