@@ -366,7 +366,7 @@ def step2_detect_plugin(state: BackportState) -> None:
         log(f"  Release branch '{state.release_branch}' does not exist — creating from latest tag...")
         run_git(["fetch", "upstream", "--tags"])
         tag_result = run_git(
-            ["tag", "-l", f"@redhat-developer/*@*", "--sort=-v:refname"],
+            ["tag", "-l", "@redhat-developer/*@*", "--sort=-v:refname"],
             check=False,
         )
         matching_tag = ""
@@ -444,12 +444,12 @@ def step4_cherry_pick(state: BackportState) -> None:
         state.save(state_path)
 
         log("\nCherry-pick conflict detected!")
-        log(f"  Conflicting files:")
+        log("  Conflicting files:")
         for f in state.conflict_files:
             log(f"    - {f}")
         log("")
         log("Resolve conflicts, then re-run with:")
-        log(f"  git add . && git cherry-pick --continue")
+        log("  git add . && git cherry-pick --continue")
         log(f"  python scripts/backport.py {state.release} {state.pr_num} "
             f"--continue-from {state_path}")
 
