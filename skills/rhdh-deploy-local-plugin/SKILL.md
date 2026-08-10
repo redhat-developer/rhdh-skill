@@ -221,15 +221,16 @@ else
 fi
 ```
 
-**Validation:** Verify the image is publicly accessible before proceeding to deploy:
+**Validation:** Verify the package is actually public before proceeding to deploy (the `podman pull` check is unreliable here because podman is already authenticated to GHCR):
 
 ```bash
-podman pull ghcr.io/${GHCR_USER}/rhdh-plugin-export-overlays/${PLUGIN_SHORT}:${TAG}
-if [ $? -eq 0 ]; then
-  echo " [PASS]  Image is publicly pullable"
+VISIBILITY=$(gh api /user/packages/container/rhdh-plugin-export-overlays%2F${PLUGIN_SHORT} -q .visibility 2>/dev/null)
+if [ "$VISIBILITY" = "public" ]; then
+  echo " [PASS]  Package visibility confirmed: public"
 else
-  echo " [FAIL]  Image pull failed — package may still be private"
+  echo " [FAIL]  Package visibility: ${VISIBILITY:-unknown} (expected: public)"
   echo " Fix: https://github.com/users/${GHCR_USER}/packages/container/package/rhdh-plugin-export-overlays%2F${PLUGIN_SHORT}"
+  echo "       → Package settings → Change visibility → Public"
   exit 1
 fi
 ```
