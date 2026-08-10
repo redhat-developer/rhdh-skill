@@ -3,11 +3,13 @@ name: overlay
 description: >-
   Manages the rhdh-plugin-export-overlays repository — onboards plugins to the
   Extensions Catalog, updates plugin versions, fixes overlay build failures,
-  triages and analyzes PRs, triggers publishes, and manages plugin workspaces.
+  triages and analyzes PRs, triggers publishes, manages plugin workspaces, and
+  looks up plugin metadata.
   Use when working with overlays, importing plugins, debugging CI, checking PRs,
-  bumping versions, or mentions "Extensions Catalog", "overlay build failed",
-  "plugin registry", "overlay PR", "overlay doctor", "plugin import",
-  "add plugin to catalog", "onboard plugin", or "plugin workspace".
+  bumping versions, looking up plugin metadata, or mentions "Extensions
+  Catalog", "overlay build failed", "plugin registry", "overlay PR", "overlay
+  doctor", "plugin import", "add plugin to catalog", "onboard plugin", "plugin
+  workspace", "plugin installation reference".
 ---
 
 <cli_setup>
@@ -70,14 +72,15 @@ What overlay task would you like to do?
 2. **Update plugin version** — Bump to newer upstream commit/tag
 3. **Check plugin status** — Verify health and compatibility
 4. **Fix build failure** — Debug CI/publish issues
+5. **Lookup plugin metadata** — Get plugin version and artifact reference by branch
 
 ### Core Team Tasks
 
 *For COPE/Plugins team managing the overlay repository*
 
-5. **Triage overlay PRs** — Prioritize open PRs by criticality
-6. **Analyze specific PR** — Check assignment, compatibility, merge readiness
-7. **Trigger publish** — Add /publish comment to PR(s)
+6. **Triage overlay PRs** — Prioritize open PRs by criticality
+7. **Analyze specific PR** — Check assignment, compatibility, merge readiness
+8. **Trigger publish** — Add /publish comment to PR(s)
 
 **Wait for response before proceeding.**
 </intake>
@@ -91,14 +94,15 @@ What overlay task would you like to do?
 | 2, "update", "bump", "upgrade", "version" | `workflows/update-plugin.md` |
 | 3, "status", "check", "health" | Run inline status checks |
 | 4, "fix", "debug", "failure", "error" | `workflows/fix-build.md` |
+| 5, "metadata", "artifact", "dynamicArtifact", "plugin version", "installation tag" | Run inline metadata lookup |
 
 ### Core Team Routes
 
 | Response | Workflow |
 |----------|----------|
-| 5, "triage", "prioritize", "backlog" | `workflows/triage-prs.md` |
-| 6, "analyze", "check PR", "PR #" | `workflows/analyze-pr.md` |
-| 7, "publish", "trigger" | Run inline publish trigger |
+| 6, "triage", "prioritize", "backlog" | `workflows/triage-prs.md` |
+| 7, "analyze", "check PR", "PR #" | `workflows/analyze-pr.md` |
+| 8, "publish", "trigger" | Run inline publish trigger |
 
 **After reading the workflow, follow it exactly.**
 </routing>
@@ -122,6 +126,21 @@ gh pr list --repo redhat-developer/rhdh-plugin-export-overlays --search "<name>"
 ```
 
 </inline_status_check>
+
+<inline_metadata_lookup>
+For plugin metadata lookup (e.g. version, package name) or for installation tag/reference lookup (`spec.dynamicArtifact` metadata), use:
+
+```bash
+# Preferred (if rhdh-local skill is installed)
+python skills/rhdh-local/scripts/fetch-plugin-metadata.py <plugin-name> --branch <branch-or-tag>
+```
+
+Fallback (overlay-only install): resolve `spec.packages` from
+`catalog-entities/extensions/plugins/<plugin-name>.yaml` first, then locate each
+package metadata file under `workspaces/<plugin-workspace>/metadata/<file>.yaml`, and
+read metadata there.
+
+</inline_metadata_lookup>
 
 <inline_publish_trigger>
 For triggering publish on one or more PRs:
