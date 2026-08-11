@@ -116,12 +116,13 @@ What would you like to do?
 *For testing PR changes on a live RHDH cluster*
 
 8. **Review operator PR** — Deploy PR operator bundle on cluster and get review checklist
+9. **Review chart PR** — Deploy PR chart on cluster and get review checklist
 
 ### Test Plan Tasks
 
 *For rhdh test plan review in jira*
 
-9. **Review Test Plan content** — Reviews an RHDH test plan Jira ticket and suggests platform/integration version updates based on support lifecycle pages and RHDH release milestones
+10. **Review Test Plan content** — Reviews an RHDH test plan Jira ticket and suggests platform/integration version updates based on support lifecycle pages and RHDH release milestones
 
 ### Testing Strategy Tasks
 
@@ -188,7 +189,7 @@ What would you like to do?
 
 | Response | Skill |
 |----------|-------|
-| 9, "review test plan", "update test plan", "check platform versions in test plan", "review RHDH test plan" | Route to `@rhdh-test-plan-review` skill |
+| 10, "review test plan", "update test plan", "check platform versions in test plan", "review RHDH test plan" | Route to `@rhdh-test-plan-review` skill |
 
 **To route:** Read `../rhdh-test-plan-review/SKILL.md` and follow its intake process.
 

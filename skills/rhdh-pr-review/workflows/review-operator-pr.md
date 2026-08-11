@@ -468,52 +468,17 @@ When done testing, rollback the operator image:
 
 ## Phase 6: Active Verification
 
-**This phase verifies the PR's specific code changes on the cluster — not generic health checks.** The goal is to exercise the exact code paths the PR modified and capture evidence that the behavioral change works as intended.
+Typical operator verification actions: create/edit Backstage CR, delete and recreate pods, check reconciliation logs, verify status conditions, inspect generated ConfigMaps/Secrets.
 
-### 6.1 Analyze the diff
-
-Read the diff hunks from Phase 1. For each changed file, understand:
-
-- What the code did **before** the change
-- What it does **after**
-- What behavioral difference this introduces on a running cluster
-
-Map each changed code path to a concrete cluster-observable effect — something you can trigger and measure on the running cluster. If a code change has no cluster-observable effect (e.g., pure refactor with identical behavior), state that explicitly and explain why.
-
-### 6.2 Propose a verification plan
-
-Present the plan to the user. For each test, specify:
-
-- **What to do**: the exact cluster action (create resource, edit CR, delete pod, etc.)
-- **What to observe**: where to look (logs, pod spec, CR status, events, API response)
-- **Pass criteria**: what output means the fix works
-- **Fail criteria**: what output means the fix is broken
-
-**STOP. Do not run any verification commands. Present the plan and wait for the user to accept it before proceeding to 6.3.**
-
-### 6.3 Execute the plan
-
-Only after the user accepts the plan:
-
-Run each verification step on the cluster. For every step, capture the actual command output as evidence. Do not summarize — show the raw output so the user can see exactly what happened.
+Read `../references/shared-verification.md` and follow the `<verification_process>` instructions, applying them to the specific operator changes in this PR.
 
 ---
 
 ## Phase 7: Findings & Recommendations
 
-Synthesize the verification results and provide a complete review assessment.
+Read `../references/shared-findings-structure.md` and follow the `<findings_structure>` instructions, using the operator-specific context below.
 
-### 7.1 Verification summary
-
-Summarize what was tested and the results:
-
-| Category | Test performed | Result | Evidence |
-|---|---|---|---|
-| *[category]* | *[what was tested]* | Pass/Fail | *[key observation]* |
-
-### 7.2 Best practice assessment
-
-Review the PR's approach against operator development best practices. Reference `../../rhdh/references/rhdh-repos.md` for operator conventions:
+### Operator best-practice bullets (for 7.2)
 
 - Does the change follow the existing reconciliation flow pattern (preprocess → init model → apply → cleanup → status)?
 - Are status conditions updated appropriately for new features or error cases?
@@ -522,44 +487,25 @@ Review the PR's approach against operator development best practices. Reference 
 - Are new CRD fields documented with appropriate kubebuilder markers?
 - Does the code avoid non-deterministic iteration patterns (sorted keys, stable ordering)?
 
-### 7.3 Security review
+### Operator security bullets (for 7.3)
 
-Evaluate the changes from a security perspective:
+- Are environment variables (especially credentials and tokens) sourced from Secrets rather than hardcoded or logged?
+- Are container image references pinned to digests (`@sha256:...`) rather than mutable tags?
+- Do dependency updates (`go.mod`) introduce known CVEs? (`go list -m -json all | nancy sleuth` or `govulncheck ./...`)
 
-- Are new environment variables or secrets handled safely (no plaintext logging, proper RBAC)?
-- Do RBAC changes follow least-privilege principle?
-- Are container image references pinned by digest where appropriate?
-- Are new network exposures (ports, routes, service accounts) intentional and documented?
-- Do dependency updates (`go.mod`) introduce known CVEs?
-- Are user-supplied inputs validated before use in resource names or labels?
-
-### 7.4 Improvement suggestions
-
-Based on the findings, suggest concrete improvements if any:
-
-- Code changes needed (reference specific files and lines from the diff)
-- Missing test coverage for the changed code paths
-- Documentation gaps
-- Configuration or operational concerns
-
-### 7.5 Rollback instructions
-
-Present the rollback commands recorded in Phase 4.7:
+### Operator rollback commands (for 7.5)
 
 **OLM-managed — restore original Subscription:**
 
 ```bash
-# Delete PR-specific OLM resources
 oc delete subscription rhdh-operator-pr-subscription -n $OPERATOR_NS
 CSV_NAME=$(oc get csv -n $OPERATOR_NS --no-headers \
   -o custom-columns=NAME:.metadata.name | grep rhdh)
 oc delete csv $CSV_NAME -n $OPERATOR_NS 2>/dev/null
 oc delete catalogsource rhdh-operator-pr-catalog -n $OPERATOR_NS
 
-# Restore original Subscription (points back to the shared CatalogSource)
 oc apply -f /tmp/rollback-subscription.yaml
 
-# Wait for OLM to redeploy the original operator
 oc wait csv -n $OPERATOR_NS -l "operators.coreos.com/$PACKAGE_NAME.$OPERATOR_NS=" \
   --for=jsonpath='{.status.phase}'=Succeeded --timeout=180s
 ```
@@ -568,6 +514,13 @@ oc wait csv -n $OPERATOR_NS -l "operators.coreos.com/$PACKAGE_NAME.$OPERATOR_NS=
 
 ```bash
 oc apply -f /tmp/rollback-install.yaml
+
+# Wait for rollout to complete
+oc rollout status deployment/$OPERATOR_DEPLOY -n $OPERATOR_NS --timeout=180s
+
+# Verify the original image is restored
+oc get deployment $OPERATOR_DEPLOY -n $OPERATOR_NS \
+  -o jsonpath='{.spec.template.spec.containers[?(@.name=="manager")].image}'
 ```
 
 </process>

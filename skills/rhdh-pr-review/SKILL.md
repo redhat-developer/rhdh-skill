@@ -40,6 +40,13 @@ Present the full **humanized** review draft — summary, inline comments with fi
 For cluster testing: deploy the full PR bundle/manifests, not just the operator binary image. PR changes to CRDs, RBAC, default config, or bundle metadata are baked into the OLM bundle or install.yaml — a binary-only image swap misses them.
 </principle>
 
+<principle name="deploy_full_chart">
+Deploy the full chart from the PR branch, not just a values override.
+PR changes to templates, helpers, schema, or dependencies are baked into the chart itself — a values-only change would miss them.
+Use `helm upgrade` pointing at the local chart directory from the PR branch with `--reuse-values` to preserve existing user configuration.
+See `references/chart-pr-testing.md` for deployment commands.
+</principle>
+
 </essential_principles>
 
 <intake>
