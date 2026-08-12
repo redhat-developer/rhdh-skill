@@ -90,6 +90,16 @@ Bump UBI / RHEC base image tags, refresh RPM lockfiles, and align node headers /
 npx skills add redhat-developer/rhdh-skill --skill base-images-and-rpms
 ```
 
+### Must-gather Helm
+
+Bump the Helm CLI baked into **rhdh-must-gather** upstream and mirror into **rhidp/rhdh** distgit plus Konflux `.tekton` prefetch.
+
+- **[rhdh-must-gather-helm-bump](./skills/rhdh-must-gather-helm-bump/SKILL.md)** — CGW binary (`artifacts.lock.yaml` + `generic` prefetch) or vendored source (`vendor/helm` + `gomod` prefetch); syncs `distgit/containers/rhdh-must-gather` and patches `rhdh-must-gather-2` PLRs.
+
+```bash
+npx skills add redhat-developer/rhdh-skill --skill rhdh-must-gather-helm-bump
+```
+
 ### Yarn
 
 Align Yarn Berry across the RHDH plugin/export/midstream/downstream trees via `yarn set version` + install (plus Containerfile / `ENV YARN=`).
