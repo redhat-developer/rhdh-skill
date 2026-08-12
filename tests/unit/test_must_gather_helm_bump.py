@@ -45,7 +45,9 @@ class TestBumpMustGatherHelmScript:
         (upstream / "Makefile").write_text("HELM_VERSION := 4.2.3\n", encoding="utf-8")
         (upstream / "collection-scripts").mkdir()
         (upstream / "hack").mkdir()
-        (upstream / "hack" / "update-helm-lockfile.sh").write_text("#!/bin/bash\n", encoding="utf-8")
+        (upstream / "hack" / "update-helm-lockfile.sh").write_text(
+            "#!/bin/bash\n", encoding="utf-8"
+        )
 
         result = subprocess.run(
             [
