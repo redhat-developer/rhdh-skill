@@ -10,6 +10,7 @@ set -euo pipefail
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 
 DISTGIT_REL="distgit/containers/rhdh-must-gather"
+UPSTREAM_SHA_REL="sync/upstream_SHA_rhdh-must-gather"
 
 PREFETCH_CGW='[{"type": "rpm", "path": "distgit/containers/rhdh-must-gather"},{"type": "pip", "path": "distgit/containers/rhdh-must-gather", "allow_binary": "false"},{"type": "generic", "path": "distgit/containers/rhdh-must-gather"},{"type": "cargo", "path": "distgit/containers/rhdh-must-gather/vendor/websocat"}]'
 
@@ -52,11 +53,13 @@ Repo selection (provide upstream+downstream or --parent-dir):
   --parent-dir PATH         Auto-discover 1-must-gather + 4-rhdh (and aliases)
 
 Workflow:
-  --check                   Probe CGW only; print planned path
-  --skip-upstream           Sync downstream + Tekton only
+  --check                   Probe CGW only; print planned path (helm_version=, mode=, ...)
+  --skip-upstream           Sync downstream + Tekton + upstream SHA only
   --skip-downstream         Bump upstream only
   --dry-run                 Print actions without writing
   --allow-dirty             Proceed with uncommitted changes
+
+Also updates sync/upstream_SHA_rhdh-must-gather and removes stale distgit vendor/helm on CGW path.
 
 Examples:
   bump-must-gather-helm.sh --to 4.3.0 --parent-dir ~/RHDH
@@ -191,8 +194,38 @@ sync_to_distgit() {
             rsync -a --delete "${upstream}/vendor/helm/" "${dest}/vendor/helm/"
         fi
     elif [[ -d "${dest}/vendor/helm" ]]; then
-        warn "distgit still has vendor/helm/ but CGW path is active — remove vendor/helm manually if switching from vendored build"
+        if [[ "${DRY_RUN}" -eq 1 ]]; then
+            echo "[DRY-RUN] rm -rf '${dest}/vendor/helm'" >&2
+        else
+            log "Removing stale distgit vendor/helm/ (CGW path active)"
+            rm -rf "${dest}/vendor/helm"
+        fi
     fi
+}
+
+update_upstream_sha() {
+    local upstream="$1"
+    local downstream="$2"
+    local sha_file="${downstream}/${UPSTREAM_SHA_REL}"
+    local sha branch remote_url line parent
+
+    sha=$(git -C "${upstream}" rev-parse --short HEAD)
+    branch=$(git -C "${upstream}" rev-parse --abbrev-ref HEAD)
+    remote_url=$(git -C "${upstream}" remote get-url origin 2>/dev/null || true)
+    if [[ -z "${remote_url}" ]]; then
+        remote_url="https://github.com/redhat-developer/rhdh-must-gather"
+    fi
+    line="${sha} = ${branch} @ ${remote_url}"
+
+    if [[ "${DRY_RUN}" -eq 1 ]]; then
+        echo "[DRY-RUN] write '${sha_file}': ${line}" >&2
+        return 0
+    fi
+
+    parent=$(dirname "${sha_file}")
+    mkdir -p "${parent}"
+    printf '%s\n' "${line}" > "${sha_file}"
+    log "Updated ${UPSTREAM_SHA_REL} -> ${sha}"
 }
 
 replace_prefetch_in_file() {
@@ -244,12 +277,10 @@ update_tekton_prefetch() {
 
 print_vendor_reminders() {
     cat >&2 <<'EOF'
-[WARN] Vendored helm path selected. Manual steps still required:
-  1. In upstream Containerfile and .rhdh/docker/Containerfile:
-     - Comment out Stage 2a (CGW helm-builder)
-     - Uncomment Stage 2b (go-toolset + vendor/helm)
+[WARN] Vendored helm path selected. Manual steps still required — see references/install-paths.md in the skill:
+  1. Swap Containerfile Stage 2a/2b in upstream and .rhdh/docker/Containerfile
   2. Re-sync distgit Containerfiles after editing upstream .rhdh/docker/Containerfile
-  3. Confirm distgit/vendor/helm is present and artifacts.lock.yaml is not used for helm
+  3. Confirm distgit/vendor/helm is present
 EOF
 }
 
@@ -383,6 +414,7 @@ if [[ "${SKIP_DOWNSTREAM}" -eq 0 ]]; then
     [[ -n "${UPSTREAM_DIR}" ]] || die "--skip-upstream requires a prior upstream bump in distgit; pass --upstream for sync source"
     sync_to_distgit "${UPSTREAM_DIR}" "${DOWNSTREAM_DIR}" "${MODE}"
     update_tekton_prefetch "${DOWNSTREAM_DIR}" "${MODE}"
+    update_upstream_sha "${UPSTREAM_DIR}" "${DOWNSTREAM_DIR}"
 fi
 
 log "Done. Review git diff in each repo before committing."

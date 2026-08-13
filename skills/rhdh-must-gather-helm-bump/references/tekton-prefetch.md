@@ -6,6 +6,8 @@ Konflux `prefetch-dependencies` input is a JSON array on PipelineRun param `pref
 
 Helm linux-amd64/arm64 tarballs are listed in `artifacts.lock.yaml`. Hermeto **generic** fetcher prefetches them.
 
+CGW tarballs use a flat layout (`helm-linux-amd64` at archive root). See [install-paths.md](install-paths.md).
+
 ```json
 [
   {"type": "rpm", "path": "distgit/containers/rhdh-must-gather"},

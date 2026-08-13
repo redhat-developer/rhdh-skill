@@ -92,9 +92,9 @@ npx skills add redhat-developer/rhdh-skill --skill base-images-and-rpms
 
 ### Must-gather Helm
 
-Bump the Helm CLI baked into **rhdh-must-gather** upstream and mirror into **rhidp/rhdh** distgit plus Konflux `.tekton` prefetch.
+Bump the Helm CLI baked into **rhdh-must-gather** upstream and mirror into **rhidp/rhdh** distgit, Konflux `.tekton` prefetch, and `sync/upstream_SHA`.
 
-- **[rhdh-must-gather-helm-bump](./skills/rhdh-must-gather-helm-bump/SKILL.md)** — CGW binary (`artifacts.lock.yaml` + `generic` prefetch) or vendored source (`vendor/helm` + `gomod` prefetch); syncs `distgit/containers/rhdh-must-gather` and patches `rhdh-must-gather-2` PLRs.
+- **[rhdh-must-gather-helm-bump](./skills/rhdh-must-gather-helm-bump/SKILL.md)** — CGW binary (`artifacts.lock.yaml` + `generic` prefetch) or vendored source (`vendor/helm` + `gomod` prefetch); run [scripts/bump-must-gather-helm.sh](./skills/rhdh-must-gather-helm-bump/scripts/bump-must-gather-helm.sh).
 
 ```bash
 npx skills add redhat-developer/rhdh-skill --skill rhdh-must-gather-helm-bump
