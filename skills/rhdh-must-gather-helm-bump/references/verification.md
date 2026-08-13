@@ -5,7 +5,7 @@
 | Gate | Command / location | Pass when |
 |------|-------------------|-----------|
 | Unit tests | `make test` in `rhdh-must-gather` | BATS suite green |
-| Local helm | `make local-setup && ./bin/helm version` | Version matches `HELM_VERSION` |
+| Local helm | `make local-setup && ./bin/helm version` | Version matches `HELM_VERSION`; tarball checksum verified |
 | Image build | GitHub Actions “Build PR Container Image” | Image builds; `helm version` works in container |
 | E2E | GitHub Actions “E2E Tests” | Kind E2E completes |
 
@@ -15,7 +15,9 @@ Konflux hermetic builds are validated downstream; upstream CI is the primary gat
 
 | Gate | Command / location | Pass when |
 |------|-------------------|-----------|
-| Distgit sync | `git diff distgit/containers/rhdh-must-gather` | Helm files match upstream |
+| Distgit sync | `git diff distgit/containers/rhdh-must-gather` | Helm files match upstream, including `hack/verify-helm-tarball.sh` |
+| `hack/` present | `ls distgit/containers/rhdh-must-gather/hack/` | Install + verify scripts exist (Stage 2a `COPY`) |
+| Sync exclude | `upstream_repos.yml` must-gather `exclude_root` | Does **not** list `hack/` |
 | Upstream SHA | `sync/upstream_SHA_rhdh-must-gather` | Matches upstream commit synced |
 | Konflux | `rhdh-must-gather-2-on-pull` PipelineRun | Prefetch + build succeed |
 
@@ -26,5 +28,6 @@ If unit tests and image build pass but **E2E fails**, the Helm bump may be unrel
 - Chart resolution from `oci://quay.io/rhdh/chart` (not GitHub Releases)
 - RHDH 2.x chart values and init-container pod lifecycle in E2E waits
 - Helm 4 printing `Pulled:` / `Digest:` to stdout on `helm template oci://…` (see [helm4-notes.md](helm4-notes.md))
+- `wait_for_*` loops under `set -o pipefail`: capture `kubectl` with `|| true` and avoid piping status JSON under pipefail
 
 Check E2E job logs for the first `ERROR` or `make: ***` line — ignore debug must-gather SUCCESS lines from the EXIT trap.

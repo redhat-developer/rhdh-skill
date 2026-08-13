@@ -130,10 +130,30 @@ class TestBumpMustGatherHelmScript:
             "install-helm-binary.sh",
             "install-helm-local.sh",
             "update-vendor.sh",
+            "verify-helm-tarball.sh",
         ):
             script = hack / name
             script.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
             script.chmod(0o755)
+
+        (downstream / "upstream_repos.yml").write_text(
+            """
+  - repo: https://github.com/redhat-developer/rhdh-must-gather
+    branch:
+      - main
+    include_root: true
+    exclude_root:
+      - .git/
+      - hack/
+      - docs/
+    destination_folder: distgit/containers/rhdh-must-gather/
+
+  - repo: https://github.com/example/other
+    exclude_root:
+      - hack/
+""".lstrip(),
+            encoding="utf-8",
+        )
 
         tekton = downstream / ".tekton"
         tekton.mkdir()
@@ -196,6 +216,17 @@ class TestBumpMustGatherHelmScript:
         )
         assert result.returncode == 0, result.stderr
         assert not stale_vendor.exists()
+
+        synced_verify = distgit / "hack" / "verify-helm-tarball.sh"
+        assert synced_verify.is_file()
+
+        repos_yml = (downstream / "upstream_repos.yml").read_text(encoding="utf-8")
+        # must-gather block no longer excludes hack/; other repos may still list it
+        must_gather_block = repos_yml.split("rhdh-must-gather", 1)[1].split(
+            "- repo:", 1
+        )[0]
+        assert "- hack/" not in must_gather_block
+        assert "- hack/" in repos_yml.split("- repo:", 2)[-1]
 
         sha_file = downstream / "sync" / "upstream_SHA_rhdh-must-gather"
         assert sha_file.is_file()

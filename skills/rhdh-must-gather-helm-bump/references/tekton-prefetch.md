@@ -37,3 +37,5 @@ When CGW has no binaries, helm is built from `vendor/helm` with go-toolset. Use 
 ```
 
 Also comment Stage 2a and uncomment Stage 2b in `Containerfile` and `.rhdh/docker/Containerfile` (see upstream comments). Regenerating PLRs from templates is **not** required for prefetch-only edits — patch the three files above directly.
+
+Ensure distgit still has `hack/install-helm-binary.sh` and `hack/verify-helm-tarball.sh` when using Stage 2a (`generic` prefetch). See [install-paths.md](install-paths.md) midstream section.
