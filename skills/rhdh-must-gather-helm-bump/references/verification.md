@@ -16,8 +16,6 @@ Konflux hermetic builds are validated downstream; upstream CI is the primary gat
 | Gate | Command / location | Pass when |
 |------|-------------------|-----------|
 | Distgit sync | `git diff distgit/containers/rhdh-must-gather` | Helm files match upstream, including `hack/verify-helm-tarball.sh` |
-| `hack/` present | `ls distgit/containers/rhdh-must-gather/hack/` | Install + verify scripts exist (Stage 2a `COPY`) |
-| Sync exclude | `upstream_repos.yml` must-gather `exclude_root` | Does **not** list `hack/` |
 | Upstream SHA | `sync/upstream_SHA_rhdh-must-gather` | Matches upstream commit synced |
 | Konflux | `rhdh-must-gather-2-on-pull` PipelineRun | Prefetch + build succeed |
 

@@ -2,13 +2,12 @@
 name: rhdh-must-gather-helm-bump
 description: >-
   Bumps the Helm CLI baked into redhat-developer/rhdh-must-gather, mirrors helm
-  files (including hack/verify-helm-tarball.sh) into rhidp/rhdh distgit, keeps
-  hack/ out of upstream_repos.yml exclude_root, patches Konflux Tekton prefetch
-  (CGW generic vs vendored gomod), and updates sync/upstream_SHA. Use when
-  upgrading must-gather Helm, running helm-lockfile-update, refresh
-  artifacts.lock.yaml, syncing rhdh-must-gather downstream, fixing missing
-  distgit hack/ after bot sync, switching CGW binary vs vendor/helm, or
-  bumping HELM_VERSION for RHIDP-16046. Also use when Konflux prefetch fails.
+  files (including hack/verify-helm-tarball.sh) into rhidp/rhdh distgit, patches
+  Konflux Tekton prefetch (CGW generic vs vendored gomod), and updates
+  sync/upstream_SHA. Use when upgrading must-gather Helm, running
+  helm-lockfile-update, refresh artifacts.lock.yaml, syncing rhdh-must-gather
+  downstream, switching CGW binary vs vendor/helm, or bumping HELM_VERSION for
+  RHIDP-16046. Also use when Konflux prefetch fails after a Helm release.
 ---
 
 # RHDH must-gather Helm bump
@@ -24,7 +23,6 @@ Propagate a **Helm CLI** version bump across upstream GitHub and midstream GitLa
 | Same (midstream) | `.tekton/rhdh-must-gather-2-{pull,push}.yaml` | `prefetch-input` (`generic` vs `gomod`) |
 | Same | `.tekton-templates/components.yaml` | `must-gather.prefetch_input` (keep in sync with PLRs) |
 | Same | `sync/upstream_SHA_rhdh-must-gather` | Upstream commit SHA after sync |
-| Same | `upstream_repos.yml` | Must-gather `exclude_root` must **not** list `hack/` |
 
 ## Essential principles
 
@@ -79,7 +77,7 @@ chmod +x "${SKILL}/scripts/bump-must-gather-helm.sh"
 | `--dry-run` | Print actions without writing |
 | `--allow-dirty` | Proceed with uncommitted changes |
 
-**Default:** updates upstream, copies helm-related paths (including `hack/verify-helm-tarball.sh`) into distgit, ensures `hack/` is not excluded in `upstream_repos.yml`, patches Tekton prefetch, writes `sync/upstream_SHA_rhdh-must-gather`. Does **not** commit, push, or open PR/MR.
+**Default:** updates upstream, copies helm-related paths (including `hack/verify-helm-tarball.sh`) into distgit, patches Tekton prefetch, writes `sync/upstream_SHA_rhdh-must-gather`. Does **not** commit, push, or open PR/MR.
 
 ## Workflow
 
@@ -96,7 +94,6 @@ chmod +x "${SKILL}/scripts/bump-must-gather-helm.sh"
 
 - [ ] Upstream `HELM_VERSION` and lockfile or `vendor/helm/` match `--to`
 - [ ] Distgit mirror matches upstream helm-related files, including `hack/verify-helm-tarball.sh`
-- [ ] Distgit `hack/` present; `upstream_repos.yml` must-gather `exclude_root` does not list `hack/`
 - [ ] Tekton `prefetch-input` matches install path (`generic` vs `gomod`)
 - [ ] `sync/upstream_SHA_rhdh-must-gather` points at the upstream commit used for sync
 - [ ] No stale `vendor/helm/` in distgit when `mode=cgw`
@@ -107,7 +104,6 @@ chmod +x "${SKILL}/scripts/bump-must-gather-helm.sh"
 - Reimplementing `update-helm-lockfile.sh` or Tekton JSON edits by hand instead of running the script.
 - Confusing Helm CLI bumps with RHDH chart version changes (chart lives on Quay OCI, not in this skill).
 - Leaving `vendor/helm/` in distgit after switching to CGW binaries.
-- Relying on bot sync alone while `hack/` remains in `exclude_root` — Stage 2a `COPY` then fails midstream.
 - Syncing install scripts without `verify-helm-tarball.sh` (checksum gate from #284).
 - Blaming a Helm bump when only GitHub E2E fails — triage chart/E2E harness first ([references/verification.md](references/verification.md)).
 - Committing or opening PR/MR without the user requesting it.
@@ -126,5 +122,4 @@ chmod +x "${SKILL}/scripts/bump-must-gather-helm.sh"
 - Upstream `make vendor` / `make helm-lockfile-update` — same logic, upstream only
 - [base-images-and-rpms](../base-images-and-rpms/SKILL.md) — UBI/RPM bumps for overlapping repos
 - CGW binary + checksum verify (merged): [rhdh-must-gather#284](https://github.com/redhat-developer/rhdh-must-gather/pull/284)
-- Midstream `hack/` sync / exclude_root fix: [rhidp/rhdh !697](https://gitlab.cee.redhat.com/rhidp/rhdh/-/merge_requests/697)
 - Vendored fallback reference: [rhdh-must-gather#282](https://github.com/redhat-developer/rhdh-must-gather/pull/282)

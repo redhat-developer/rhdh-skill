@@ -60,9 +60,8 @@ Workflow:
   --dry-run                 Print actions without writing
   --allow-dirty             Proceed with uncommitted changes
 
-Also updates sync/upstream_SHA_rhdh-must-gather, removes stale distgit vendor/helm
-on the CGW path, and ensures upstream_repos.yml does not exclude hack/ (required
-by Containerfile COPY of install-helm-binary.sh / verify-helm-tarball.sh).
+Also updates sync/upstream_SHA_rhdh-must-gather and removes stale distgit vendor/helm
+on the CGW path (including hack/verify-helm-tarball.sh in the helm file sync).
 
 Examples:
   bump-must-gather-helm.sh --to 4.3.0 --parent-dir ~/RHDH
@@ -229,49 +228,6 @@ update_upstream_sha() {
     mkdir -p "${parent}"
     printf '%s\n' "${line}" > "${sha_file}"
     log "Updated ${UPSTREAM_SHA_REL} -> ${sha}"
-}
-
-# Bot sync used to exclude hack/; Containerfile Stage 2a COPYs install-helm-binary.sh
-# (and verify-helm-tarball.sh). Drop - hack/ from the must-gather exclude_root list.
-ensure_hack_not_excluded() {
-    local downstream="$1"
-    local file="${downstream}/upstream_repos.yml"
-    local tmp
-
-    if [[ ! -f "${file}" ]]; then
-        warn "No upstream_repos.yml at ${file}; skip hack/ exclude check"
-        return 0
-    fi
-
-    if ! grep -q 'redhat-developer/rhdh-must-gather' "${file}"; then
-        warn "upstream_repos.yml has no rhdh-must-gather entry; skip hack/ exclude check"
-        return 0
-    fi
-
-    if ! awk '
-        /^  - repo: .*rhdh-must-gather/ { in_mg=1; next }
-        in_mg && /^  - repo:/ { in_mg=0 }
-        in_mg && /^[[:space:]]*- hack\/[[:space:]]*$/ { found=1 }
-        END { exit found ? 0 : 1 }
-    ' "${file}"; then
-        log "upstream_repos.yml already keeps hack/ for must-gather"
-        return 0
-    fi
-
-    if [[ "${DRY_RUN}" -eq 1 ]]; then
-        echo "[DRY-RUN] remove '- hack/' from must-gather exclude_root in ${file}" >&2
-        return 0
-    fi
-
-    tmp=$(mktemp)
-    awk '
-        /^  - repo: .*rhdh-must-gather/ { in_mg=1; print; next }
-        in_mg && /^  - repo:/ { in_mg=0 }
-        in_mg && /^[[:space:]]*- hack\/[[:space:]]*$/ { next }
-        { print }
-    ' "${file}" > "${tmp}"
-    mv "${tmp}" "${file}"
-    log "Removed hack/ from must-gather exclude_root in upstream_repos.yml"
 }
 
 replace_prefetch_in_file() {
@@ -459,7 +415,6 @@ if [[ "${SKIP_DOWNSTREAM}" -eq 0 ]]; then
     assert_clean_tree "${DOWNSTREAM_DIR}" "Downstream"
     [[ -n "${UPSTREAM_DIR}" ]] || die "--skip-upstream requires a prior upstream bump in distgit; pass --upstream for sync source"
     sync_to_distgit "${UPSTREAM_DIR}" "${DOWNSTREAM_DIR}" "${MODE}"
-    ensure_hack_not_excluded "${DOWNSTREAM_DIR}"
     update_tekton_prefetch "${DOWNSTREAM_DIR}" "${MODE}"
     update_upstream_sha "${UPSTREAM_DIR}" "${DOWNSTREAM_DIR}"
 fi

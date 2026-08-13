@@ -28,15 +28,6 @@ Always sync `hack/verify-helm-tarball.sh` into distgit with the other install sc
 
 In Containerfile Stage 2a, `TARGETPLATFORM` may be three-part (`linux/arm64/v8`). Install scripts take **field 2** (`cut -d/ -f2`), not `${TARGETPLATFORM##*/}` (which would yield `v8`).
 
-## Midstream: keep `hack/` in sync
-
-`Containerfile` Stage 2a does `COPY hack/install-helm-binary.sh`. Bot sync alone is not enough if `upstream_repos.yml` lists `hack/` under must-gather `exclude_root` — Hermeto prefetch then has a Containerfile that references missing scripts ([rhidp/rhdh !697](https://gitlab.cee.redhat.com/rhidp/rhdh/-/merge_requests/697)).
-
-The bump script:
-
-1. Copies helm `hack/*.sh` into `distgit/containers/rhdh-must-gather/hack/`
-2. Removes `- hack/` from the must-gather `exclude_root` in `upstream_repos.yml` when present
-
 ## Vendored path manual steps
 
 When `mode=vendor`, the script prints reminders. Also required:
