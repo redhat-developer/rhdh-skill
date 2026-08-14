@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Prow Jobs"
+  short_description: "Manage OCP and K8s test entries and cluster pools"

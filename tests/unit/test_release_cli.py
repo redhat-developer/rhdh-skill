@@ -1,4 +1,4 @@
-"""Unit tests for skills/rhdh-release/scripts/ — jql.py, slack_templates.py, release.py, rich_filter.py."""
+"""Unit tests for the rhdh-release scripts."""
 
 import json
 import os
@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-_RELEASE_SCRIPTS = PROJECT_ROOT / "skills" / "rhdh-release" / "scripts"
+_RELEASE_SCRIPTS = PROJECT_ROOT / "skills" / "release" / "rhdh-release-status" / "scripts"
 _NO_RICH_FILTER = PROJECT_ROOT / ".test-no-rich-filter.json"
 if str(_RELEASE_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_RELEASE_SCRIPTS))
@@ -369,30 +369,6 @@ class TestCommandMapping:
 
     def test_all_rich_filter_commands_mapped(self):
         assert {"inventory", "query"} == set(release.RICH_FILTER_COMMANDS)
-
-
-# =========================================================================
-# release.py — _find_parse_issues discovery
-# =========================================================================
-
-
-class TestFindParseIssues:
-    def test_returns_path_or_none(self):
-        result = release._find_parse_issues()
-        assert result is None or isinstance(result, Path)
-
-    def test_sibling_path_resolves(self):
-        sibling = (
-            Path(__file__).resolve().parent.parent.parent
-            / "skills"
-            / "rhdh-jira"
-            / "scripts"
-            / "parse_issues.py"
-        )
-        result = release._find_parse_issues()
-        if sibling.exists():
-            assert result is not None
-            assert result.exists()
 
 
 # =========================================================================
@@ -976,7 +952,7 @@ class TestJqlWithoutRichFilter:
 
 
 class TestRichFilterCliIntegration:
-    def test_check_ignores_optional_token_warning_for_all_pass(self, tmp_path, monkeypatch, capsys):
+    def test_check_uses_native_cli_capabilities(self, tmp_path, monkeypatch, capsys):
         rf_path = _write_sample_rf(tmp_path)
         monkeypatch.setattr(release.Path, "home", lambda: tmp_path / "home")
         monkeypatch.setattr(release.rf_mod, "discover", lambda: rf_path)
@@ -990,11 +966,13 @@ class TestRichFilterCliIntegration:
         release.main(["--json", "check"])
 
         output = json.loads(capsys.readouterr().out)
-        token_check = next(
-            check for check in output["data"]["checks"] if check["name"] == ".jira-token"
+        assert ".jira-token" not in {check["name"] for check in output["data"]["checks"]}
+        assert (
+            next(
+                check for check in output["data"]["checks"] if check["name"] == "jira-connectivity"
+            )["status"]
+            == "pass"
         )
-        assert token_check["status"] == "warn"
-        assert token_check["optional"] is True
         assert output["data"]["all_pass"] is True
         assert "next_steps" not in output
 

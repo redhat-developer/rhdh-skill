@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SKILL_DIR = PROJECT_ROOT / "skills" / "rhdh-must-gather-helm-bump"
+SKILL_DIR = PROJECT_ROOT / "skills" / "ci" / "rhdh-must-gather-helm-bump"
 MAIN_SCRIPT = SKILL_DIR / "scripts" / "bump-must-gather-helm.sh"
 
 HELM_STAGES_SNIPPET = textwrap.dedent(

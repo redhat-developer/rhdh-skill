@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Pull Request Review"
+  short_description: "Review RHDH code and test operator PRs"

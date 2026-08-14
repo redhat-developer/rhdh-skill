@@ -1,0 +1,5 @@
+interface:
+  display_name: "Set Up RHDH Skills"
+  short_description: "Install and configure the complete RHDH skill set"
+policy:
+  allow_implicit_invocation: false

@@ -26,7 +26,7 @@ repos:
     rev: v0.17.2
     hooks:
       - id: markdownlint-cli2
-        args: ["--fix"]
+        args: ['--fix']
         exclude: ^\.planning/
 
   # Secret detection
@@ -40,11 +40,18 @@ repos:
     rev: v0.10.0.1
     hooks:
       - id: shellcheck
-        args: ["--severity=warning"]
+        args: ['--severity=warning']
 
-  # Run tests before commit
+  # Keep the skills CLI grouping manifest aligned with the catalog
   - repo: local
     hooks:
+      - id: generate-plugin-manifest
+        name: generate .claude-plugin marketplace from catalog
+        entry: uv run python scripts/generate_plugin_manifest.py --write
+        language: system
+        files: ^(skills/meta/setup-rhdh-skills/assets/catalog\.json|\.claude-plugin/marketplace\.json)$
+        pass_filenames: false
+        stages: [pre-commit]
       - id: pytest
         name: pytest
         entry: uv run pytest tests/ -q

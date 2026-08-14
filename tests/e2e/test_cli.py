@@ -313,7 +313,7 @@ class TestCliVersion:
         result = cli("--version")
 
         assert result.returncode == 0
-        assert "1.0.0" in result.stdout
+        assert "0.0.0" in result.stdout
 
 
 class TestCliOutputFormat:
@@ -340,25 +340,25 @@ class TestCliOutputFormat:
 
 
 class TestCliDoctorJira:
-    """Test CLI doctor JIRA checks (optional tool)."""
+    """Test CLI doctor acli/Jira checks (optional tool)."""
 
     def test_doctor_includes_jira_check(self, cli, isolated_env, monkeypatch):
         """Doctor should include JIRA check in results."""
         from rhdh import cli as cli_module
 
-        # Mock jira not installed
+        # Mock acli not installed
         original_check_tool = cli_module.check_tool
         monkeypatch.setattr(
             cli_module,
             "check_tool",
-            lambda name: original_check_tool(name) if name != "jira" else False,
+            lambda name: original_check_tool(name) if name != "acli" else False,
         )
 
         result = cli("doctor")
         response = parse_response(result)
 
         check_names = [c["name"] for c in response["data"]["checks"]]
-        assert "jira_installed" in check_names
+        assert "acli_installed" in check_names
 
     def test_doctor_jira_not_installed_is_info(self, cli, isolated_env, monkeypatch):
         """JIRA not installed should be info status (optional tool)."""
@@ -368,34 +368,34 @@ class TestCliDoctorJira:
         monkeypatch.setattr(
             cli_module,
             "check_tool",
-            lambda name: original_check_tool(name) if name != "jira" else False,
+            lambda name: original_check_tool(name) if name != "acli" else False,
         )
 
         result = cli("doctor")
         response = parse_response(result)
 
-        jira_check = next(c for c in response["data"]["checks"] if c["name"] == "jira_installed")
+        jira_check = next(c for c in response["data"]["checks"] if c["name"] == "acli_installed")
         assert jira_check["status"] == "info"
         assert "optional" in jira_check["message"]
-        assert "reference" in jira_check
+        assert jira_check["setup_required"] == "/setup-rhdh-skills jira"
 
     def test_doctor_jira_not_authenticated_is_warn(self, cli, isolated_env, monkeypatch):
         """JIRA installed but not authenticated should be warn status."""
         from rhdh import cli as cli_module
 
-        # Mock jira installed
+        # Mock acli installed
         original_check_tool = cli_module.check_tool
         monkeypatch.setattr(
             cli_module,
             "check_tool",
-            lambda name: True if name == "jira" else original_check_tool(name),
+            lambda name: True if name == "acli" else original_check_tool(name),
         )
 
-        # Mock 'jira me' failing
+        # Mock the acli Jira smoke test failing
         original_run = cli_module.run_command
 
         def mock_run(cmd, cwd=None):
-            if cmd == ["jira", "me"]:
+            if cmd == ["acli", "jira", "project", "list", "--recent", "1"]:
                 return (1, "", "not authenticated")
             return original_run(cmd, cwd)
 
@@ -404,27 +404,27 @@ class TestCliDoctorJira:
         result = cli("doctor")
         response = parse_response(result)
 
-        jira_auth = next(c for c in response["data"]["checks"] if c["name"] == "jira_auth")
+        jira_auth = next(c for c in response["data"]["checks"] if c["name"] == "acli_auth")
         assert jira_auth["status"] == "warn"
-        assert "reference" in jira_auth
+        assert jira_auth["setup_required"] == "/setup-rhdh-skills jira"
 
     def test_doctor_jira_authenticated_is_pass(self, cli, isolated_env, monkeypatch):
         """JIRA installed and authenticated should be pass status."""
         from rhdh import cli as cli_module
 
-        # Mock jira installed
+        # Mock acli installed
         original_check_tool = cli_module.check_tool
         monkeypatch.setattr(
             cli_module,
             "check_tool",
-            lambda name: True if name == "jira" else original_check_tool(name),
+            lambda name: True if name == "acli" else original_check_tool(name),
         )
 
-        # Mock 'jira me' succeeding
+        # Mock the acli Jira smoke test succeeding
         original_run = cli_module.run_command
 
         def mock_run(cmd, cwd=None):
-            if cmd == ["jira", "me"]:
+            if cmd == ["acli", "jira", "project", "list", "--recent", "1"]:
                 return (0, "user@example.com", "")
             return original_run(cmd, cwd)
 
@@ -434,9 +434,9 @@ class TestCliDoctorJira:
         response = parse_response(result)
 
         jira_installed = next(
-            c for c in response["data"]["checks"] if c["name"] == "jira_installed"
+            c for c in response["data"]["checks"] if c["name"] == "acli_installed"
         )
-        jira_auth = next(c for c in response["data"]["checks"] if c["name"] == "jira_auth")
+        jira_auth = next(c for c in response["data"]["checks"] if c["name"] == "acli_auth")
         assert jira_installed["status"] == "pass"
         assert jira_auth["status"] == "pass"
 
@@ -444,19 +444,19 @@ class TestCliDoctorJira:
         """JIRA issues should NOT cause doctor to fail (optional tool)."""
         from rhdh import cli as cli_module
 
-        # Mock jira not installed
+        # Mock acli not installed
         original_check_tool = cli_module.check_tool
         monkeypatch.setattr(
             cli_module,
             "check_tool",
-            lambda name: original_check_tool(name) if name != "jira" else False,
+            lambda name: original_check_tool(name) if name != "acli" else False,
         )
 
         result = cli("doctor")
         response = parse_response(result)
 
         # JIRA being missing should not add to issues
-        jira_check = next(c for c in response["data"]["checks"] if c["name"] == "jira_installed")
+        jira_check = next(c for c in response["data"]["checks"] if c["name"] == "acli_installed")
         assert jira_check["status"] == "info"  # info, not fail
 
         # Verify no JIRA-related items in issues list

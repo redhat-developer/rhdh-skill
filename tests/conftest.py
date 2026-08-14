@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for rhdh-skill tests."""
+"""Shared pytest fixtures for rhdh-skills tests."""
 
 import json
 import os
@@ -13,21 +13,15 @@ import pytest
 # Path to the project root
 PROJECT_ROOT = Path(__file__).parent.parent
 
-# Path to the orchestrator skill directory (where rhdh package lives)
-RHDH_SKILL_DIR = PROJECT_ROOT / "skills" / "rhdh"
+# Path to the context skill directory (where the preserved rhdh package lives)
+RHDH_SKILL_DIR = PROJECT_ROOT / "skills" / "reference" / "rhdh-context"
 
-# Path to the overlay skill directory (markdown-only)
-OVERLAY_SKILL_DIR = PROJECT_ROOT / "skills" / "overlay"
-
-# Path to the skill-maker skill directory (markdown-only)
-SKILL_MAKER_DIR = PROJECT_ROOT / "skills" / "skill-maker"
-
-# Add orchestrator skill directory to path for testing
+# Add the context skill directory to path for testing
 if str(RHDH_SKILL_DIR) not in sys.path:
     sys.path.insert(0, str(RHDH_SKILL_DIR))
 
 # Path to the rhdh-local skill directory (where rhdh_local package lives)
-RHDH_LOCAL_SKILL_DIR = PROJECT_ROOT / "skills" / "rhdh-local"
+RHDH_LOCAL_SKILL_DIR = PROJECT_ROOT / "skills" / "plugins" / "rhdh-local"
 
 # Add rhdh-local skill directory to path for testing
 if str(RHDH_LOCAL_SKILL_DIR) not in sys.path:
@@ -46,7 +40,7 @@ def skill_root():
 
 @pytest.fixture
 def skill_dir():
-    """Return the orchestrator skill directory path (skills/rhdh)."""
+    """Return the context skill directory path."""
     return RHDH_SKILL_DIR
 
 
@@ -58,20 +52,8 @@ def scripts_dir():
 
 @pytest.fixture
 def skills_dir():
-    """Return the orchestrator skills/rhdh directory path."""
+    """Return the preserved CLI package directory."""
     return SKILLS_DIR
-
-
-@pytest.fixture
-def overlay_skill_dir():
-    """Return the overlay skill directory path (skills/overlay)."""
-    return OVERLAY_SKILL_DIR
-
-
-@pytest.fixture
-def skill_maker_dir():
-    """Return the skill-maker directory path (skills/skill-maker)."""
-    return SKILL_MAKER_DIR
 
 
 @pytest.fixture
@@ -79,14 +61,14 @@ def isolated_env(tmp_path, monkeypatch):
     """Create an isolated environment with temp directories.
 
     Sets up:
-    - Temporary data directory via RHDH_SKILL_DATA_DIR env var
-    - Temporary config directory (~/.config/rhdh-skill/)
+    - Temporary data directory via RHDH_SKILLS_DATA_DIR env var
+    - Temporary config directory (~/.config/rhdh-skills/)
     - Temporary project config directory (.rhdh/)
     - Isolated working directory
     - Mock HOME environment
     """
-    # Create temp user config/data dir (matches config.py: .config/rhdh-skill)
-    config_dir = tmp_path / ".config" / "rhdh-skill"
+    # Create temp user config/data dir (matches config.py: .config/rhdh-skills)
+    config_dir = tmp_path / ".config" / "rhdh-skills"
     config_dir.mkdir(parents=True)
 
     # Create temp project config dir
@@ -142,8 +124,8 @@ def isolated_env(tmp_path, monkeypatch):
     # Set HOME to temp dir so config goes there
     monkeypatch.setenv("HOME", str(tmp_path))
 
-    # Set RHDH_SKILL_DATA_DIR to isolate worklog/todo from user's real data
-    monkeypatch.setenv("RHDH_SKILL_DATA_DIR", str(config_dir))
+    # Set RHDH_SKILLS_DATA_DIR to isolate worklog/todo from user's real data
+    monkeypatch.setenv("RHDH_SKILLS_DATA_DIR", str(config_dir))
 
     # Clear any existing env overrides
     monkeypatch.delenv("RHDH_OVERLAY_REPO", raising=False)
@@ -197,7 +179,7 @@ def run_cli_python(*args, env=None, isolated_env=None):
     if isolated_env:
         new_home = Path(isolated_env["root"])
         # Patch user config paths
-        config_module.USER_CONFIG_DIR = new_home / ".config" / "rhdh-skill"
+        config_module.USER_CONFIG_DIR = new_home / ".config" / "rhdh-skills"
         config_module.USER_CONFIG_FILE = config_module.USER_CONFIG_DIR / "config.json"
 
     # Mock find_git_root to return isolated dir (prevents writes to real project)

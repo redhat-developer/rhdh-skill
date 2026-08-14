@@ -1,4 +1,4 @@
-"""Tests for base-images-and-rpms skill - analyze-base-images.sh smoke behavior."""
+"""Tests for the rhdh-base-images shell interfaces."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SKILL_DIR = PROJECT_ROOT / "skills" / "base-images-and-rpms"
+SKILL_DIR = PROJECT_ROOT / "skills" / "ci" / "rhdh-base-images"
 ANALYZE_SCRIPT = SKILL_DIR / "scripts" / "analyze-base-images.sh"
 MAIN_SCRIPT = SKILL_DIR / "scripts" / "base-images-and-rpms.sh"
 
@@ -25,10 +25,26 @@ def _clean_rhdh_env() -> dict[str, str]:
 def _shell_script_cmd(script: Path, *args: str) -> list[str]:
     """Build argv to run a .sh script (via bash on Windows)."""
     if os.name == "nt":
-        bash = shutil.which("bash")
-        if bash is None:
-            pytest.skip("bash required to run .sh scripts on Windows")
-        return [bash, str(script), *args]
+        wsl = shutil.which("wsl")
+        if wsl is None:
+            pytest.skip("WSL bash required to run .sh scripts on Windows")
+        converted_script = subprocess.run(
+            [wsl, "wslpath", "-u", script.as_posix()],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        converted_args = []
+        for arg in args:
+            if len(arg) >= 3 and arg[1:3] == ":\\":
+                arg = subprocess.run(
+                    [wsl, "wslpath", "-u", arg.replace("\\", "/")],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                ).stdout.strip()
+            converted_args.append(arg)
+        return [wsl, "bash", converted_script, *converted_args]
     return [str(script), *args]
 
 

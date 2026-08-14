@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Test Placement"
+  short_description: "Advise which repo and layer a permanent test belongs in"

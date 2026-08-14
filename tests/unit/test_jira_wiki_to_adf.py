@@ -6,8 +6,10 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).parents[2] / "skills/rhdh-jira/scripts/jira-wiki-to-adf.py"
-EPIC_EXAMPLE = Path(__file__).parents[2] / "skills/rhdh-jira/assets/examples/epic-example.txt"
+JIRA_SKILL = Path(__file__).parents[2] / "skills" / "reference" / "rhdh-jira-api"
+SCRIPT = JIRA_SKILL / "scripts" / "jira-wiki-to-adf.py"
+AUTHORING_SKILL = Path(__file__).parents[2] / "skills" / "reference" / "rhdh-jira-authoring"
+EPIC_EXAMPLE = AUTHORING_SKILL / "assets" / "examples" / "epic-example.txt"
 
 
 def load_converter():

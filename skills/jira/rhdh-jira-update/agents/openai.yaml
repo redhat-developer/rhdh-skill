@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Jira Update"
+  short_description: "Comment, transition, link, and assign an RHDH Jira issue"

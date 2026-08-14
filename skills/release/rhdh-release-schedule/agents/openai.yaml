@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Release Schedule"
+  short_description: "Freeze, Go/No Go, and GA dates for an RHDH version"

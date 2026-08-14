@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Context"
+  short_description: "Resolve RHDH repositories, versions, and work state"

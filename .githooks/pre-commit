@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # Auto-installed via core.hooksPath — no `pre-commit install` needed.
 # See .pre-commit-config.yaml for hook definitions.
 

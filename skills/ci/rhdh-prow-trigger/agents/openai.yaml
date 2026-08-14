@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Prow Trigger"
+  short_description: "Run a nightly ProwJob on demand via Gangway"

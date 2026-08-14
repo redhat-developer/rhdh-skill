@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Plugin Midstream Propagate"
+  short_description: "Propagate an rhdh-plugins change through overlays into the plugin catalog"

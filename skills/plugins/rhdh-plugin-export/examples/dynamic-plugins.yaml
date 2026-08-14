@@ -1,0 +1,197 @@
+# Example RHDH Dynamic Plugins Configuration
+# Comprehensive examples for dynamic-plugins.yaml
+#
+# Place this configuration in your RHDH deployment's dynamic-plugins.yaml
+
+# Optional: Include default plugin configurations
+includes:
+  - dynamic-plugins.default.yaml
+
+plugins:
+  # ============================================================
+  # Backend Plugin Examples
+  # ============================================================
+
+  # Basic backend plugin from OCI image
+  - package: oci://quay.io/example/my-backend-plugin:v1.0.0!my-plugin-backend-dynamic
+    disabled: false
+    pluginConfig:
+      myPlugin:
+        apiUrl: https://api.example.com
+        timeout: 30000
+
+  # Backend plugin with version inheritance (requires includes)
+  - package: oci://quay.io/example/my-backend-plugin:{{inherit}}!my-plugin-backend-dynamic
+    disabled: false
+    pluginConfig:
+      myPlugin:
+        customSetting: overridden-value
+
+  # Backend plugin using image digest for integrity
+  - package: oci://quay.io/example/my-backend-plugin@sha256:abc123def456...!my-plugin-backend-dynamic
+    disabled: false
+
+  # Backend module (extends another plugin)
+  - package: oci://quay.io/example/catalog-module-custom:v1.0.0!catalog-backend-module-custom-dynamic
+    disabled: false
+    pluginConfig:
+      catalog:
+        providers:
+          custom:
+            schedule:
+              frequency: { minutes: 30 }
+              timeout: { minutes: 3 }
+
+  # Custom scaffolder action
+  - package: oci://quay.io/example/scaffolder-actions:v1.0.0!scaffolder-backend-module-custom-actions-dynamic
+    disabled: false
+    pluginConfig:
+      scaffolder:
+        actions:
+          custom:deploy:
+            apiKey: ${DEPLOY_API_KEY}
+
+  # Backend plugin with full config
+  - package: oci://quay.io/example/complete-backend:v1.0.0!complete-backend-dynamic
+    disabled: false
+    pluginConfig:
+      completePlugin:
+        apiUrl: https://api.example.com
+        timeout: 30000
+        auth:
+          type: bearer
+          tokenEnv: PLUGIN_API_TOKEN
+        features:
+          caching: true
+          retries: 3
+
+  # ============================================================
+  # Frontend Plugin Examples
+  # ============================================================
+
+  # Frontend plugin with entity page mount point
+  - package: oci://quay.io/example/my-frontend-plugin:v1.0.0!my-plugin
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          example.plugin-my-plugin:
+            mountPoints:
+              - mountPoint: entity.page.overview/cards
+                importName: MyPluginCard
+                config:
+                  layout:
+                    gridColumn: '1 / -1'
+                  if:
+                    allOf:
+                      - isKind: component
+                      - hasAnnotation: example.com/my-annotation
+
+  # Frontend plugin with dynamic route and sidebar menu
+  - package: oci://quay.io/example/my-page-plugin:v1.0.0!my-page-plugin
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          example.plugin-my-page:
+            dynamicRoutes:
+              - path: /my-page
+                importName: MyPageComponent
+                menuItem:
+                  icon: dashboard
+                  text: My Page
+            appIcons:
+              - name: myCustomIcon
+                importName: MyCustomIcon
+
+  # Frontend plugin with full wiring
+  - package: oci://quay.io/example/complete-frontend:v1.0.0!complete-frontend
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          my-org.plugin-complete:
+            appIcons:
+              - name: completeIcon
+                importName: CompleteIcon
+
+            dynamicRoutes:
+              - path: /complete
+                importName: CompletePage
+                menuItem:
+                  icon: completeIcon
+                  text: Complete Plugin
+
+            mountPoints:
+              - mountPoint: entity.page.overview/cards
+                importName: CompleteCard
+                config:
+                  layout:
+                    gridColumn: '1 / -1'
+                  if:
+                    allOf:
+                      - isKind: component
+                      - hasAnnotation: complete-plugin/enabled
+
+            menuItems:
+              complete:
+                priority: 50
+
+  # ============================================================
+  # Multi-Plugin Image Example
+  # ============================================================
+
+  # Frontend and backend from same image
+  - package: oci://quay.io/example/my-plugin-bundle:v1.0.0!my-plugin
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          my-org.plugin-my-plugin:
+            mountPoints:
+              - mountPoint: entity.page.overview/cards
+                importName: MyPluginCard
+
+  - package: oci://quay.io/example/my-plugin-bundle:v1.0.0!my-plugin-backend-dynamic
+    disabled: false
+    pluginConfig:
+      myPlugin:
+        apiUrl: https://api.example.com
+
+  # ============================================================
+  # tgz Archive Examples
+  # ============================================================
+
+  # Plugin from HTTP server
+  - package: https://plugin-registry.example.com/my-plugin-1.0.0.tgz
+    integrity: sha512-9WlbgEdadJNeQxdn1973r5E4kNFvnT9GjLD627GWgrhCaxjCmxqdNW08cj+Bf47mwAtZMt1Ttyo+ZhDRDj9PoA==
+    disabled: false
+
+  # Plugin from internal httpd service (OpenShift)
+  - package: http://plugin-registry:8080/my-plugin-backend-dynamic-1.0.0.tgz
+    integrity: sha512-abc123def456...
+    disabled: false
+
+  # ============================================================
+  # npm Package Examples
+  # ============================================================
+
+  # Plugin from private npm registry
+  - package: '@my-org/my-plugin-dynamic@1.0.0'
+    integrity: sha512-abc123def456...
+    disabled: false
+
+  # ============================================================
+  # Local Development Examples
+  # ============================================================
+
+  # Pre-installed plugin (already in RHDH image)
+  - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-github-dynamic
+    disabled: false
+
+  # Local development plugin
+  - package: ./dynamic-plugins-root/my-dev-plugin-dynamic
+    disabled: false
+    pluginConfig:
+      myDevPlugin:
+        debug: true

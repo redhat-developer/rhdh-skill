@@ -76,3 +76,39 @@ jobs:
       - run: uv sync --frozen --extra dev
 
       - run: uv run pytest -v
+
+  distribution:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate catalog and composition graph
+        run: python3 scripts/validate_skill_catalog.py --root .
+
+      - name: Verify skills.sh discovery
+        run: npx --yes skills@1.5.22 add . --list
+
+      - name: Test JavaScript skill scripts
+        run: node --test "skills/**/tests/*.test.mjs"
+
+      - name: Lint shell skill scripts
+        run: find skills -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning
+
+      - name: Build and smoke-test the standalone rhdh CLI
+        run: |
+          uv build
+          python -m venv /tmp/rhdh-skills-wheel
+          /tmp/rhdh-skills-wheel/bin/pip install dist/*.whl
+          /tmp/rhdh-skills-wheel/bin/rhdh --help
+          /tmp/rhdh-skills-wheel/bin/rhdh-local --help
+          /tmp/rhdh-skills-wheel/bin/rhdh local --help

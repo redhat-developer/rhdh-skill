@@ -1,0 +1,393 @@
+{
+  "schemaVersion": 1,
+  "pack": {
+    "name": "RHDH complete",
+    "source": "redhat-developer/rhdh-skills",
+    "url": null,
+    "requiredExternalSkills": [
+      {
+        "name": "grilling",
+        "source": "mattpocock/skills"
+      },
+      {
+        "name": "handoff",
+        "source": "mattpocock/skills"
+      },
+      {
+        "name": "humanizer",
+        "source": "blader/humanizer"
+      }
+    ]
+  },
+  "categories": [
+    "jira",
+    "plugins",
+    "ci",
+    "release",
+    "reference",
+    "meta"
+  ],
+  "skills": [
+    {
+      "name": "rhdh-jira-create",
+      "category": "jira",
+      "invocation": "model",
+      "requiresSkills": [
+        "rhdh-jira-api",
+        "rhdh-jira-authoring",
+        "mutation-gate"
+      ],
+      "requiresExternalSkills": [
+        "grilling"
+      ]
+    },
+    {
+      "name": "rhdh-jira-link",
+      "category": "jira",
+      "invocation": "model",
+      "requiresSkills": [
+        "mutation-gate"
+      ],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-jira-refine",
+      "category": "jira",
+      "invocation": "model",
+      "requiresSkills": [
+        "rhdh-jira-api",
+        "rhdh-jira-authoring"
+      ],
+      "optionalSkills": [
+        "mutation-gate"
+      ],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-jira-sprint-plan",
+      "category": "jira",
+      "invocation": "model",
+      "requiresSkills": [
+        "rhdh-jira-api"
+      ],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-jira-sprint-report",
+      "category": "jira",
+      "invocation": "model",
+      "requiresSkills": [
+        "rhdh-jira-api"
+      ],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-jira-update",
+      "category": "jira",
+      "invocation": "model",
+      "requiresSkills": [
+        "rhdh-jira-api",
+        "mutation-gate"
+      ],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-backstage-upgrade",
+      "category": "plugins",
+      "invocation": "model",
+      "requiresSkills": [
+        "backstage-api-changes"
+      ],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-local",
+      "category": "plugins",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-overlay",
+      "category": "plugins",
+      "invocation": "model",
+      "requiresSkills": [
+        "mutation-gate"
+      ],
+      "optionalSkills": [
+        "rhdh-local",
+        "rhdh-forge"
+      ],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-plugin-authoring",
+      "category": "plugins",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-plugin-bug-fix",
+      "category": "plugins",
+      "invocation": "model",
+      "requiresSkills": [
+        "rhdh-forge"
+      ],
+      "requiresExternalSkills": [
+        "grilling"
+      ]
+    },
+    {
+      "name": "rhdh-plugin-export",
+      "category": "plugins",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-plugin-midstream-propagate",
+      "category": "plugins",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-plugin-nfs-migration",
+      "category": "plugins",
+      "invocation": "model",
+      "requiresSkills": [
+        "backstage-api-changes"
+      ],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-plugin-wiring",
+      "category": "plugins",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-pr-create",
+      "category": "plugins",
+      "invocation": "model",
+      "requiresSkills": [
+        "mutation-gate",
+        "rhdh-forge"
+      ],
+      "optionalSkills": [
+        "rhdh-jira-api",
+        "rhdh-jira-update",
+        "rhdh-jira-link"
+      ],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-pr-review",
+      "category": "plugins",
+      "invocation": "model",
+      "requiresSkills": [
+        "mutation-gate"
+      ],
+      "optionalSkills": [
+        "rhdh-forge"
+      ],
+      "requiresExternalSkills": [
+        "humanizer"
+      ]
+    },
+    {
+      "name": "rhdh-test-placement",
+      "category": "plugins",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": [
+        "grilling"
+      ]
+    },
+    {
+      "name": "rhdh-base-images",
+      "category": "ci",
+      "invocation": "model",
+      "requiresSkills": [
+        "mutation-gate"
+      ],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-konflux-tasks",
+      "category": "ci",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-prow-jobs",
+      "category": "ci",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-prow-release-branch",
+      "category": "ci",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-prow-trigger",
+      "category": "ci",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-must-gather-helm-bump",
+      "category": "ci",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-yarn-bump",
+      "category": "ci",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-overlay-cve-export",
+      "category": "release",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-platform-lifecycle",
+      "category": "release",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-release-announce",
+      "category": "release",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": [
+        "humanizer"
+      ]
+    },
+    {
+      "name": "rhdh-release-schedule",
+      "category": "release",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-release-status",
+      "category": "release",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-release-teams",
+      "category": "release",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-test-plan-review",
+      "category": "release",
+      "invocation": "model",
+      "requiresSkills": [
+        "rhdh-platform-lifecycle",
+        "rhdh-release-schedule"
+      ],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "backstage-api-changes",
+      "category": "reference",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "mutation-gate",
+      "category": "reference",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-context",
+      "category": "reference",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-forge",
+      "category": "reference",
+      "invocation": "model",
+      "requiresSkills": [
+        "mutation-gate"
+      ],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-jira-api",
+      "category": "reference",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "rhdh-jira-authoring",
+      "category": "reference",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "agent-readiness",
+      "category": "meta",
+      "invocation": "model",
+      "requiresSkills": [
+        "rhdh-context"
+      ],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "ask-rhdh",
+      "category": "meta",
+      "invocation": "human",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "setup-rhdh-skills",
+      "category": "meta",
+      "invocation": "human",
+      "requiresSkills": [
+        "mutation-gate"
+      ],
+      "requiresExternalSkills": []
+    },
+    {
+      "name": "skill-authoring",
+      "category": "meta",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": [
+        "grilling"
+      ]
+    }
+  ]
+}

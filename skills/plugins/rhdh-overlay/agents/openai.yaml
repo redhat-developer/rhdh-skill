@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Overlay"
+  short_description: "Manage RHDH plugin overlays and catalog packaging"

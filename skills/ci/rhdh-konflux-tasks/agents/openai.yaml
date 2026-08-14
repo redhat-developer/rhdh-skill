@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Konflux Tasks"
+  short_description: "Bump Konflux task digests and apply Tekton migrations"
