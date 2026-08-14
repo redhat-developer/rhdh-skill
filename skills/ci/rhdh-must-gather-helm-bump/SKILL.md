@@ -27,12 +27,12 @@ Propagate a **Helm CLI** version bump across upstream GitHub and midstream GitLa
 
 - **Helm CLI ≠ RHDH chart version.** This skill only bumps the CLI in the must-gather image, not `oci://quay.io/rhdh/chart`.
 - **CGW binary path is preferred** when `mirror.openshift.com/pub/cgw/helm/<version>/` has linux amd64/arm64 tarballs — smaller tree, faster Konflux builds.
-- **Execute the bundled script** ([scripts/bump-must-gather-helm.sh](scripts/bump-must-gather-helm.sh)); do not reimplement lockfile, Stage flip, or Tekton edits inline.
+- **Execute the bundled script** ([scripts/bump-must-gather-helm.py](scripts/bump-must-gather-helm.py)); do not reimplement lockfile, Stage flip, or Tekton edits inline.
 - **Commit / PR / MR only when the user asks.**
 
 ## Prerequisites
 
-- `curl`, `git`, `rsync`
+- Python 3.9+, `curl`, `git`, `rsync`
 - Network access to CGW mirror and both repo checkouts
 - Clean git trees in upstream and downstream (or pass `--allow-dirty`)
 - Upstream checkout on a branch that contains `hack/update-helm-lockfile.sh`
@@ -41,17 +41,16 @@ Propagate a **Helm CLI** version bump across upstream GitHub and midstream GitLa
 
 ```bash
 SKILL=skills/ci/rhdh-must-gather-helm-bump   # under rhdh-skill checkout
-chmod +x "${SKILL}/scripts/bump-must-gather-helm.sh"
 
 # Probe CGW + planned install path
-"${SKILL}/scripts/bump-must-gather-helm.sh" --to 4.3.0 --check --parent-dir ~/RHDH
+python3 "${SKILL}/scripts/bump-must-gather-helm.py" --to 4.3.0 --check --parent-dir ~/RHDH
 
 # Dry-run, then apply
-"${SKILL}/scripts/bump-must-gather-helm.sh" --to 4.3.0 --dry-run --parent-dir ~/RHDH
-"${SKILL}/scripts/bump-must-gather-helm.sh" --to 4.3.0 --parent-dir ~/RHDH
+python3 "${SKILL}/scripts/bump-must-gather-helm.py" --to 4.3.0 --dry-run --parent-dir ~/RHDH
+python3 "${SKILL}/scripts/bump-must-gather-helm.py" --to 4.3.0 --parent-dir ~/RHDH
 ```
 
-Full flag reference: `"${SKILL}/scripts/bump-must-gather-helm.sh" --help`.
+Full flag reference: `python3 "${SKILL}/scripts/bump-must-gather-helm.py" --help`.
 
 **Default:** updates upstream, syncs helm-related paths into distgit, flips Stage 2a/2b, regenerates distgit `Containerfile`, patches Tekton prefetch, writes `sync/upstream_SHA_rhdh-must-gather`. Does **not** commit, push, or open PR/MR.
 

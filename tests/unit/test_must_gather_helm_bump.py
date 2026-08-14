@@ -10,7 +10,7 @@ import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SKILL_DIR = PROJECT_ROOT / "skills" / "ci" / "rhdh-must-gather-helm-bump"
-MAIN_SCRIPT = SKILL_DIR / "scripts" / "bump-must-gather-helm.sh"
+MAIN_SCRIPT = SKILL_DIR / "scripts" / "bump-must-gather-helm.py"
 
 HELM_STAGES_SNIPPET = textwrap.dedent(
     """\
@@ -162,7 +162,7 @@ def _make_downstream(parent: Path) -> Path:
 
 
 class TestBumpMustGatherHelmScript:
-    """Smoke and regression tests for bump-must-gather-helm.sh."""
+    """Smoke and regression tests for bump-must-gather-helm.py."""
 
     def test_script_exists(self) -> None:
         assert MAIN_SCRIPT.is_file()
@@ -176,7 +176,8 @@ class TestBumpMustGatherHelmScript:
             check=False,
         )
         assert result.returncode == 0
-        assert "Usage:" in result.stdout + result.stderr
+        assert "usage:" in (result.stdout + result.stderr).lower()
+        assert "--to" in result.stdout + result.stderr
 
     def test_missing_to_version_exits_nonzero(self) -> None:
         result = subprocess.run(
