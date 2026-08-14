@@ -7,7 +7,22 @@ The bump script probes `hack/check-helm-binary-available.sh <version>` against `
 | CGW mirror has linux amd64/arm64? | Upstream action | Konflux prefetch | Containerfile |
 |-----------------------------------|-----------------|------------------|---------------|
 | **Yes** (preferred) | `hack/update-helm-lockfile.sh` | `generic` on distgit root (`artifacts.lock.yaml`) | Stage **2a** active (CGW binary) |
-| **No** | `hack/update-vendor.sh helm` | `gomod` on `vendor/helm` | Stage **2b** active (go-toolset build) — swap 2a/2b by hand |
+| **No** | `hack/update-vendor.sh helm` | `gomod` on `vendor/helm` | Stage **2b** active (go-toolset build) |
+
+The script flips Stage 2a/2b bidirectionally on:
+
+- upstream `Containerfile`
+- upstream `.rhdh/docker/Containerfile`
+- distgit `Containerfile` (after regenerating it from `.rhdh/docker/Containerfile`)
+
+## Distgit sync (what the script copies)
+
+- `Makefile`, `artifacts.lock.yaml`
+- entire `hack/`
+- `.rhdh/docker/Containerfile`
+- entire `vendor/` — on `mode=cgw`, **omit/delete** `vendor/helm` (other vendor trees such as `websocat` stay)
+
+It does **not** copy upstream root `Containerfile` onto distgit. Distgit root `Containerfile` is regenerated from `.rhdh/docker/Containerfile`, preserving existing `RHDH_MUST_GATHER_VERSION` and `MIDSTREAM_REPO` (same idea as midstream `build/ci/sync-midstream.sh`).
 
 ## CGW tarball layout
 
@@ -15,25 +30,6 @@ CGW publishes flat tarballs: member `helm-linux-amd64` (or `helm-linux-arm64`) a
 
 If Konflux prefetch install fails after a bump, verify tarball layout before blaming Hermeto.
 
-## Checksum verification (required)
+## Stage 2a / 2b (script-owned)
 
-`hack/install-helm-binary.sh` (curl path) and `hack/install-helm-local.sh` call `hack/verify-helm-tarball.sh`:
-
-1. Prefer SHA256 pinned in `artifacts.lock.yaml` when the filename is listed (linux amd64/arm64).
-2. Otherwise verify against `https://mirror.openshift.com/pub/cgw/helm/<version>/sha256sum.txt` (darwin / non-locked).
-
-Always sync `hack/verify-helm-tarball.sh` into distgit with the other install scripts. The bump script includes it in `SYNC_REL_PATHS`.
-
-## TARGETPLATFORM arch parsing
-
-In Containerfile Stage 2a, `TARGETPLATFORM` may be three-part (`linux/arm64/v8`). Install scripts take **field 2** (`cut -d/ -f2`), not `${TARGETPLATFORM##*/}` (which would yield `v8`).
-
-## Vendored path manual steps
-
-When `mode=vendor`, the script prints reminders. Also required:
-
-1. In upstream `Containerfile` and `.rhdh/docker/Containerfile`:
-   - Comment out Stage 2a (CGW helm-builder)
-   - Uncomment Stage 2b (go-toolset + `vendor/helm`)
-2. Re-sync distgit Containerfiles after editing upstream `.rhdh/docker/Containerfile`
-3. Confirm `distgit/vendor/helm` is present and helm is not fetched via `artifacts.lock.yaml`
+When `mode=vendor`, Stage 2a lines are commented and Stage 2b lines are uncommented. When `mode=cgw`, the reverse. Doc-only comments (`# Comment this out…`, `# https://…`, `# update via…`) stay commented.
