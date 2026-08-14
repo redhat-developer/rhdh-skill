@@ -116,7 +116,9 @@ def _make_upstream(parent: Path, *, cgw_exit: int = 0) -> Path:
         _write_executable(hack / name)
     vendor = upstream / "vendor"
     (vendor / "websocat").mkdir(parents=True)
-    (vendor / "websocat" / "Cargo.toml").write_text("[package]\nname='websocat'\n", encoding="utf-8")
+    (vendor / "websocat" / "Cargo.toml").write_text(
+        "[package]\nname='websocat'\n", encoding="utf-8"
+    )
     (vendor / "helm").mkdir(parents=True)
     (vendor / "helm" / "go.mod").write_text("module helm\n", encoding="utf-8")
     return upstream
@@ -132,7 +134,9 @@ def _make_downstream(parent: Path) -> Path:
     (distgit / "vendor" / "websocat").mkdir(parents=True)
     (distgit / "vendor" / "websocat" / "old.txt").write_text("old\n", encoding="utf-8")
     (distgit / "Containerfile").write_text(
-        HELM_STAGES_SNIPPET.replace('ARG RHDH_MUST_GATHER_VERSION="0.0.0-unknown"', 'ARG RHDH_MUST_GATHER_VERSION="-1"'),
+        HELM_STAGES_SNIPPET.replace(
+            'ARG RHDH_MUST_GATHER_VERSION="0.0.0-unknown"', 'ARG RHDH_MUST_GATHER_VERSION="-1"'
+        ),
         encoding="utf-8",
     )
     tekton = downstream / ".tekton"
@@ -235,9 +239,7 @@ class TestBumpMustGatherHelmScript:
         assert "helm_version=4.2.3" in result.stdout
         assert upstream.exists() and downstream.exists()
 
-    def test_cgw_sync_scopes_prefetch_omits_helm_keeps_websocat(
-        self, tmp_path: Path
-    ) -> None:
+    def test_cgw_sync_scopes_prefetch_omits_helm_keeps_websocat(self, tmp_path: Path) -> None:
         parent = tmp_path / "RHDH"
         upstream = _make_upstream(parent, cgw_exit=0)
         downstream = _make_downstream(parent)
@@ -282,9 +284,7 @@ class TestBumpMustGatherHelmScript:
         assert '"type": "generic"' in components
         assert "vendor/helm" not in components.split("must-gather:")[1].split("bootc:")[0]
 
-        pull = (downstream / ".tekton" / "rhdh-must-gather-2-pull.yaml").read_text(
-            encoding="utf-8"
-        )
+        pull = (downstream / ".tekton" / "rhdh-must-gather-2-pull.yaml").read_text(encoding="utf-8")
         assert '"type": "generic"' in pull
 
         # Stage 2a active, 2b commented in distgit Containerfile
