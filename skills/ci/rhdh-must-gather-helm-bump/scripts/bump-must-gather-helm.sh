@@ -293,22 +293,24 @@ sync_to_distgit() {
 }
 
 # Mimic sync-midstream: derive distgit Containerfile from .rhdh/docker/Containerfile,
-# preserving existing RHDH_MUST_GATHER_VERSION and MIDSTREAM_REPO when present.
+# preserving ARG RHDH_MUST_GATHER_VERSION and the Brew/Konflux metadata footer
+# (ENV SUMMARY=… / LABEL …) that sync-midstream appends after ENTRYPOINT.
 regenerate_distgit_containerfile() {
     local dest="$1"
     local src="${dest}/${RHDH_DOCKER_CF}"
     local out="${dest}/Containerfile"
-    local existing_version="" existing_midstream="" tmp
+    local existing_version="" footer="" tmp
 
     [[ -f "${src}" ]] || die "Missing ${src}; cannot regenerate distgit Containerfile"
 
     if [[ -f "${out}" ]]; then
         existing_version=$(sed -n 's/^ARG RHDH_MUST_GATHER_VERSION="\(.*\)"/\1/p' "${out}" | head -n1)
-        existing_midstream=$(sed -n 's/.*MIDSTREAM_REPO="\([^"]*\)".*/\1/p' "${out}" | head -n1)
+        # Footer is midstream-only branding appended after the upstream-derived body.
+        footer=$(awk '/^ENV SUMMARY=/{p=1} p{print}' "${out}" || true)
     fi
 
     if [[ "${DRY_RUN}" -eq 1 ]]; then
-        echo "[DRY-RUN] regenerate ${out} from ${src} (preserve VERSION='${existing_version}' MIDSTREAM='${existing_midstream}')" >&2
+        echo "[DRY-RUN] regenerate ${out} from ${src} (preserve VERSION='${existing_version}' footer=$([ -n "${footer}" ] && echo yes || echo no))" >&2
         return 0
     fi
 
@@ -318,9 +320,8 @@ regenerate_distgit_containerfile() {
         sed -i.bak -e "s/RHDH_MUST_GATHER_VERSION=.*/RHDH_MUST_GATHER_VERSION=\"${existing_version}\"/" "${tmp}"
         rm -f "${tmp}.bak"
     fi
-    if [[ -n "${existing_midstream}" ]]; then
-        sed -i.bak -e "s|\(MIDSTREAM_REPO=\)\"[^\"]*\"|\1\"${existing_midstream}\"|" "${tmp}"
-        rm -f "${tmp}.bak"
+    if [[ -n "${footer}" ]]; then
+        printf '\n%s\n' "${footer}" >> "${tmp}"
     fi
     mv "${tmp}" "${out}"
     log "Regenerated ${DISTGIT_REL}/Containerfile from ${RHDH_DOCKER_CF}"
@@ -564,13 +565,6 @@ fi
 if [[ "${SKIP_DOWNSTREAM}" -eq 0 ]]; then
     assert_clean_tree "${DOWNSTREAM_DIR}" "Downstream"
     [[ -n "${UPSTREAM_DIR}" ]] || die "Downstream sync requires --upstream (or --parent-dir)"
-    # Ensure upstream Containerfiles match mode before sync (covers --skip-upstream).
-    if [[ "${SKIP_UPSTREAM}" -eq 1 ]]; then
-        flip_helm_stages "${UPSTREAM_DIR}/Containerfile" "${MODE}"
-        if [[ -f "${UPSTREAM_DIR}/${RHDH_DOCKER_CF}" ]]; then
-            flip_helm_stages "${UPSTREAM_DIR}/${RHDH_DOCKER_CF}" "${MODE}"
-        fi
-    fi
     sync_to_distgit "${UPSTREAM_DIR}" "${DOWNSTREAM_DIR}" "${MODE}"
     regenerate_distgit_containerfile "${DOWNSTREAM_DIR}/${DISTGIT_REL}"
     # Ensure distgit root matches mode even if regenerate source lagged

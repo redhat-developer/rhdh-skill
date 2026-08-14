@@ -22,7 +22,7 @@ The script flips Stage 2a/2b bidirectionally on:
 - `.rhdh/docker/Containerfile`
 - entire `vendor/` — on `mode=cgw`, **omit/delete** `vendor/helm` (other vendor trees such as `websocat` stay)
 
-It does **not** copy upstream root `Containerfile` onto distgit. Distgit root `Containerfile` is regenerated from `.rhdh/docker/Containerfile`, preserving existing `RHDH_MUST_GATHER_VERSION` and `MIDSTREAM_REPO` (same idea as midstream `build/ci/sync-midstream.sh`).
+It does **not** copy upstream root `Containerfile` onto distgit. Distgit root `Containerfile` is regenerated from `.rhdh/docker/Containerfile`, preserving existing `RHDH_MUST_GATHER_VERSION` and the Brew/Konflux metadata footer (`ENV SUMMARY=` / `LABEL` block) that `sync-midstream.sh` appends.
 
 ## CGW tarball layout
 

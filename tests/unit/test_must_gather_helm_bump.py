@@ -135,8 +135,13 @@ def _make_downstream(parent: Path) -> Path:
     (distgit / "vendor" / "websocat" / "old.txt").write_text("old\n", encoding="utf-8")
     (distgit / "Containerfile").write_text(
         HELM_STAGES_SNIPPET.replace(
-            'ARG RHDH_MUST_GATHER_VERSION="0.0.0-unknown"', 'ARG RHDH_MUST_GATHER_VERSION="-1"'
-        ),
+            'ARG RHDH_MUST_GATHER_VERSION="0.0.0-unknown"',
+            'ARG RHDH_MUST_GATHER_VERSION="-1"',
+        )
+        + '\nENV SUMMARY="Red Hat Developer Hub must-gather" \\\n'
+        + '    MIDSTREAM_REPO="https://example.invalid/mr/1" \\\n'
+        + '    COMPNAME="must-gather"\n'
+        + 'LABEL summary="$SUMMARY"\n',
         encoding="utf-8",
     )
     tekton = downstream / ".tekton"
@@ -292,6 +297,8 @@ class TestBumpMustGatherHelmScript:
         assert "\nFROM registry.example/ubi9-minimal AS helm-builder\n" in cf
         assert "\n# FROM registry.example/go-toolset AS helm-builder\n" in cf
         assert 'ARG RHDH_MUST_GATHER_VERSION="-1"' in cf
+        assert 'ENV SUMMARY="Red Hat Developer Hub must-gather"' in cf
+        assert "LABEL summary=" in cf
 
         sha_file = downstream / "sync" / "upstream_SHA_rhdh-must-gather"
         assert sha_file.is_file()
