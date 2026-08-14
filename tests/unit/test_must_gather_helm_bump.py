@@ -141,7 +141,11 @@ def _make_downstream(parent: Path) -> Path:
         + '\nENV SUMMARY="Red Hat Developer Hub must-gather" \\\n'
         + '    MIDSTREAM_REPO="https://example.invalid/mr/1" \\\n'
         + '    COMPNAME="must-gather"\n'
-        + 'LABEL summary="$SUMMARY"\n',
+        + 'LABEL summary="$SUMMARY" \\\n'
+        + '      version="2.0" \\\n'
+        + '      release="1" \\\n'
+        + '      konflux.additional-tags="next, 2.0, 2.0-1" \\\n'
+        + '      distribution-scope="public"\n',
         encoding="utf-8",
     )
     tekton = downstream / ".tekton"
@@ -298,7 +302,9 @@ class TestBumpMustGatherHelmScript:
         assert "\n# FROM registry.example/go-toolset AS helm-builder\n" in cf
         assert 'ARG RHDH_MUST_GATHER_VERSION="-1"' in cf
         assert 'ENV SUMMARY="Red Hat Developer Hub must-gather"' in cf
-        assert "LABEL summary=" in cf
+        assert 'release="2"' in cf
+        assert 'konflux.additional-tags="next, 2.0, 2.0-2"' in cf
+        assert 'release="1"' not in cf
 
         sha_file = downstream / "sync" / "upstream_SHA_rhdh-must-gather"
         assert sha_file.is_file()

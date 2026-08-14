@@ -292,9 +292,42 @@ sync_to_distgit() {
     fi
 }
 
+# Bump LABEL release="N" → N+1 and rewrite konflux.additional-tags
+# version-release suffix (e.g. 2.0-1 → 2.0-2), matching sync-midstream.sh.
+bump_footer_release() {
+    local footer="$1"
+    local current next version
+
+    current=$(printf '%s\n' "${footer}" | sed -n 's/.*[[:space:]]release="\([0-9][0-9]*\)".*/\1/p' | head -n1)
+    if [[ -z "${current}" ]]; then
+        current=$(printf '%s\n' "${footer}" | sed -n 's/^[[:space:]]*release="\([0-9][0-9]*\)".*/\1/p' | head -n1)
+    fi
+    if [[ -z "${current}" || ! "${current}" =~ ^[0-9]+$ ]]; then
+        warn "Could not parse numeric release= in Containerfile footer; leaving labels unchanged"
+        printf '%s' "${footer}"
+        return 0
+    fi
+    next=$((current + 1))
+
+    version=$(printf '%s\n' "${footer}" | sed -n 's/.*[[:space:]]version="\([^"]*\)".*/\1/p' | head -n1)
+    if [[ -z "${version}" ]]; then
+        version=$(printf '%s\n' "${footer}" | sed -n 's/^[[:space:]]*version="\([^"]*\)".*/\1/p' | head -n1)
+    fi
+
+    footer=$(printf '%s\n' "${footer}" | sed "s/release=\"${current}\"/release=\"${next}\"/")
+    if [[ -n "${version}" ]]; then
+        footer=$(printf '%s\n' "${footer}" | sed "s/${version}-${current}/${version}-${next}/g")
+    else
+        footer=$(printf '%s\n' "${footer}" | sed -E "s/(konflux\\.additional-tags=\"[^\"]*-)${current}/\\1${next}/")
+    fi
+    log "Bumped Containerfile release ${current} -> ${next}"
+    printf '%s\n' "${footer}"
+}
+
 # Mimic sync-midstream: derive distgit Containerfile from .rhdh/docker/Containerfile,
 # preserving ARG RHDH_MUST_GATHER_VERSION and the Brew/Konflux metadata footer
 # (ENV SUMMARY=… / LABEL …) that sync-midstream appends after ENTRYPOINT.
+# Increments LABEL release and konflux.additional-tags (version-release suffix).
 regenerate_distgit_containerfile() {
     local dest="$1"
     local src="${dest}/${RHDH_DOCKER_CF}"
@@ -307,10 +340,13 @@ regenerate_distgit_containerfile() {
         existing_version=$(sed -n 's/^ARG RHDH_MUST_GATHER_VERSION="\(.*\)"/\1/p' "${out}" | head -n1)
         # Footer is midstream-only branding appended after the upstream-derived body.
         footer=$(awk '/^ENV SUMMARY=/{p=1} p{print}' "${out}" || true)
+        if [[ -n "${footer}" ]]; then
+            footer=$(bump_footer_release "${footer}")
+        fi
     fi
 
     if [[ "${DRY_RUN}" -eq 1 ]]; then
-        echo "[DRY-RUN] regenerate ${out} from ${src} (preserve VERSION='${existing_version}' footer=$([ -n "${footer}" ] && echo yes || echo no))" >&2
+        echo "[DRY-RUN] regenerate ${out} from ${src} (preserve VERSION='${existing_version}' footer=$([ -n "${footer}" ] && echo yes || echo no); bump release)" >&2
         return 0
     fi
 

@@ -22,7 +22,7 @@ The script flips Stage 2a/2b bidirectionally on:
 - `.rhdh/docker/Containerfile`
 - entire `vendor/` — on `mode=cgw`, **omit/delete** `vendor/helm` (other vendor trees such as `websocat` stay)
 
-It does **not** copy upstream root `Containerfile` onto distgit. Distgit root `Containerfile` is regenerated from `.rhdh/docker/Containerfile`, preserving existing `RHDH_MUST_GATHER_VERSION` and the Brew/Konflux metadata footer (`ENV SUMMARY=` / `LABEL` block) that `sync-midstream.sh` appends.
+It does **not** copy upstream root `Containerfile` onto distgit. Distgit root `Containerfile` is regenerated from `.rhdh/docker/Containerfile`, preserving existing `RHDH_MUST_GATHER_VERSION` and the Brew/Konflux metadata footer (`ENV SUMMARY=` / `LABEL` block) that `sync-midstream.sh` appends. On each regenerate it increments `release="N"` → `N+1` and updates `konflux.additional-tags` so the `version-release` suffix matches (e.g. `2.0-1` → `2.0-2`).
 
 ## CGW tarball layout
 
