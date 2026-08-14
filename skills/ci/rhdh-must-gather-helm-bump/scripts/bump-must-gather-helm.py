@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bump Helm in rhdh-must-gather upstream and mirror into rhidp/rhdh distgit + Tekton.
 
-See skills/ci/rhdh-must-gather-helm-bump/SKILL.md
+See SKILL.md beside this scripts/ directory.
 
 SPDX-License-Identifier: Apache-2.0
 """
@@ -58,11 +58,21 @@ def normalize_version(raw: str) -> str:
     return v
 
 
-def discover_repo(parent: Path, *names: str) -> Path | None:
+def require_on_path(name: str) -> str:
+    found = shutil.which(name)
+    if not found:
+        die(f"Required command not found on PATH: {name}")
+    return found
+
+
+def discover_repo(parent: Path, *names: str, required: str | None = None) -> Path | None:
     for name in names:
         candidate = parent / name
-        if candidate.is_dir():
-            return candidate.resolve()
+        if not candidate.is_dir():
+            continue
+        if required is not None and not (candidate / required).exists():
+            continue
+        return candidate.resolve()
     return None
 
 
@@ -71,6 +81,8 @@ def validate_upstream(path: Path) -> None:
         die(f"Not a must-gather repo (missing Makefile): {path}")
     if not (path / "hack" / "update-helm-lockfile.sh").is_file():
         die(f"Missing hack/update-helm-lockfile.sh in {path}")
+    if not (path / "hack" / "check-helm-binary-available.sh").is_file():
+        die(f"Missing hack/check-helm-binary-available.sh in {path}")
     if not (path / "collection-scripts").is_dir():
         die(f"Missing collection-scripts/ in {path}")
 
@@ -86,16 +98,25 @@ def validate_downstream(path: Path) -> None:
         die(f"Missing .tekton-templates/components.yaml in {path}")
 
 
-def assert_clean_tree(path: Path, label: str, *, allow_dirty: bool) -> None:
-    if allow_dirty:
-        return
+def git_status_porcelain(path: Path, label: str) -> str:
     result = subprocess.run(
         ["git", "-C", str(path), "status", "--porcelain"],
         capture_output=True,
         text=True,
         check=False,
     )
-    if result.stdout.strip():
+    if result.returncode != 0:
+        die(
+            f"{label} is not a git repository or git status failed ({path}): "
+            f"{result.stderr.strip() or 'unknown error'}"
+        )
+    return result.stdout.strip()
+
+
+def assert_clean_tree(path: Path, label: str, *, allow_dirty: bool) -> None:
+    if allow_dirty:
+        return
+    if git_status_porcelain(path, label):
         die(
             f"{label} has uncommitted or untracked changes ({path}). "
             "Commit/stash or pass --allow-dirty"
@@ -104,8 +125,11 @@ def assert_clean_tree(path: Path, label: str, *, allow_dirty: bool) -> None:
 
 def cgw_available(upstream: Path, version: str) -> bool:
     script = upstream / "hack" / "check-helm-binary-available.sh"
+    if not script.is_file():
+        die(f"Missing hack/check-helm-binary-available.sh in {upstream}")
+    bash = require_on_path("bash")
     result = subprocess.run(
-        [str(script), version],
+        [bash, str(script), version],
         cwd=str(upstream),
         check=False,
     )
@@ -200,11 +224,12 @@ def sync_path(src: Path, dst: Path, *, dry_run: bool) -> None:
     if dry_run:
         print(f"[DRY-RUN] cp -pPR '{src}' -> '{dst}'", file=sys.stderr)
         return
+    rsync = require_on_path("rsync")
     dst.parent.mkdir(parents=True, exist_ok=True)
     if src.is_dir():
         dst.mkdir(parents=True, exist_ok=True)
         subprocess.run(
-            ["rsync", "-a", "--delete", f"{src}/", f"{dst}/"],
+            [rsync, "-a", "--delete", f"{src}/", f"{dst}/"],
             check=True,
         )
     else:
@@ -243,10 +268,11 @@ def sync_to_distgit(upstream: Path, downstream: Path, mode: str, *, dry_run: boo
                 print("[DRY-RUN] rsync vendor/ -> distgit (include helm/)", file=sys.stderr)
         else:
             vendor_dst.mkdir(parents=True, exist_ok=True)
+            rsync = require_on_path("rsync")
             if mode == "cgw":
                 subprocess.run(
                     [
-                        "rsync",
+                        rsync,
                         "-a",
                         "--delete",
                         "--exclude",
@@ -262,7 +288,7 @@ def sync_to_distgit(upstream: Path, downstream: Path, mode: str, *, dry_run: boo
                     shutil.rmtree(helm_dir)
             else:
                 subprocess.run(
-                    ["rsync", "-a", "--delete", f"{vendor_src}/", f"{vendor_dst}/"],
+                    [rsync, "-a", "--delete", f"{vendor_src}/", f"{vendor_dst}/"],
                     check=True,
                 )
     else:
@@ -295,10 +321,14 @@ def bump_footer_release(footer: str) -> str:
 
     footer = footer.replace(f'release="{current}"', f'release="{next_n}"')
     if version:
-        footer = footer.replace(f"{version}-{current}", f"{version}-{next_n}")
+        footer = re.sub(
+            rf"{re.escape(version)}-{re.escape(current)}(?![0-9])",
+            f"{version}-{next_n}",
+            footer,
+        )
     else:
         footer = re.sub(
-            rf'(konflux\.additional-tags="[^\"]*-){re.escape(current)}',
+            rf'(konflux\.additional-tags="[^"]*-){re.escape(current)}(?![0-9])',
             rf"\g<1>{next_n}",
             footer,
         )
@@ -309,7 +339,7 @@ def bump_footer_release(footer: str) -> str:
 def regenerate_distgit_containerfile(dest: Path, *, dry_run: bool) -> None:
     src = dest / RHDH_DOCKER_CF
     out = dest / "Containerfile"
-    if not src.is_file():
+    if not src.is_file() and not dry_run:
         die(f"Missing {src}; cannot regenerate distgit Containerfile")
 
     existing_version = ""
@@ -360,7 +390,18 @@ def regenerate_distgit_containerfile(dest: Path, *, dry_run: bool) -> None:
     log(f"Regenerated {DISTGIT_REL}/Containerfile from {RHDH_DOCKER_CF}")
 
 
-def update_upstream_sha(upstream: Path, downstream: Path, *, dry_run: bool) -> None:
+def update_upstream_sha(
+    upstream: Path,
+    downstream: Path,
+    *,
+    dry_run: bool,
+    started_dirty: bool,
+) -> None:
+    if started_dirty:
+        die(
+            "Refusing to write upstream_SHA from a dirty HEAD. "
+            "Commit the upstream bump first, then re-run with --skip-upstream"
+        )
     sha_file = downstream / UPSTREAM_SHA_REL
     sha = subprocess.check_output(
         ["git", "-C", str(upstream), "rev-parse", "--short", "HEAD"],
@@ -477,7 +518,7 @@ Examples:
     parser.add_argument(
         "--parent-dir",
         metavar="PATH",
-        help="Auto-discover 1-must-gather + 4-rhdh (and aliases)",
+        help="Auto-discover 1-must-gather + 4-rhdh / rhdh-downstream (and aliases)",
     )
     parser.add_argument(
         "--check",
@@ -557,7 +598,13 @@ def resolve_repos(args: argparse.Namespace) -> tuple[Path | None, Path | None]:
                 die(f"Could not find must-gather under {parent}")
             upstream = found
         if downstream is None:
-            found = discover_repo(parent, "4-rhdh", "rhdh", "rhidp-rhdh")
+            found = discover_repo(
+                parent,
+                "4-rhdh",
+                "rhdh-downstream",
+                "rhidp-rhdh",
+                required=DISTGIT_REL,
+            )
             if found is None:
                 die(f"Could not find rhidp/rhdh midstream under {parent}")
             downstream = found
@@ -568,40 +615,15 @@ def resolve_repos(args: argparse.Namespace) -> tuple[Path | None, Path | None]:
 def infer_mode(
     *,
     upstream: Path | None,
-    downstream: Path | None,
     to_version: str,
-    skip_upstream: bool,
-    check_only: bool,
 ) -> str:
-    mode = "cgw"
-    if upstream is not None and (not skip_upstream or check_only):
-        if cgw_available(upstream, to_version):
-            mode = "cgw"
-            log(f"CGW mirror has helm v{to_version} linux-amd64/arm64 binaries")
-        else:
-            mode = "vendor"
-            warn(f"CGW mirror has no helm v{to_version} linux-amd64/arm64 — vendored source path")
-        return mode
-
-    if skip_upstream:
-        assert downstream is not None
-        lock = downstream / DISTGIT_REL / "artifacts.lock.yaml"
-        vendor_helm = downstream / DISTGIT_REL / "vendor" / "helm"
-        if lock.is_file() and f"cgw/helm/{to_version}/" in lock.read_text(
-            encoding="utf-8", errors="replace"
-        ):
-            mode = "cgw"
-        elif vendor_helm.is_dir():
-            mode = "vendor"
-        elif upstream is not None and cgw_available(upstream, to_version):
-            mode = "cgw"
-        else:
-            die(
-                "Cannot infer CGW vs vendor mode with --skip-upstream; ensure "
-                "distgit has artifacts.lock.yaml or vendor/helm"
-            )
-        log(f"Inferred mode: {mode}")
-    return mode
+    if upstream is None:
+        die("Cannot infer CGW vs vendor mode without an upstream checkout")
+    if cgw_available(upstream, to_version):
+        log(f"CGW mirror has helm v{to_version} linux-amd64/arm64 binaries")
+        return "cgw"
+    warn(f"CGW mirror has no helm v{to_version} linux-amd64/arm64 — vendored source path")
+    return "vendor"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -627,12 +649,13 @@ def main(argv: list[str] | None = None) -> int:
         log(f"Upstream:  {upstream}")
         log(f"Downstream: {downstream}")
 
+    require_on_path("bash")
+    if not args.check and not args.skip_downstream:
+        require_on_path("rsync")
+
     mode = infer_mode(
         upstream=upstream,
-        downstream=downstream,
         to_version=args.to,
-        skip_upstream=args.skip_upstream,
-        check_only=args.check,
     )
 
     if args.check:
@@ -643,6 +666,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     dry_run = args.dry_run
+    upstream_started_dirty = False
+    if upstream is not None:
+        upstream_started_dirty = bool(git_status_porcelain(upstream, "Upstream"))
 
     if not args.skip_upstream:
         assert upstream is not None
@@ -675,7 +701,12 @@ def main(argv: list[str] | None = None) -> int:
             dry_run=dry_run,
         )
         update_tekton_prefetch(downstream, mode, dry_run=dry_run)
-        update_upstream_sha(upstream, downstream, dry_run=dry_run)
+        update_upstream_sha(
+            upstream,
+            downstream,
+            dry_run=dry_run,
+            started_dirty=upstream_started_dirty,
+        )
 
     log("Done. Review git diff in each repo before committing.")
     return 0

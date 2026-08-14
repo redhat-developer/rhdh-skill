@@ -28,11 +28,12 @@ Propagate a **Helm CLI** version bump across upstream GitHub and midstream GitLa
 - **Helm CLI ≠ RHDH chart version.** This skill only bumps the CLI in the must-gather image, not `oci://quay.io/rhdh/chart`.
 - **CGW binary path is preferred** when `mirror.openshift.com/pub/cgw/helm/<version>/` has linux amd64/arm64 tarballs — smaller tree, faster Konflux builds.
 - **Execute the bundled script** ([scripts/bump-must-gather-helm.py](scripts/bump-must-gather-helm.py)); do not reimplement lockfile, Stage flip, or Tekton edits inline.
+- **`--check` and `--dry-run` are the preview.** Apply is a write: follow `/mutation-gate`. Approval to preview is not approval to write.
 - **Commit / PR / MR only when the user asks.**
 
 ## Prerequisites
 
-- Python 3.9+, `curl`, `git`, `rsync`
+- Python 3.9+, `bash`, `curl`, `git`, `rsync`
 - Network access to CGW mirror and both repo checkouts
 - Clean git trees in upstream and downstream (or pass `--allow-dirty`)
 - Upstream checkout on a branch that contains `hack/update-helm-lockfile.sh`
@@ -40,12 +41,12 @@ Propagate a **Helm CLI** version bump across upstream GitHub and midstream GitLa
 ## Usage
 
 ```bash
-SKILL=skills/ci/rhdh-must-gather-helm-bump   # under rhdh-skill checkout
+SKILL=<this skill's directory>
 
 # Probe CGW + planned install path
 python3 "${SKILL}/scripts/bump-must-gather-helm.py" --to 4.3.0 --check --parent-dir ~/RHDH
 
-# Dry-run, then apply
+# Dry-run, then apply (apply only after /mutation-gate)
 python3 "${SKILL}/scripts/bump-must-gather-helm.py" --to 4.3.0 --dry-run --parent-dir ~/RHDH
 python3 "${SKILL}/scripts/bump-must-gather-helm.py" --to 4.3.0 --parent-dir ~/RHDH
 ```
@@ -58,23 +59,27 @@ Full flag reference: `python3 "${SKILL}/scripts/bump-must-gather-helm.py" --help
 
 1. Confirm target `--to` version against [Helm releases](https://github.com/helm/helm/releases).
 2. Resolve `--upstream` / `--downstream` (or `--parent-dir`).
-3. Run `--check`; read `mode=cgw` or `mode=vendor`.
-4. Run `--dry-run`, then the script without `--dry-run`.
-5. Review `git diff` in **both** repos.
-6. Run every verification gate — read [references/verification.md](references/verification.md).
-7. Commit / PR·MR only when the user asks.
+3. Run `--check` and `--dry-run`. That pair is the preview.
+4. Apply only after `/mutation-gate` approval, with upstream and distgit/Tekton as separate operations. Approval to dry-run is not approval to write.
+5. Review `git diff` in both repos, then the gates in [references/verification.md](references/verification.md).
+6. Commit / PR or MR only when the user asks, again through `/mutation-gate`.
 
 ## Completion
 
-A bump is done when `--check`/`--dry-run` (if used) and the real run finish,
-leaving behind:
+`--check` and `--dry-run` are the preview. They are not a write and do not
+approve an apply.
+
+An apply is done when `/mutation-gate` approved the writes (upstream and
+distgit/Tekton as separate operations), the script ran without `--dry-run`,
+and the trees contain:
 
 - upstream `HELM_VERSION` plus lockfile or `vendor/helm/` matching `--to`
 - Stage 2a active on `mode=cgw`, Stage 2b on `mode=vendor` (upstream + distgit)
 - distgit helm-related files synced; `vendor/helm` absent on `mode=cgw`
 - Tekton `prefetch-input` matching install path (`generic` vs `gomod`) for
   must-gather only (other `components.yaml` entries untouched)
-- `sync/upstream_SHA_rhdh-must-gather` pointing at the upstream commit used
+- `sync/upstream_SHA_rhdh-must-gather` pointing at a **committed** upstream HEAD
+  (the script refuses to pin a dirty HEAD)
 
 Report `mode=`, paths touched, and any verification still pending
 ([references/verification.md](references/verification.md)). Working trees stay
