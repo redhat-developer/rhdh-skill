@@ -1,5 +1,5 @@
 ---
-name: backport
+name: rhdh-backport
 description: >
   Automate the RHDH plugin backport process from PR cherry-pick to changelog.
   Handles: cherry-pick with AI conflict resolution, PR creation,
@@ -208,3 +208,11 @@ exists from a previous cycle. The script automatically detects and deletes stale
 | `references/pr-creation.md` | PR templates and patterns |
 
 </reference_index>
+
+## Completion
+
+Report the PR numbers and URLs for every PR created or merged (backport PR,
+Version Packages PR, overlays PR, changelog PR), the plugin name, the release
+version, the VP commit SHA, and the published npm version. For yarn.lock-only
+changes, note that Version Packages and changelog were skipped. Take exact
+values from script output rather than reconstructing them.
