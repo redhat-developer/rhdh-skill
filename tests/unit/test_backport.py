@@ -3,7 +3,7 @@
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -13,7 +13,6 @@ if str(_BACKPORT_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_BACKPORT_SCRIPTS))
 
 import backport  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -36,9 +35,7 @@ def _make_state(**kwargs) -> backport.BackportState:
 
 
 def _completed_process(stdout="", stderr="", returncode=0):
-    return subprocess.CompletedProcess(
-        args=[], returncode=returncode, stdout=stdout, stderr=stderr
-    )
+    return subprocess.CompletedProcess(args=[], returncode=returncode, stdout=stdout, stderr=stderr)
 
 
 # ---------------------------------------------------------------------------
@@ -55,7 +52,9 @@ class TestYarnLockOnlyDetection:
             ],
         )
         with patch.object(backport, "run_git") as mock_git:
-            mock_git.return_value = _completed_process(stdout="abc123 refs/heads/release-1.10/orchestrator")
+            mock_git.return_value = _completed_process(
+                stdout="abc123 refs/heads/release-1.10/orchestrator"
+            )
             backport.step2_detect_plugin(state)
 
         assert state.yarn_lock_only is True
@@ -68,7 +67,9 @@ class TestYarnLockOnlyDetection:
             ],
         )
         with patch.object(backport, "run_git") as mock_git:
-            mock_git.return_value = _completed_process(stdout="abc123 refs/heads/release-1.10/orchestrator")
+            mock_git.return_value = _completed_process(
+                stdout="abc123 refs/heads/release-1.10/orchestrator"
+            )
             backport.step2_detect_plugin(state)
 
         assert state.yarn_lock_only is False
@@ -80,7 +81,9 @@ class TestYarnLockOnlyDetection:
             ],
         )
         with patch.object(backport, "run_git") as mock_git:
-            mock_git.return_value = _completed_process(stdout="abc123 refs/heads/release-1.10/orchestrator")
+            mock_git.return_value = _completed_process(
+                stdout="abc123 refs/heads/release-1.10/orchestrator"
+            )
             backport.step2_detect_plugin(state)
 
         assert state.yarn_lock_only is False
@@ -117,8 +120,14 @@ class TestStep7YarnLockOnlySkip:
         ):
             mock_gh_json.side_effect = [
                 None,
-                {"title": "Version Packages (orchestrator)", "baseRefName": "release-1.10/orchestrator"},
-                {"mergeCommit": {"oid": "deadbeef"}, "body": "@redhat-developer/orchestrator@5.7.15"},
+                {
+                    "title": "Version Packages (orchestrator)",
+                    "baseRefName": "release-1.10/orchestrator",
+                },
+                {
+                    "mergeCommit": {"oid": "deadbeef"},
+                    "body": "@redhat-developer/orchestrator@5.7.15",
+                },
             ]
             backport.step7_detect_version_packages(state)
 
