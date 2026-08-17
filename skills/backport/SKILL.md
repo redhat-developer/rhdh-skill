@@ -1,11 +1,12 @@
 ---
-name: backport-auto
+name: backport
 description: >
-  Fully automate the RHDH plugin backport process from PR cherry-pick to changelog.
+  Automate the RHDH plugin backport process from PR cherry-pick to changelog.
   Handles: cherry-pick with AI conflict resolution, PR creation,
   CI monitoring, auto-merge, Version Packages detection, and overlays update.
   Uses release-x.y/{plugin} branches directly (no workspace/{plugin} intermediary).
   Accepts a release version and PR number/URL. Auto-detects plugin from PR files.
+  Modes: auto (full workflow), create (PR only, stops for review), finish (after manual merge).
   Use when you need to backport changes to a release branch (e.g., "backport PR #3456 to 1.10").
 ---
 
@@ -59,39 +60,73 @@ See `references/ai-conflict-resolution.md` for detailed resolution strategies.
 ## Usage
 
 ```bash
-/backport-auto <release-version> <pr-source>
+/backport <release-version> <pr-source> [--mode auto|create|finish]
 ```
 
 **Examples:**
 ```bash
-/backport-auto 1.10 3456
-/backport-auto 1.9 https://github.com/redhat-developer/rhdh-plugins/pull/2345
-/backport-auto 1.10 abc123f
+# Full automation (default)
+/backport 1.10 3456
+/backport 1.9 https://github.com/redhat-developer/rhdh-plugins/pull/2345
+
+# Create PR only, stop for manual review
+/backport 1.10 3456 --mode create
+
+# Complete after manual PR merge
+/backport 1.10 3456 --mode finish
+```
+
+---
+
+## Modes
+
+### auto (default) — Full workflow
+
+Runs all 10 steps end-to-end. Zero intervention required.
+
+```bash
+python scripts/backport.py <release> <pr_source> --mode auto
+```
+
+### create — PR only, stops for review
+
+Runs steps 1-6: cherry-pick, push, create PR. Stops and prints the PR URL.
+You review and merge manually, then run with `--mode finish`.
+
+```bash
+python scripts/backport.py <release> <pr_source> --mode create
+```
+
+### finish — After manual merge
+
+Runs steps 7-10: Version Packages, overlays update, changelog.
+Assumes PR #1 from `--mode create` is already merged.
+
+```bash
+python scripts/backport.py <release> <pr_source> --mode finish
 ```
 
 ---
 
 ## Workflow
 
-### Step 1 — Run the script
+### Steps 1-6 (create)
 
-```bash
-python scripts/backport.py <release> <pr_source> --mode auto
-```
-
-The script handles all 10 steps:
 1. Parse arguments and fetch PR details
 2. Auto-detect plugin from PR files (also detects yarn.lock-only changes)
 3. Check if already backported
 4. Cherry-pick commit(s)
 5. Push backport branch to fork
 6. Create PR #1 (fork → release branch), monitor CI, merge
+
+### Steps 7-10 (finish)
+
 7. Detect and merge Version Packages PR (skipped for yarn.lock-only; cleans up stale `maintenance-changesets-release` branch)
 8. Trigger overlays update workflow, /publish, wait for CI, merge
 9. Create and merge changelog PR to main (skipped for yarn.lock-only)
 10. Print summary
 
-### Step 2 — Handle conflicts (if exit code 2)
+### Conflict handling (exit code 2)
 
 If the script exits with code 2, cherry-pick had conflicts:
 
@@ -115,9 +150,20 @@ python scripts/backport.py <release> <pr_source> --continue-from <state_file>
 Print instructions and stop.
 ```
 
-### Step 3 — Report results
+---
 
-The script prints a summary to stderr. With `--json`, structured output goes to stdout.
+## Special Cases
+
+### Yarn.lock-only changes (CVE fixes)
+
+When the PR only changes `yarn.lock` files (e.g., CVE dependency fix with no code changes),
+the script automatically skips Version Packages (step 7) and changelog (step 9).
+No npm release is needed — the overlays update (step 8) uses the merge commit directly as `repo-ref`.
+
+### Stale maintenance-changesets-release branch
+
+The Version Packages workflow fails if a stale `maintenance-changesets-release/{release-branch}` branch
+exists from a previous cycle. The script automatically detects and deletes stale branches before step 7.
 
 ---
 
@@ -134,21 +180,6 @@ The script prints a summary to stderr. With `--json`, structured output goes to 
 | `--auto-approve` | Skip confirmation prompts |
 | `--repo REPO` | Override plugins repo |
 | `--overlays-repo REPO` | Override overlays repo |
-
----
-
-## Special Cases
-
-### Yarn.lock-only changes (CVE fixes)
-
-When the PR only changes `yarn.lock` files (e.g., CVE dependency fix with no code changes),
-the script automatically skips Version Packages (step 7) and changelog (step 9).
-No npm release is needed — the overlays update (step 8) uses the merge commit directly as `repo-ref`.
-
-### Stale maintenance-changesets-release branch
-
-The Version Packages workflow fails if a stale `maintenance-changesets-release/{release-branch}` branch
-exists from a previous cycle. The script automatically detects and deletes stale branches before step 7.
 
 ---
 

@@ -1,4 +1,4 @@
-"""Unit tests for skills/backport-auto/scripts/backport.py."""
+"""Unit tests for skills/backport/scripts/backport.py."""
 
 import subprocess
 import sys
@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-_BACKPORT_SCRIPTS = PROJECT_ROOT / "skills" / "backport-auto" / "scripts"
+_BACKPORT_SCRIPTS = PROJECT_ROOT / "skills" / "backport" / "scripts"
 if str(_BACKPORT_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_BACKPORT_SCRIPTS))
 

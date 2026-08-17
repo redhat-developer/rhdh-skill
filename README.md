@@ -133,22 +133,18 @@ Reproduce, diagnose, fix, and PR RHDH plugin bugs from Jira tickets with automat
 
 ### Backport
 
-Automate or semi-automate backporting changes to RHDH release branches. Uses `release-x.y/{plugin}` branches directly — supports concurrent backports without conflicts.
+Automate backporting changes to RHDH release branches. Uses `release-x.y/{plugin}` branches directly — supports concurrent backports without conflicts.
 
-- **[backport-auto](./skills/backport-auto/SKILL.md)** — Fully automated end-to-end backport workflow. Detects plugin, cherry-picks with AI conflict resolution, creates and merges PRs, handles Version Packages, updates overlays, and creates changelog PR. Zero intervention required.
-
-- **[backport-create](./skills/backport-create/SKILL.md)** — Semi-manual workflow for controlled backports. Creates backport PR and stops for user review. You manually review and merge, then run `backport-finish` to complete.
-
-- **[backport-finish](./skills/backport-finish/SKILL.md)** — Completes the backport workflow after manual PR merge. Handles Version Packages detection/merge, overlays update, and changelog PR.
+- **[backport](./skills/backport/SKILL.md)** — End-to-end backport workflow with three modes: `auto` (full hands-off), `create` (PR only, stops for review), `finish` (after manual merge). Detects plugin, cherry-picks with AI conflict resolution, handles Version Packages, updates overlays, and creates changelog PR. Yarn.lock-only changes (CVE fixes) skip Version Packages automatically.
 
 ```bash
-# Full automation
-/backport-auto 1.10 3456
+# Full automation (default)
+/backport 1.10 3456
 
 # Step-by-step with control
-/backport-create 1.10 3456
+/backport 1.10 3456 --mode create
 # ... manually review and merge PR ...
-/backport-finish 1.10 3456
+/backport 1.10 3456 --mode finish
 ```
 
 ### Test Placement
