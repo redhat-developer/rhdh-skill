@@ -1,29 +1,40 @@
 [project]
-name = "rhdh-skill"
+name = "rhdh-skills"
 version = "0.0.0"
-description = "Claude Code skill for RHDH plugin development"
+description = "Composable agent skills for Red Hat Developer Hub development and operations"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.9"
 
 # No runtime dependencies - stdlib only!
 
+# There is no shared runtime package (ADR-0006). Each skill bundles the
+# helpers its own scripts use, so the CLIs below are self-contained.
 [tool.setuptools.packages.find]
-where = ["skills/rhdh"]
-include = ["rhdh*"]
+where = [
+    "skills/reference/rhdh-context",
+    "skills/plugins/rhdh-local",
+]
+include = [
+    "rhdh",
+    "rhdh.*",
+    "rhdh_local",
+    "rhdh_local.*",
+]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
-    "pyyaml>=6.0",  # Only for SKILL.md structure tests
     "ruff>=0.4.0",
 ]
 
 [project.scripts]
 rhdh = "rhdh.cli:main"
+rhdh-local = "rhdh_local.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The rhdh and rhdh_local packages are put on sys.path by tests/conftest.py.
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

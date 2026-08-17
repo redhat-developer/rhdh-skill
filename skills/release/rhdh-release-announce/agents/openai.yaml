@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Freeze Announcement"
+  short_description: "Draft the Slack message for a freeze milestone or update"

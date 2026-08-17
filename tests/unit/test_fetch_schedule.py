@@ -1,15 +1,66 @@
-"""Unit tests for skills/rhdh-test-plan-review/scripts/fetch_schedule.py pure helpers."""
+"""Unit tests for the rhdh-test-plan schedule parser."""
 
 import datetime as dt_module
+import json
+import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-_FETCH_SCHEDULE_SCRIPTS = PROJECT_ROOT / "skills" / "rhdh-test-plan-review" / "scripts"
+_FETCH_SCHEDULE_SCRIPTS = PROJECT_ROOT / "skills" / "release" / "rhdh-test-plan-review" / "scripts"
 if str(_FETCH_SCHEDULE_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_FETCH_SCHEDULE_SCRIPTS))
 
 import fetch_schedule as fs  # noqa: E402
+
+
+def test_gog_sheets_adapter_uses_native_credential_boundary(monkeypatch):
+    calls = []
+    responses = iter(
+        [
+            {"sheets": [{"properties": {"title": "2026 Schedule / RHDH"}}]},
+            [["RHDH 2.0 GA", "2026-08-10"]],
+        ]
+    )
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(command, 0, json.dumps(next(responses)), "")
+
+    monkeypatch.setattr(fs.subprocess, "run", fake_run)
+    client = fs.SheetsClient("/tools/gog")
+
+    tabs = fs.get_sheet_tabs(client, "sheet/id")
+    rows = fs.get_sheet_values(client, "sheet/id", tabs[0])
+
+    assert tabs == ["2026 Schedule / RHDH"]
+    assert rows == [["RHDH 2.0 GA", "2026-08-10"]]
+    assert calls[0][0] == ["/tools/gog", "sheets", "metadata", "sheet/id", "--json"]
+    assert calls[1][0] == [
+        "/tools/gog",
+        "sheets",
+        "get",
+        "sheet/id",
+        "2026 Schedule / RHDH",
+        "--json",
+        "--results-only",
+    ]
+    assert all(kwargs["shell"] is False for _, kwargs in calls)
+
+
+def test_sheets_adapter_returns_a_structured_not_found_error(monkeypatch, capsys):
+    def not_found(command, **_kwargs):
+        return subprocess.CompletedProcess(command, 1, "", "spreadsheet not found")
+
+    monkeypatch.setattr(fs.subprocess, "run", not_found)
+
+    with pytest.raises(SystemExit) as raised:
+        fs.get_sheet_tabs(fs.SheetsClient("/tools/gog"), "missing")
+
+    assert raised.value.code == 1
+    assert json.loads(capsys.readouterr().out)["error"] == "spreadsheet_not_found"
 
 
 class TestNormalizeVersion:

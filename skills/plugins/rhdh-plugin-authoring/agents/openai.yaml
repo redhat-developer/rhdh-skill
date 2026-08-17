@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Plugin Authoring"
+  short_description: "Scaffold and implement Backstage dynamic plugins for RHDH"

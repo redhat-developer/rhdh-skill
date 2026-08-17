@@ -1,0 +1,11 @@
+{
+  "assigneeEmail": "you@example.com",
+  "teamName": "RHDH Cope",
+  "teamId": "ec74d716-af36-4b3c-950f-f79213d08f71-4403",
+  "boardId": 11374,
+  "storyPoints": 1,
+  "priorityName": "Normal",
+  "storyPointsField": "customfield_10028",
+  "teamField": "customfield_10001",
+  "sprintField": "customfield_10020"
+}

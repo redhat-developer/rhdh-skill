@@ -9,11 +9,11 @@ import pytest
 
 @pytest.fixture
 def temp_config_dir(monkeypatch):
-    """Create a temporary data directory using RHDH_SKILL_DATA_DIR env var."""
+    """Create a temporary data directory using RHDH_SKILLS_DATA_DIR env var."""
     with tempfile.TemporaryDirectory() as tmpdir:
         config_dir = Path(tmpdir) / "data"
         config_dir.mkdir()
-        monkeypatch.setenv("RHDH_SKILL_DATA_DIR", str(config_dir))
+        monkeypatch.setenv("RHDH_SKILLS_DATA_DIR", str(config_dir))
         yield config_dir
 
 

@@ -1,0 +1,89 @@
+{
+  "name": "rhdh-skills",
+  "owner": {
+    "name": "Red Hat Developer Hub",
+    "url": "https://github.com/redhat-developer/rhdh-skills"
+  },
+  "description": "Projection of the promoted RHDH skill catalog for npx skills installer grouping. Not a Claude Code marketplace product. Reference skills are folded into each installable category that requires them.",
+  "plugins": [
+    {
+      "name": "meta",
+      "source": "./",
+      "description": "Meta skills from the RHDH pack",
+      "skills": [
+        "./skills/meta/agent-readiness",
+        "./skills/reference/rhdh-context",
+        "./skills/meta/ask-rhdh",
+        "./skills/meta/setup-rhdh-skills",
+        "./skills/reference/mutation-gate",
+        "./skills/meta/skill-authoring"
+      ]
+    },
+    {
+      "name": "release",
+      "source": "./",
+      "description": "Release skills from the RHDH pack",
+      "skills": [
+        "./skills/release/rhdh-overlay-cve-export",
+        "./skills/release/rhdh-platform-lifecycle",
+        "./skills/release/rhdh-release-announce",
+        "./skills/release/rhdh-release-schedule",
+        "./skills/release/rhdh-release-status",
+        "./skills/release/rhdh-release-teams",
+        "./skills/release/rhdh-test-plan-review"
+      ]
+    },
+    {
+      "name": "CI",
+      "source": "./",
+      "description": "CI skills from the RHDH pack",
+      "skills": [
+        "./skills/ci/rhdh-base-images",
+        "./skills/reference/mutation-gate",
+        "./skills/ci/rhdh-konflux-tasks",
+        "./skills/ci/rhdh-prow-jobs",
+        "./skills/ci/rhdh-prow-release-branch",
+        "./skills/ci/rhdh-prow-trigger",
+        "./skills/ci/rhdh-yarn-bump"
+      ]
+    },
+    {
+      "name": "plugins",
+      "source": "./",
+      "description": "Plugins skills from the RHDH pack",
+      "skills": [
+        "./skills/plugins/rhdh-backstage-upgrade",
+        "./skills/reference/backstage-api-changes",
+        "./skills/plugins/rhdh-local",
+        "./skills/plugins/rhdh-overlay",
+        "./skills/reference/mutation-gate",
+        "./skills/plugins/rhdh-plugin-authoring",
+        "./skills/plugins/rhdh-plugin-bug-fix",
+        "./skills/reference/rhdh-forge",
+        "./skills/plugins/rhdh-plugin-export",
+        "./skills/plugins/rhdh-plugin-midstream-propagate",
+        "./skills/plugins/rhdh-plugin-nfs-migration",
+        "./skills/plugins/rhdh-plugin-wiring",
+        "./skills/plugins/rhdh-pr-create",
+        "./skills/plugins/rhdh-pr-review",
+        "./skills/plugins/rhdh-test-placement"
+      ]
+    },
+    {
+      "name": "jira",
+      "source": "./",
+      "description": "Jira skills from the RHDH pack",
+      "skills": [
+        "./skills/jira/rhdh-jira-create",
+        "./skills/reference/rhdh-jira-api",
+        "./skills/reference/rhdh-jira-authoring",
+        "./skills/reference/mutation-gate",
+        "./skills/jira/rhdh-jira-link",
+        "./skills/jira/rhdh-jira-refine",
+        "./skills/jira/rhdh-jira-sprint-plan",
+        "./skills/jira/rhdh-jira-sprint-report",
+        "./skills/jira/rhdh-jira-update"
+      ]
+    }
+  ]
+}

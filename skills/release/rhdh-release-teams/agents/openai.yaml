@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Teams and Leads"
+  short_description: "Active RHDH teams with leads, Slack handles, and Cloud IDs"

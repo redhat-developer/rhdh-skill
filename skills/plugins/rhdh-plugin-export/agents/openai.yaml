@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Plugin Export"
+  short_description: "Export and package a Backstage plugin as an RHDH artifact"

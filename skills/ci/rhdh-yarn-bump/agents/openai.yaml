@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Yarn Bump"
+  short_description: "Bump Yarn Berry across RHDH GitHub and GitLab CEE repos"

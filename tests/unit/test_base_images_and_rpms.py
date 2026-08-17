@@ -1,4 +1,4 @@
-"""Tests for base-images-and-rpms skill - analyze-base-images.sh smoke behavior."""
+"""Tests for the rhdh-base-images shell interfaces."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SKILL_DIR = PROJECT_ROOT / "skills" / "base-images-and-rpms"
+SKILL_DIR = PROJECT_ROOT / "skills" / "ci" / "rhdh-base-images"
 ANALYZE_SCRIPT = SKILL_DIR / "scripts" / "analyze-base-images.sh"
 MAIN_SCRIPT = SKILL_DIR / "scripts" / "base-images-and-rpms.sh"
 
@@ -22,12 +22,38 @@ def _clean_rhdh_env() -> dict[str, str]:
     return {k: v for k, v in os.environ.items() if k not in RHDH_ENV_VARS}
 
 
+def _shell_script_cmd(script: Path, *args: str) -> list[str]:
+    """Build argv to run a .sh script (via bash on Windows)."""
+    if os.name == "nt":
+        wsl = shutil.which("wsl")
+        if wsl is None:
+            pytest.skip("WSL bash required to run .sh scripts on Windows")
+        converted_script = subprocess.run(
+            [wsl, "wslpath", "-u", script.as_posix()],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        converted_args = []
+        for arg in args:
+            if len(arg) >= 3 and arg[1:3] == ":\\":
+                arg = subprocess.run(
+                    [wsl, "wslpath", "-u", arg.replace("\\", "/")],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                ).stdout.strip()
+            converted_args.append(arg)
+        return [wsl, "bash", converted_script, *converted_args]
+    return [str(script), *args]
+
+
 def _run_analyze(*args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     run_env = _clean_rhdh_env()
     if env:
         run_env.update(env)
     return subprocess.run(
-        [str(ANALYZE_SCRIPT), *args],
+        _shell_script_cmd(ANALYZE_SCRIPT, *args),
         capture_output=True,
         text=True,
         env=run_env,
@@ -68,6 +94,7 @@ class TestAnalyzeBaseImagesScript:
         assert result.returncode != 0
         assert "Set RHDH_BUILD_SCRIPTS" in result.stderr
 
+    @pytest.mark.skipif(shutil.which("skopeo") is None, reason="skopeo not installed")
     def test_missing_get_latest_script_exits_nonzero(self, tmp_path: Path) -> None:
         scripts_dir = tmp_path / "scripts"
         scripts_dir.mkdir()
@@ -217,7 +244,7 @@ class TestBaseImagesAndRpmsScript:
 
     def test_main_script_help_lists_analyze(self) -> None:
         result = subprocess.run(
-            [str(MAIN_SCRIPT), "--help"],
+            _shell_script_cmd(MAIN_SCRIPT, "--help"),
             capture_output=True,
             text=True,
             check=False,

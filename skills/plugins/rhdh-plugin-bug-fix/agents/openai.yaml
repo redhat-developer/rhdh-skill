@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Plugin Bug Fix"
+  short_description: "Reproduce, diagnose, and fix a Backstage plugin defect"

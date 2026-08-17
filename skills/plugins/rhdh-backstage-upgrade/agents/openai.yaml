@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Backstage Upgrade"
+  short_description: "Move @backstage dependencies to an RHDH-compatible release"

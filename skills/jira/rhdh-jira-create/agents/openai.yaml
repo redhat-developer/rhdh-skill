@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Jira Create"
+  short_description: "Open a Feature, Epic, Story, Task, Bug, or Spike in Jira"

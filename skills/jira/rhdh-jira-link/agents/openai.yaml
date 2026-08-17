@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Jira Link"
+  short_description: "Create GitHub PRs / GitLab MRs and link them to Jira issues"

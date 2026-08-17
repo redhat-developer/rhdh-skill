@@ -1,0 +1,5 @@
+interface:
+  display_name: "Ask RHDH"
+  short_description: "Choose the right RHDH skill or flow"
+policy:
+  allow_implicit_invocation: false

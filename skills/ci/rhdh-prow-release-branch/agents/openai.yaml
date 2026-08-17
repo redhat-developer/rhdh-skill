@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Prow Release Branch"
+  short_description: "Commission or decommission release-branch Prow config"

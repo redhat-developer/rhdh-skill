@@ -1,0 +1,22 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.9"
+# dependencies = []
+# ///
+"""Thin wrapper to run rhdh-local CLI.
+
+The rhdh_local package lives beside this script in the skill directory and is
+self-contained: it needs nothing beyond the standard library (ADR-0006).
+"""
+
+import sys
+from pathlib import Path
+
+# Add the skill directory to the path (where rhdh_local package lives)
+skill_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(skill_dir))
+
+from rhdh_local.cli import main  # noqa: E402
+
+if __name__ == "__main__":
+    sys.exit(main())

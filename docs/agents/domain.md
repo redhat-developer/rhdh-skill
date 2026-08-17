@@ -17,17 +17,15 @@ Single-context repo:
 /
 ├── CONTEXT.md
 └── docs/adr/
-    ├── 0001-agent-assisted-workflows-over-ci-automation.md
-    ├── 0002-stdlib-only-python-clis.md
-    ├── 0003-orchestrator-plus-sub-skills.md
-    └── 0004-agent-skills-open-standard.md
 ```
 
 ## Use the glossary's vocabulary
 
 When your output names a domain concept (in an issue title, a refactor proposal, a test name), use the term as defined in `CONTEXT.md`. Don't drift to synonyms the glossary explicitly avoids.
 
-If the concept you need isn't in the glossary yet, that's a signal — either you're inventing language the project doesn't use (reconsider) or there's a real gap (note it for `/grill-with-docs`).
+If the concept you need is absent, decide whether it is unnecessary new language
+or a real domain gap. For a real gap, define it in `CONTEXT.md` as part of the
+current change before using the term elsewhere.
 
 ## Flag ADR conflicts
 
