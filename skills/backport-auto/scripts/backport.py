@@ -203,6 +203,8 @@ class BackportState:
     vp_commit: str = ""
     vp_version: str = ""
 
+    yarn_lock_only: bool = False
+
     overlays_pr_num: int = 0
     changelog_pr_num: int = 0
 
@@ -425,6 +427,11 @@ def step2_detect_plugin(state: BackportState) -> None:
         run_git(["checkout", "-b", state.release_branch, matching_tag])
         run_git(["push", "upstream", state.release_branch])
         log(f"  Branch '{state.release_branch}' created and pushed")
+
+    workspace_files = [f for f in state.files if f.startswith(f"workspaces/{state.plugin}/")]
+    if workspace_files and all(f.endswith("yarn.lock") for f in workspace_files):
+        state.yarn_lock_only = True
+        log("  Detected yarn.lock-only change — will skip Version Packages")
 
 
 # ---------------------------------------------------------------------------
@@ -709,6 +716,35 @@ def wait_for_merged(pr_num: int, repo: str, *, timeout: int = 300) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Stale maintenance-changesets-release branch cleanup
+# ---------------------------------------------------------------------------
+
+
+def cleanup_stale_vp_branch(state: BackportState) -> None:
+    version_branch_id = state.release_branch
+    branch_name = f"maintenance-changesets-release/{version_branch_id}"
+
+    result = run_git(
+        ["ls-remote", "--heads", "upstream", f"refs/heads/{branch_name}"],
+        check=False,
+    )
+    if result.stdout.strip():
+        log(f"  Stale branch '{branch_name}' found — deleting...")
+        run_gh(
+            [
+                "api",
+                "--method",
+                "DELETE",
+                f"repos/{state.repo}/git/refs/heads/{branch_name}",
+            ],
+            check=False,
+        )
+        log(f"  Deleted '{branch_name}'")
+    else:
+        log(f"  No stale '{branch_name}' branch found")
+
+
+# ---------------------------------------------------------------------------
 # Step 7 — Detect and merge Version Packages PR
 # ---------------------------------------------------------------------------
 
@@ -790,6 +826,20 @@ def extract_version_from_body(body: str) -> str:
 
 def step7_detect_version_packages(state: BackportState) -> None:
     log_step(7, "Detect and merge Version Packages PR")
+
+    if state.yarn_lock_only:
+        log("  Yarn.lock-only change — skipping Version Packages (no npm release needed)")
+        run_git(["fetch", "upstream", state.release_branch])
+        result = run_git(
+            ["rev-parse", f"upstream/{state.release_branch}"],
+            check=False,
+        )
+        state.vp_commit = result.stdout.strip()
+        state.vp_version = "n/a (yarn.lock-only)"
+        log(f"  Using merge commit as overlay ref: {state.vp_commit[:10]}")
+        return
+
+    cleanup_stale_vp_branch(state)
 
     vp_data = run_gh_json(
         [
@@ -1099,6 +1149,10 @@ def step8_update_overlays(state: BackportState) -> None:
 
 def step9_changelog_pr(state: BackportState) -> None:
     log_step(9, "Create changelog PR to main")
+
+    if state.yarn_lock_only:
+        log("  Yarn.lock-only change — no version bump, skipping changelog PR")
+        return
 
     if not state.fork_owner:
         result = run_gh(["api", "user", "--jq", ".login"])

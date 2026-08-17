@@ -13,7 +13,7 @@ description: >
 <principle name="script_driven">
 All mechanical work is done by `../backport-auto/scripts/backport.py` with `--mode finish`.
 The agent's role is:
-1. Validate prerequisites (PR #1 and PR #2 must be merged)
+1. Validate prerequisites (PR #1 must be merged)
 2. Run the script
 3. Report results
 </principle>
@@ -60,9 +60,9 @@ python ../backport-auto/scripts/backport.py <release> <pr_source> --mode finish
 ```
 
 The script runs steps 7-10:
-7. Detect and merge Version Packages PR (handles both new and existing VP PR)
+7. Detect and merge Version Packages PR (skipped for yarn.lock-only; cleans up stale `maintenance-changesets-release` branch)
 8. Trigger overlays update workflow, /publish, wait for CI, merge
-9. Create and merge changelog PR to main
+9. Create and merge changelog PR to main (skipped for yarn.lock-only)
 10. Print summary
 
 ### Step 2 — Report results

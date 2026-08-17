@@ -81,14 +81,14 @@ python scripts/backport.py <release> <pr_source> --mode auto
 
 The script handles all 10 steps:
 1. Parse arguments and fetch PR details
-2. Auto-detect plugin from PR files
+2. Auto-detect plugin from PR files (also detects yarn.lock-only changes)
 3. Check if already backported
 4. Cherry-pick commit(s)
 5. Push backport branch to fork
 6. Create PR #1 (fork → release branch), monitor CI, merge
-7. Detect and merge Version Packages PR
+7. Detect and merge Version Packages PR (skipped for yarn.lock-only; cleans up stale `maintenance-changesets-release` branch)
 8. Trigger overlays update workflow, /publish, wait for CI, merge
-9. Create and merge changelog PR to main
+9. Create and merge changelog PR to main (skipped for yarn.lock-only)
 10. Print summary
 
 ### Step 2 — Handle conflicts (if exit code 2)
@@ -134,6 +134,21 @@ The script prints a summary to stderr. With `--json`, structured output goes to 
 | `--auto-approve` | Skip confirmation prompts |
 | `--repo REPO` | Override plugins repo |
 | `--overlays-repo REPO` | Override overlays repo |
+
+---
+
+## Special Cases
+
+### Yarn.lock-only changes (CVE fixes)
+
+When the PR only changes `yarn.lock` files (e.g., CVE dependency fix with no code changes),
+the script automatically skips Version Packages (step 7) and changelog (step 9).
+No npm release is needed — the overlays update (step 8) uses the merge commit directly as `repo-ref`.
+
+### Stale maintenance-changesets-release branch
+
+The Version Packages workflow fails if a stale `maintenance-changesets-release/{release-branch}` branch
+exists from a previous cycle. The script automatically detects and deletes stale branches before step 7.
 
 ---
 
