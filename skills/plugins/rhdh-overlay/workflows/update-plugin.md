@@ -51,6 +51,10 @@ Prepare the local branch and commit, then follow the mutation contract in
 known, plan the exact PR title and body, obtain approval of the new material
 hash, and only then create the PR. Return a receipt for each batch.
 
+Invoke `/prose-editing` once on the final PR title and body in the **flavored**
+register before presenting that material hash. Preserve plugin names, versions,
+commit refs, links, headings, and checklists. `gh` only transports the result.
+
 ```bash
 git checkout -b update-<plugin-name>-<version>
 git add .
@@ -72,7 +76,9 @@ then comment `/publish` and verify success from the returned check URL.
 Read `references/rhdh-local.md`, then invoke `/rhdh-local` by name with the exact
 PR artifact references, plugin config, environment variable names, and checks.
 Take back its per-check results. Add them to the PR only through an approved
-comment operation. State review requests, feedback comments, re-publish
+comment operation. Compose the final verification comment and invoke
+`/prose-editing` once on it in the **flavored** register; preserve check names,
+results, artifact references, and quoted errors. State review requests, feedback comments, re-publish
 triggers, and merge as their own operations once their exact targets and payloads
 are known. Merge only after local verification and the current-head publish check
 pass, then report the outcome of every operation alongside the workspace changes.

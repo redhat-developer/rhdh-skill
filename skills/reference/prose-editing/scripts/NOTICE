@@ -1,0 +1,77 @@
+NOTICE
+
+lint.py in this directory adapts heuristics from two MIT-licensed projects. The
+word lists, the sentence and paragraph segmentation, and the participle and
+tense patterns come from the first. The catalogue of AI writing tells that the
+mechanical checks score comes from the second.
+
+Neither project's prose is reproduced here. The rules in ../SKILL.md and
+../references/ are written independently for this repository.
+
+--------------------------------------------------------------------------------
+Original work:
+  Project: The cure for AI slop - the kit (ste-lint.py)
+  Author: Ege Çelebi
+  Repository: https://github.com/woosal1337/blog
+  License: MIT
+
+MIT License
+
+Copyright (c) 2026 Ege Çelebi
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+--------------------------------------------------------------------------------
+Original work:
+  Project: humanizer
+  Author: Siqi Chen
+  Repository: https://github.com/blader/humanizer
+  License: MIT
+
+MIT License
+
+Copyright (c) 2025 Siqi Chen
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+--------------------------------------------------------------------------------
+humanizer draws its catalogue of AI writing tells from the English Wikipedia
+page "Wikipedia:Signs of AI writing", maintained by WikiProject AI Cleanup and
+licensed CC BY-SA 4.0. This repository takes the taxonomy only. No text from
+that page, and no text from humanizer, is reproduced here.
+
+ASD-STE100 is a registered EU trademark (No. 017966390). The rules here are an
+unofficial flavour of Simplified Technical English. This is not a certified
+ASD-STE100 checker and is not affiliated with ASD.

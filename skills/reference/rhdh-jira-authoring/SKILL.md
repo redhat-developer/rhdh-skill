@@ -68,6 +68,14 @@ that conversion.
 
 ## Completion
 
+When a person invokes this skill directly and the result is a complete draft
+for them to use, invoke `/prose-editing` once on the filled summary and
+description in the **flavored** register before returning it. Preserve Jira
+wiki markup, template headings, field values, issue keys, links, and acceptance
+criteria. When `/rhdh-jira-create` or `/rhdh-jira-refine` calls this skill, hand
+back the authoring result without editing; the final caller owns the single
+prose pass.
+
 Complete when the draft names its template and its issue type, every section the
 template asks for is either filled or explicitly marked out of scope, every
 applicable challenge in the matrix has been applied or skipped with a stated

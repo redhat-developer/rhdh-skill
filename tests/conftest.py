@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 import sys
 from io import StringIO
@@ -12,6 +13,42 @@ import pytest
 
 # Path to the project root
 PROJECT_ROOT = Path(__file__).parent.parent
+
+# Git advertises the environment variables whose values are local to a repository.
+# A hook exports them, so a `git init` that inherits them can retarget the hook's
+# repository instead of the temporary directory a test asked for. Ask the installed
+# Git for the complete list rather than maintaining an inevitably incomplete copy.
+GIT_LOCAL_ENV_VARS = tuple(
+    dict.fromkeys(
+        subprocess.run(
+            ["git", "rev-parse", "--local-env-vars"],
+            check=True,
+            capture_output=True,
+            text=True,
+            env={key: value for key, value in os.environ.items() if not key.startswith("GIT_")},
+        ).stdout.splitlines()
+        + ["GIT_NAMESPACE"]
+    )
+)
+
+
+def git_env(**overrides: str) -> dict[str, str]:
+    """Return os.environ with Git's repository-local variables removed.
+
+    Every subprocess git call in the test suite goes through this so a test that
+    creates its own repository cannot reach the checkout pytest is running in.
+    ``GIT_CONFIG_COUNT`` is in Git's advertised list; remove its dynamically named
+    ``GIT_CONFIG_KEY_n`` and ``GIT_CONFIG_VALUE_n`` companions as well.
+    """
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key.upper() not in GIT_LOCAL_ENV_VARS
+        and not re.fullmatch(r"GIT_CONFIG_(?:KEY|VALUE)_\d+", key.upper())
+    }
+    env.update(overrides)
+    return env
+
 
 # Path to the context skill directory (where the preserved rhdh package lives)
 RHDH_SKILL_DIR = PROJECT_ROOT / "skills" / "reference" / "rhdh-context"
@@ -101,19 +138,18 @@ def isolated_env(tmp_path, monkeypatch):
     (sample_workspace / "plugins-list.yaml").write_text("- plugins/test/frontend:\n")
 
     # Initialize as git repo
-    subprocess.run(["git", "init"], cwd=overlay_dir, capture_output=True)
-    subprocess.run(["git", "add", "."], cwd=overlay_dir, capture_output=True)
+    subprocess.run(["git", "init"], cwd=overlay_dir, capture_output=True, env=git_env())
+    subprocess.run(["git", "add", "."], cwd=overlay_dir, capture_output=True, env=git_env())
     subprocess.run(
         ["git", "commit", "-m", "init"],
         cwd=overlay_dir,
         capture_output=True,
-        env={
-            **os.environ,
-            "GIT_AUTHOR_NAME": "test",
-            "GIT_AUTHOR_EMAIL": "test@test.com",
-            "GIT_COMMITTER_NAME": "test",
-            "GIT_COMMITTER_EMAIL": "test@test.com",
-        },
+        env=git_env(
+            GIT_AUTHOR_NAME="test",
+            GIT_AUTHOR_EMAIL="test@test.com",
+            GIT_COMMITTER_NAME="test",
+            GIT_COMMITTER_EMAIL="test@test.com",
+        ),
     )
 
     # Create mock rhdh-local
@@ -235,32 +271,3 @@ def unconfigured_cli(isolated_env, monkeypatch):
         return run_cli_python(*args, env=full_env, isolated_env=isolated_env)
 
     return _run_cli
-
-
-# Legacy fixture for subprocess-based testing (kept for backward compatibility)
-def run_cli_subprocess(*args, cwd=None, env=None):
-    """Run the rhdh CLI via subprocess and return result.
-
-    Args:
-        *args: CLI arguments
-        cwd: Working directory
-        env: Environment variables (merged with current env)
-
-    Returns:
-        subprocess.CompletedProcess with stdout, stderr, returncode
-    """
-    script_path = SCRIPTS_DIR / "rhdh"
-
-    run_env = os.environ.copy()
-    if env:
-        run_env.update(env)
-
-    result = subprocess.run(
-        [str(script_path), *args],
-        capture_output=True,
-        text=True,
-        cwd=cwd,
-        env=run_env,
-    )
-
-    return CLIResult(result.returncode, result.stdout, result.stderr)

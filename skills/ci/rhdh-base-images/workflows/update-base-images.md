@@ -118,6 +118,11 @@ For **rhdh**, paths under `e2e-tests/` and `.ci/` are excluded from scans.
 4. Review open PRs — each should include base image, `rpms.lock.yaml`, and (for rhdh) node header updates when applicable.
 5. Human merges PRs; do **not** push directly to protected branches without review.
 
+The bundled script's fixed automation PR title and body are authored artifacts,
+not runtime agent prose. Keep them under the repository's static prose linter in
+flavored mode. The `gh pr create` call transports those fixed strings and
+must not invoke an editor during an automation run.
+
 ## What each step does
 
 ### Base images (`updateBaseImages.sh`)

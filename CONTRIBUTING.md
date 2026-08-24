@@ -12,7 +12,7 @@ uv run pytest
 ```
 
 For end-to-end skill use, install the complete pack documented in
-[README.md](README.md), including `/grilling` and `/humanizer`.
+[README.md](README.md), including `/grilling`, `/code-review`, and `/handoff`.
 
 ## Choose the owning module
 
@@ -95,9 +95,11 @@ installed, so `AGENTS.md`, `CONTEXT.md`, this file, and `docs/adr/` do not trave
 with it. A skill citing them is broken for everyone who installs it. Restate the
 rule locally instead.
 
-Human-only metadata is for `ask-rhdh` and `setup-rhdh-skills` alone. A skill
-missing from `catalog.json` fails `scripts/validate_skill_catalog.py`, and nothing
-installs it.
+Human-only metadata is for entry points a person explicitly invokes and the
+router must never select. A delegating entry point contains no domain behavior,
+names exactly one model-invoked target, and passes the person's input to it;
+`clean-prose` is the current example. A skill missing from `catalog.json` fails
+`scripts/validate_skill_catalog.py`, and nothing installs it.
 
 Do not add prose-shape assertions. Tests should survive editorial improvements
 that preserve the skill interface.
@@ -146,8 +148,8 @@ skill aliases and a mixed old/new catalog are intentionally excluded.
 
 After the breaking branch is merged and tagged, a maintainer signs in at
 `https://skills.sh/packs/create`, creates the `RHDH complete` pack from the
-tagged repository plus `grilling` and `humanizer`, and records the resulting
+tagged repository plus `grilling`, `code-review`, and `handoff`, and records the resulting
 `https://skills.sh/p/<pack-id>` URL in the setup catalog. Packs are unlisted,
 not access-controlled, so never include credentials or private files. Until
-that URL exists, `/setup-rhdh-skills` emits the equivalent three-source install
+that URL exists, `/setup-rhdh-skills` emits the equivalent two-source install
 plan.

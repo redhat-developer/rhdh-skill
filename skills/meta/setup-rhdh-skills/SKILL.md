@@ -53,7 +53,7 @@ content.
 ## Completion
 
 A branch is complete when the doctor reports every promoted skill in `assets/catalog.json` plus
-`grilling` and `humanizer` as installed, the branch's own capability reads as present in that same
+`grilling`, `code-review`, and `handoff` as installed, the branch's own capability reads as present in that same
 doctor report, and the branch reference's smoke check has been run with its output shown. An
 install branch additionally requires one reported outcome for every operation in the approved plan,
 and the user told to restart or rescan the agent. When a model skill sent the user here because a

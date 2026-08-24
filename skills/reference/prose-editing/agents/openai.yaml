@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prose Editing"
+  short_description: "Edit or audit supplied prose without changing its claims"
+  default_prompt: "Use $prose-editing to edit this supplied draft, preserve every claim and qualifier, and verify the result."

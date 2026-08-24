@@ -35,6 +35,13 @@ lets this skill run its own scripts; it never calls into this directory by path.
 
 After the feature branch is committed:
 
+Compose the reviewer-facing PR or MR title and body, then invoke
+`/prose-editing` once on both in the **flavored** register. Preserve Jira keys,
+closing syntax, headings, checklists, links, and the required `Generated-by`
+line. Pass the edited strings to `create-pr-mr.js`; it is a transport layer and
+must not edit them. The structured Jira link comment created later is a protocol
+payload and does not receive this prose pass.
+
 ```bash
 node "$SKILL/scripts/create-pr-mr.js" \
   --issue RHIDP-12345 \

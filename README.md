@@ -7,13 +7,13 @@ behind a small set of task-oriented interfaces.
 
 ## Install
 
-Install the pack and the three external skills it depends on. Each command opens
-the skills wizard, which asks where to put them:
+Install the pack and the three external skills it depends on. The second
+command is one source for `/grilling`, `/code-review`, and `/handoff`. Each
+command opens the skills wizard, which asks where to put them:
 
 ```bash
 npx skills add redhat-developer/rhdh-skills --global
 npx skills add mattpocock/skills --global
-npx skills add blader/humanizer --global
 ```
 
 Restart your agent client so it discovers them.
@@ -47,20 +47,20 @@ one. It performs no work itself.
 `skills/meta/setup-rhdh-skills/assets/catalog.json` is the machine-readable roster
 and the single source of truth for membership. This file does not restate it.
 
-Two skills are human-invoked and never selected automatically: `/ask-rhdh` and
-`/setup-rhdh-skills`. The other 40 are model-invoked, and can also be called by
-name.
+Three skills are human-invoked and never selected automatically: `/ask-rhdh`,
+`/setup-rhdh-skills`, and `/clean-prose`. The other 42 are model-invoked, and can
+also be called by name.
 
 Skills are grouped into six folders:
 
 | Folder | Covers |
 | --- | --- |
 | `jira/` | Creating, refining, updating, and reporting on RHIDP, RHDHPLAN, RHDHBUGS, and RHDHSUPP work, plus sprint ceremonies and linking PRs to issues. |
-| `plugins/` | Authoring, wiring, exporting, and fixing Backstage dynamic plugins; the overlays repository; local RHDH; opening and reviewing pull requests; midstream propagation. |
-| `ci/` | Prow job configuration and nightly triggers, Konflux and Tekton task updates, base images, must-gather Helm bumps, and Yarn bumps. |
+| `plugins/` | Authoring, wiring, exporting, and fixing Backstage dynamic plugins; the overlays repository; local RHDH; opening and reviewing pull requests; testing rhdh-operator PRs on a cluster; midstream propagation. |
+| `ci/` | Prow job configuration and nightly triggers, Konflux and Tekton task updates, release-data admission tags, base images, must-gather Helm bumps, and Yarn bumps. |
 | `release/` | Release status and readiness, milestone schedules, freeze announcements, teams, test-plan review, platform lifecycle, and the plugin CVE export. |
-| `reference/` | The reusable layer other skills invoke by name: repository and version context, the forge read seam, the write gate, and the Jira and Backstage reference material. |
-| `meta/` | The two human-invoked entry points, plus skill authoring and repository agent-readiness. |
+| `reference/` | The reusable layer other skills invoke by name: repository and version context, the forge read seam, the write gate, the prose pass, and the Jira and Backstage reference material. |
+| `meta/` | The three human-invoked entry points, plus skill authoring and repository agent-readiness. |
 
 ## How skills compose
 
@@ -81,10 +81,15 @@ is yours to do.
 
 Three skills come from outside this repository and are required rather than
 optional. `/grilling` supplies the interview discipline that skill authoring and
-Jira creation depend on, so those flows stop rather than guess. `/humanizer` runs
-before any PR-review prose is shown or posted, so drafts do not go out reading
-like a machine wrote them. `/handoff` is what carries context into a later
-session, which is why this pack ships no artifact store of its own.
+Jira creation depend on, so those flows stop rather than guess. `/code-review`
+is required on every `/rhdh-pr-review` run, so a missing install stops rather
+than substituting. `/handoff` is what carries context into a later session,
+which is why this pack ships no artifact store of its own.
+
+Free-form GitHub, GitLab, Jira, and Slack prose goes through `/prose-editing`
+exactly once at its final composer. Structured payloads, commands, generated
+reports, and local authoring artifacts do not. Run `/clean-prose` with pasted
+text or a file path to put your own draft through the same pass.
 
 Every external write goes through the write gate. The skill states each operation
 with its target, exact command, preview, and what happens on failure; you approve

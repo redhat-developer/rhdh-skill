@@ -1,4 +1,4 @@
-# glab reads
+# glab reads and payloads
 
 Read patterns for GitLab merge requests, pipelines, and repository content, plus
 the places where a caller who learned GitHub first gets a wrong answer.
@@ -105,6 +105,62 @@ glab api "projects/rhidp%2Frhdh/repository/files/docs%2FREADME.md/raw?ref=<sha-o
 The file path is URL-encoded too, so `docs/README.md` becomes `docs%2FREADME.md`
 and slashes inside it must be escaped. Unlike the GitHub contents API, `/raw`
 returns the file as it is, with no base64 step.
+
+## Construct a merge-request creation payload
+
+Accept `HOST`, `PROJECT`, `BASE_BRANCH`, `HEAD_BRANCH`, `TITLE`, and `BODY_FILE`.
+Confirm `glab auth status --hostname "$HOST"` succeeds. Resolve the project with
+`glab api --hostname "$HOST" "projects/<encoded-project>"` and use its
+`path_with_namespace` as the canonical `PROJECT`. Encode every slash in the
+canonical project path as `%2F` for the API endpoint.
+
+Require a nonempty host and canonical project, nonempty exact branch names, a
+nonempty one-line title, and an absolute readable body file in a unique
+temporary directory. The `glab mr create` command has no body-file option. Use
+`glab api --field description=@<file>` so `glab` reads the body as data rather
+than putting it into shell syntax.
+
+Construct this argument vector and return it without execution:
+
+```text
+["glab", "api", "--hostname", HOST, "--method", "POST",
+ "projects/<encoded-project>/merge_requests",
+ "--raw-field", "source_branch=<HEAD_BRANCH>",
+ "--raw-field", "target_branch=<BASE_BRANCH>",
+ "--raw-field", "title=<TITLE>",
+ "--field", "description=@<BODY_FILE>"]
+```
+
+Its shell rendering quotes every field as one argument:
+
+```bash
+glab api --hostname "$HOST" --method POST \
+  "projects/$ENCODED_PROJECT/merge_requests" \
+  --raw-field "source_branch=$HEAD_BRANCH" \
+  --raw-field "target_branch=$BASE_BRANCH" \
+  --raw-field "title=$TITLE" \
+  --field "description=@$BODY_FILE"
+```
+
+The returned command contains shell-quoted resolved literals, not variable
+references. The variables above only show the argument boundaries. Percent-
+encode the canonical project path as one endpoint component; at minimum, every
+namespace slash becomes `%2F`.
+
+Add `--field "remove_source_branch=true"` only when the caller explicitly asks
+for that behavior. Do not use command substitution, a heredoc, `eval`, or
+`glab mr create --fill`; the title and body must remain the caller's reviewed
+bytes. The caller previews the body file, sends the exact returned command to
+`/mutation-gate`, and executes it only after approval.
+
+Return this read-only verification command with the payload:
+
+```bash
+glab mr view "$HEAD_BRANCH" --repo "https://$HOST/$PROJECT" --output json
+```
+
+If authentication, host, project, or branch resolution fails, return the
+missing capability or unresolved input instead of a command.
 
 ## Payloads, not executions
 

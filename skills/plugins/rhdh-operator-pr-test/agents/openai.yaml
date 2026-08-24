@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Operator PR Test"
+  short_description: "Deploy and verify rhdh-operator PR bundles on a live cluster"

@@ -57,7 +57,7 @@ def test_doctor_discovers_dependencies_across_supported_host_layouts(tmp_path):
     home = tmp_path / "home"
     project = tmp_path / "project"
     install_fake_skill(home / ".agents" / "skills", "grilling")
-    install_fake_skill(home / ".claude" / "skills", "humanizer")
+    install_fake_skill(home / ".claude" / "skills", "mutation-gate")
     install_fake_skill(project / ".cursor" / "skills", "ask-rhdh")
 
     result = run_setup(
@@ -75,12 +75,12 @@ def test_doctor_discovers_dependencies_across_supported_host_layouts(tmp_path):
     assert result.returncode == 1
     report = json.loads(result.stdout)
     assert "contract" not in report
-    assert set(report["installedSkills"]) == {"ask-rhdh", "grilling", "humanizer"}
-    # handoff is required but not present in this fixture, so doctor must report it
-    # rather than silently passing: three skills route the user to it.
+    assert set(report["installedSkills"]) == {"ask-rhdh", "grilling", "mutation-gate"}
+    # code-review and handoff are required but not present in this fixture, so
+    # doctor must report them rather than silently passing.
     assert report["requiredExternalSkills"] == {
+        "code-review": "missing",
         "grilling": "installed",
-        "humanizer": "installed",
         "handoff": "missing",
     }
     assert report["capabilities"]["tools"]["oc"] == "not-probed"
@@ -127,7 +127,7 @@ def test_install_plan_uses_one_pack_command_for_the_whole_collection():
     assert operation["onFailure"].strip()
 
 
-def test_install_plan_fallback_includes_the_repo_and_both_external_sources():
+def test_install_plan_fallback_includes_the_repo_and_the_external_source():
     result = run_setup(
         "install-plan",
         "--catalog",
@@ -143,12 +143,12 @@ def test_install_plan_fallback_includes_the_repo_and_both_external_sources():
     operations = json.loads(result.stdout)["operations"]
     assert [operation["command"][3] for operation in operations] == [
         "redhat-developer/rhdh-skills",
-        "blader/humanizer",
         "mattpocock/skills",
     ]
     assert operations[0]["command"][4:6] == ["--skill", "*"]
-    assert ["--skill", "humanizer"] == operations[1]["command"][4:6]
-    assert ["--skill", "grilling"] == operations[2]["command"][4:6]
+    assert ["--skill", "code-review", "--skill", "grilling", "--skill", "handoff"] == operations[1][
+        "command"
+    ][4:10]
 
 
 def test_apply_runs_nothing_until_the_stated_plan_is_confirmed(monkeypatch):
@@ -289,7 +289,7 @@ def test_apply_executes_argument_arrays_without_a_command_shell(monkeypatch):
 def test_apply_reports_an_outcome_for_every_operation_including_skipped_ones(monkeypatch):
     setup = load_setup_module()
     plan = setup.install_plan(read_catalog(), agent="codex", scope="project", pack_url=None)
-    assert len(plan["operations"]) == 3
+    assert len(plan["operations"]) == 2
 
     monkeypatch.setattr(
         setup,
@@ -306,10 +306,9 @@ def test_apply_reports_an_outcome_for_every_operation_including_skipped_ones(mon
 
     assert returncode == 1
     assert report["valid"] is False
-    assert [outcome["order"] for outcome in report["outcomes"]] == [1, 2, 3]
+    assert [outcome["order"] for outcome in report["outcomes"]] == [1, 2]
     assert [outcome["status"] for outcome in report["outcomes"]] == [
         "failed",
-        "skipped",
         "skipped",
     ]
     assert report["outcomes"][0]["stderr"] == "network unreachable"

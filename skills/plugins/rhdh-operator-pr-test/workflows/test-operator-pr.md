@@ -1,57 +1,30 @@
-# Workflow: Review rhdh-operator PR on Live Cluster
+# Workflow: Test rhdh-operator PR on Live Cluster
 
-Deploy a PR's CI-built images onto a running RHDH cluster, actively verify the code changes, and report findings.
+Deploy a PR's CI-built images onto a running RHDH cluster, verify the change
+there, and report evidence.
 
-This workflow expects the PR context from `fetch-github.md` (or a future forge-specific fetch workflow). If it is not yet available, run the fetch workflow first.
+## Phase 1: Read the PR through `/rhdh-forge`
 
-<required_reading>
+Invoke `/rhdh-forge` with the PR URL or number. Consume repository, number,
+state, files, diff, head and base refs, and comments.
 
-Read these reference files before starting:
+Carry:
 
-1. `../references/operator-pr-images.md` — image naming, extraction, validation
-2. `gh pr view --help` and `gh run view --help` — current forge interface
-
-</required_reading>
-
-<prerequisites>
-
-| Requirement | Details |
-|-------------|---------|
-| **Input** | PR number for rhdh-operator (or full PR URL) |
-| **Access** | Read access to `redhat-developer/rhdh-operator` |
-| **Tools** | `gh` CLI authenticated, `oc` CLI available |
-| **Cluster** | Running OpenShift cluster (will offer to deploy if no RHDH instance) |
-
-</prerequisites>
-
-<process>
-
-## Phase 1: Use the fetched PR context
-
-The fetched context provides `repository`, `changeRequest`, `files`, and `diff`. Extract:
-
-```bash
+```
 REPO="redhat-developer/rhdh-operator"
-PR_NUMBER=<from changeRequest.number>
+PR_NUMBER=<number>
 ```
 
-Validate:
-
-- PR belongs to `redhat-developer/rhdh-operator`
-- PR state is `OPEN` (warn if merged or closed — images may still work but PR is not active)
-
-The diff and changed file list are available in `diff` and `files`.
+Stop unless the repository is `redhat-developer/rhdh-operator`. Warn if state is
+not `OPEN` — images may still work, but the PR is not active.
 
 ---
 
-## Phase 2: Extract CI-Built Images
+## Phase 2: Extract CI-built images
 
-Follow `../references/operator-pr-images.md`:
-
-1. Use `<extracting_from_pr>` to find CI-posted image URLs from the PR comments
-2. Parse out the three image URLs (operator, operator-bundle, operator-catalog)
-3. If no comment found, check CI workflow status using the fallback commands
-4. Use `<validation>` to verify the operator image exists in the registry
+Follow `../references/operator-pr-images.md`. Parse operator, operator-bundle,
+and operator-catalog URLs from the comments `/rhdh-forge` returned, then
+validate the operator image exists.
 
 ---
 
@@ -83,22 +56,22 @@ oc get backstage -A 2>/dev/null
 |---------------|--------|
 | Operator running + Backstage CR exists | Skip to Phase 4 |
 | Cluster accessible but no RHDH operator | Deploy RHDH on existing cluster (see 3.5b) |
-| No cluster access (`oc whoami` fails) | Provision a cluster via rhdh-test-instance PR (see 3.5a) |
+| `oc whoami` fails | Human `oc login`, or provision via rhdh-test-instance (see 3.5a) |
 
 ### 3.5 Provision or deploy RHDH
 
 Use `redhat-developer/rhdh-test-instance` and read that checkout's current
-README and Makefile for supported deployment commands.
+README and Makefile for supported deployment commands. `/rhdh-context` locates
+an RHDH checkout when one is needed.
 
-- **No cluster at all** (`oc whoami` fails) → propose the rhdh-test-instance PR
-  workflow: comment `/test deploy operator <version> 4h` on a PR. Match the
-  version to the target branch. Before posting, state the comment as one
-  operation with its exact body and target PR, get approval, then report the
-  resulting workflow URL or status. The request to test does not itself approve
-  the comment.
+- **`oc whoami` fails** → first path is `oc login` to an existing cluster. If
+  they have no cluster, propose the rhdh-test-instance PR workflow: comment
+  `/test deploy operator <version> 4h` on a PR. Match the version to the target
+  branch. Invoke `/mutation-gate` for that comment. The request to test does not
+  itself approve the comment.
 - **Cluster accessible but no RHDH** → render the exact rhdh-test-instance
-  install/deploy and cleanup commands from its current README and Makefile,
-  state them as operations, and run them only after approval.
+  install/deploy and cleanup commands from its current README and Makefile.
+  Invoke `/mutation-gate` for those operations.
 
 Once the operator and Backstage CR are healthy, proceed to Phase 4.
 
@@ -167,25 +140,19 @@ oc get subscription $CURRENT_SUB -n $OPERATOR_NS -o yaml > /tmp/rollback-subscri
 CURRENT_IMAGE=$(oc get deployment $OPERATOR_DEPLOY -n $OPERATOR_NS \
   -o jsonpath='{.spec.template.spec.containers[?(@.name=="manager")].image}')
 echo "Current operator image: $CURRENT_IMAGE"
-
-# Fetch the target branch's install.yaml as rollback manifest (includes CRDs, RBAC, ConfigMaps)
-TARGET_BRANCH=$(gh pr view $PR_NUMBER --repo $REPO --json baseRefName --jq '.baseRefName')
-curl -sL "https://raw.githubusercontent.com/redhat-developer/rhdh-operator/${TARGET_BRANCH}/dist/rhdh/install.yaml" \
-  -o /tmp/rollback-install.yaml
-echo "Saved rollback manifest from branch: $TARGET_BRANCH"
 ```
+
+Ask `/rhdh-forge` for `dist/rhdh/install.yaml` on the PR base ref and write it
+to `/tmp/rollback-install.yaml`.
 
 ### 4.4a Deploy full bundle — OLM-managed install
 
-Before the first `oc delete` or `oc apply`, finish rendering every manifest and
-follow the write gate in `SKILL.md`. State the deletions and applies in the order
-they will run, each with its namespace and resource target, the preconditions
-captured, its rollout check, and the rollback or cleanup below as its failure
-behaviour. Get approval, run only those operations, and report every outcome
-including the skipped ones. If discovered state changes an operation, stop and
-state the new set.
+Before the first `oc delete` or `oc apply`, finish rendering every manifest.
+Invoke `/mutation-gate` and follow it.
 
-**IMPORTANT:** Do NOT patch the CSV image or the Deployment directly. PR changes to CRDs, RBAC, default config, or bundle metadata would be missed. Replace the CatalogSource with the PR's catalog image so OLM reinstalls the complete bundle.
+Patching the CSV image or the Deployment directly misses PR changes to CRDs,
+RBAC, default config, or bundle metadata. Replace the CatalogSource with the
+PR's catalog image so OLM reinstalls the complete bundle.
 
 **Step 1: Remove existing Subscription and CSV**
 
@@ -216,7 +183,7 @@ spec:
   sourceType: grpc
   image: $PR_CATALOG_IMAGE
   displayName: RHDH Operator PR Catalog
-  publisher: PR Review
+  publisher: PR Test
   updateStrategy:
     registryPoll:
       interval: 10m
@@ -291,39 +258,27 @@ OLM will apply the full bundle contents: updated CRDs, RBAC, default config, and
 
 ### 4.4b Deploy full manifests — direct deployment (non-OLM)
 
-Apply the same write gate before changing a direct deployment. The rendered
-install and rollback manifests are the previews the user approves; do not show
-placeholders and do not regenerate the manifests after approval.
+Invoke `/mutation-gate` before changing a direct deployment. The rendered
+install and rollback manifests are the previews; do not show placeholders and
+do not regenerate the manifests after approval.
 
-**IMPORTANT:** Do NOT use `oc set image` — it only swaps the binary and misses CRD, RBAC, and default config changes from the PR. Apply the full `install.yaml` from the PR branch instead.
+`oc set image` only swaps the binary and misses CRD, RBAC, and default config
+changes from the PR. Apply the full `install.yaml` from the PR head instead.
 
-**Step 1: Get the PR branch name**
+**Step 1: Head ref and PR operator image**
 
-```bash
-PR_BRANCH=$(gh pr view $PR_NUMBER --repo $REPO --json headRefName --jq '.headRefName')
-PR_IMAGE="quay.io/rhdh-community/operator:<tag>"
-```
+Use the head ref `/rhdh-forge` already returned. Set
+`PR_IMAGE` to the CI-built operator image from Phase 2.
 
-**Step 2: Fetch install.yaml from PR branch**
+**Step 2: Fetch install.yaml from the PR head**
 
-```bash
-curl -sL "https://raw.githubusercontent.com/redhat-developer/rhdh-operator/${PR_BRANCH}/dist/rhdh/install.yaml" \
-  -o /tmp/pr-install.yaml
+Ask `/rhdh-forge` for `dist/rhdh/install.yaml` on the PR head ref and write it
+to `/tmp/pr-install.yaml`. If the file is empty, the PR may not have
+regenerated `dist/` — check whether `make build-installer` ran.
 
-# Verify the file was fetched successfully
-if [ ! -s /tmp/pr-install.yaml ]; then
-  echo "ERROR: Failed to fetch install.yaml from PR branch $PR_BRANCH"
-  echo "The PR may not have regenerated dist/ — check if make build-installer was run"
-fi
-
-# Warn if the PR didn't modify dist/ — the install.yaml may be stale (base branch content)
-PR_FILES=$(gh pr view $PR_NUMBER --repo $REPO --json files --jq '.files[].path')
-if ! echo "$PR_FILES" | grep -q '^dist/'; then
-  echo "WARNING: PR does not modify dist/ — install.yaml may not reflect this PR's changes"
-  echo "CRDs, RBAC, and default config in the manifest are from the base branch"
-  echo "Only the operator binary image will differ after substitution"
-fi
-```
+If `files` has no path under `dist/`, warn: CRDs, RBAC, and default config in
+the manifest are from the base branch; only the operator binary image will
+differ after substitution.
 
 **Step 3: Substitute the CI-built operator image**
 
@@ -403,23 +358,21 @@ oc apply -f /tmp/rollback-install.yaml
 
 ---
 
-## Phase 5: Generate Review Checklist
+## Phase 5: Generate a live verification checklist
 
 Analyze the diff from Phase 1 and categorize changed files:
 
-| File pattern | Category | Review focus |
+| File pattern | Category | Cluster focus |
 |-------------|----------|--------------|
 | `api/`, `*_types.go` | CRD/API | New fields, deprecations, backward compatibility |
 | `internal/controller/`, `pkg/model/` | Controller/Reconciler | Reconciliation behavior, status updates, edge cases |
 | `config/profile/`, `default-config/` | Default config | Verify defaults applied, check for regressions |
-| `*_test.go`, `integration_tests/` | Tests | Run the new/modified tests |
-| `.github/`, `Makefile`, `Dockerfile` | Build/CI | Verify builds still work |
-| `docs/`, `*.md` | Documentation | Review for accuracy |
-| `go.mod`, `go.sum` | Dependencies | Check for major version bumps |
+| `*_test.go`, `integration_tests/` | Tests | Run the new/modified tests against the live cluster |
+| `.github/`, `Makefile`, `Dockerfile` | Build/CI | Confirm the PR images under test match this build |
 
 ### Generate the checklist
 
-For each category with changes, generate specific verification items.
+For each category with changes, generate specific live checks.
 
 **Always include these baseline checks:**
 
@@ -464,16 +417,7 @@ For each category with changes, generate specific verification items.
 
 ```markdown
 ### Tests
-- [ ] `make test` — unit tests pass
 - [ ] `make integration-test USE_EXISTING_CLUSTER=true USE_EXISTING_CONTROLLER=true` — integration tests pass against live cluster
-```
-
-**Dependency changes — add:**
-
-```markdown
-### Dependency Review
-- [ ] Review `go.mod` diff for major version bumps
-- [ ] Check if new dependencies have acceptable licenses
 ```
 
 **End the checklist with:**
@@ -509,11 +453,8 @@ For each test, specify:
 - **Pass criteria**: what output means the fix works
 - **Fail criteria**: what output means the fix is broken
 
-State every cluster-changing action as an operation under the write gate in
-`SKILL.md`; read-only observations stay checks. Give each one its exact resource,
-payload preview, preconditions, pass and fail criteria, and recovery. **STOP. Do
-not run a changing verification command until the user approves that stated
-set.**
+Invoke `/mutation-gate` for cluster-changing verification. Read-only
+observations stay checks.
 
 ### 6.3 Execute
 
@@ -523,9 +464,9 @@ Run each verification step on the cluster. For every step, capture the actual co
 
 ---
 
-## Phase 7: Findings & Recommendations
+## Phase 7: Findings
 
-Synthesize the verification results and provide a complete review assessment.
+Synthesize the verification results.
 
 ### 7.1 Verification summary
 
@@ -535,103 +476,36 @@ Summarize what was tested and the results:
 |---|---|---|---|
 | *[category]* | *[what was tested]* | Pass/Fail | *[key observation]* |
 
-### 7.2 Best practice assessment
+### 7.2 Rollback instructions
 
-Review the PR's approach against the checked-out operator repository's current
-controllers, CRDs, tests, and contributor guidance:
+Present the rollback commands recorded in Phase 4.7. Do not regenerate them.
 
-- Does the change follow the existing reconciliation flow pattern (preprocess → init model → apply → cleanup → status)?
-- Are status conditions updated appropriately for new features or error cases?
-- Are new ConfigMap/Secret references watched via `rhdh.redhat.com/ext-config-sync` label?
-- Is error handling consistent with existing controller patterns (wrapped errors, retryable vs terminal)?
-- Are new CRD fields documented with appropriate kubebuilder markers?
-- Does the code avoid non-deterministic iteration patterns (sorted keys, stable ordering)?
+Before presenting the cluster report, invoke `/prose-editing` once on the
+whole draft in the **flavored** register. Preserve raw evidence, tables,
+commands, resource names, and rollback payloads exactly.
 
-### 7.3 Security review
-
-Evaluate the changes from a security perspective:
-
-- Are new environment variables or secrets handled safely (no plaintext logging, proper RBAC)?
-- Do RBAC changes follow least-privilege principle?
-- Are container image references pinned by digest where appropriate?
-- Are new network exposures (ports, routes, service accounts) intentional and documented?
-- Do dependency updates (`go.mod`) introduce known CVEs?
-- Are user-supplied inputs validated before use in resource names or labels?
-
-### 7.4 Improvement suggestions
-
-Based on the findings, suggest concrete improvements if any:
-
-- Code changes needed (reference specific files and lines from the diff)
-- Missing test coverage for the changed code paths
-- Documentation gaps
-- Configuration or operational concerns
-
-### 7.5 Rollback instructions
-
-Present the rollback commands recorded in Phase 4.7:
-
-**OLM-managed — restore original Subscription:**
-
-```bash
-# Delete PR-specific OLM resources
-oc delete subscription rhdh-operator-pr-subscription -n $OPERATOR_NS
-CSV_NAME=$(oc get csv -n $OPERATOR_NS --no-headers \
-  -o custom-columns=NAME:.metadata.name | grep rhdh)
-oc delete csv $CSV_NAME -n $OPERATOR_NS 2>/dev/null
-oc delete catalogsource rhdh-operator-pr-catalog -n $OPERATOR_NS
-
-# Restore original Subscription (points back to the shared CatalogSource)
-oc apply -f /tmp/rollback-subscription.yaml
-
-# Wait for OLM to redeploy the original operator
-oc wait csv -n $OPERATOR_NS -l "operators.coreos.com/$PACKAGE_NAME.$OPERATOR_NS=" \
-  --for=jsonpath='{.status.phase}'=Succeeded --timeout=180s
-```
-
-**Non-OLM — reapply original install.yaml:**
-
-```bash
-oc apply -f /tmp/rollback-install.yaml
-```
-
-</process>
-
-<action_triggers>
+## Stops and waits
 
 | Trigger | Type | What | Resume When |
 |---------|------|------|-------------|
 | No CI images found | Wait | CI workflow may still be running | Workflow completes and posts comment |
 | Images expired | Stop | PR images past 14-day TTL | Author pushes new commit to retrigger CI |
-| No cluster access | Stop | User needs to `oc login` | User logs in and re-runs skill |
-| No RHDH instance | State, then deploy | State the exact rhdh-test-instance deployment and cleanup operations; run them only after approval | Reported outcomes show the operator and Backstage CR running |
+| No cluster access | Stop | User needs to `oc login`, or chose rhdh-test-instance provision | User logs in or the provisioned cluster is ready |
+| No RHDH instance | State, then deploy | Invoke `/mutation-gate` for the rhdh-test-instance deployment and cleanup | Reported outcomes show the operator and Backstage CR running |
 
-</action_triggers>
+## Completion
 
-## What this workflow reports
-
-Report the subject tested, one result per check, and the overall verdict. Add the
-deployed bundle or manifests, the original and final cluster state, the findings,
-the rollback commands, and the cleanup status. Report the outcome of every
-deployment, verification, and cleanup operation the user approved. Do not cache
-cluster state inside the skill directory.
-
-<success_criteria>
-
-Review is complete when:
+Complete when:
 
 - [ ] PR images identified from CI comment
 - [ ] Images validated as existing in Quay registry
 - [ ] Cluster has RHDH operator deployed from PR bundle/manifests (not just image swap)
 - [ ] Operator pod is healthy (no crash loops)
 - [ ] Backstage CR reconciles successfully
-- [ ] Review checklist generated from diff analysis
+- [ ] Live checks generated from the diff
 - [ ] Active-verification operations stated and approved by user
 - [ ] Verification executed with evidence captured
 - [ ] Findings summary with pass/fail
-- [ ] Best practice and security assessment completed
 - [ ] Rollback instructions documented and shared with user
 - [ ] Check results and cleanup status reported
 - [ ] Every external write has a reported outcome naming its target
-
-</success_criteria>

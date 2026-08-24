@@ -1,27 +1,27 @@
 # Code Review Perspectives
 
-Thin router for review focus. Examples of perspectives and the signals that suggest them — starting points, not a fixed roster. Choose perspectives that fit the PR's actual content. Invent new ones when the PR calls for it.
+Adversarial is always dispatched from `workflows/review-code.md` on a
+`/code-review` run. This file holds that prompt and the optional extra lenses.
+Spec coverage lives in `/code-review`; do not run a third Requirements pass.
 
-**Do not hardcode specialist skill names here.** Specialist domain knowledge lives in whatever skill the user names when asked.
-
-## Specialist skills (always ask)
-
-Early in the review — after fetch/context, before deep analysis — **always ask** the user which installed skills (if any) to invoke for this review. "None" is a valid answer. Then invoke only what they named; do not invent a default specialist list.
+Specialist domain knowledge lives in whatever skill the user already named. Do
+not invent a default specialist list.
 
 ## Common perspectives
 
 | Perspective | Focus | Prompt guidance |
 |-------------|-------|-----------------|
+| **Adversarial** | Abuse of the change: hostile input, confused deputy, path or auth bypass, a new script, hook, or parser | "Break the new surface. Assume hostile input." |
 | **Correctness** | Logic bugs, edge cases, error handling, off-by-ones, null/undefined paths | "Find bugs that would reach production. Ignore style." |
 | **Security** | Injection vectors, auth/authz gaps, secrets exposure, input validation | "Flag vulnerabilities with severity ratings." |
-| **Requirements** | Coverage of linked issues, test adequacy, scope gaps | "Check every linked requirement. Note what's addressed, tested, and missing." |
 | **Architecture** | Module boundaries, coupling, abstraction levels, extensibility | "Evaluate structural impact. Is this change in the right place?" |
 | **Performance** | Hot paths, query patterns, algorithmic complexity, caching | "Flag measurable performance risks." |
 | **Compatibility** | Public API surface, breaking changes, deprecations | "Determine if changed symbols are public-facing before flagging." |
 
-## Signals that suggest a perspective
+## Signals that suggest an extra perspective
 
-Use these as hints, not rules. A PR may need perspectives not listed here, or may not need ones that signal-match.
+Use these as hints for lenses **other than Adversarial**. A PR may need a
+perspective not listed here, or may not need one that signal-matches.
 
 | Signal | Suggests | Example |
 |--------|----------|---------|
@@ -32,16 +32,8 @@ Use these as hints, not rules. A PR may need perspectives not listed here, or ma
 | Changed paths match API surface | Compatibility | `**/api/**`, `**/proto/**`, `**/openapi*` |
 | Package version changes | Compatibility | `package.json`, `pyproject.toml` version bumps |
 | Labels | Varies | `refactor` → Architecture, `breaking` → Compatibility |
-| Linked issues exist | Requirements | Any `Fixes #N` or Jira key in the body |
 
-## Choosing perspectives
+## Choosing extras
 
-Read the PR's diff, metadata, and linked issues. Create perspectives based on what matters most for this specific change — the examples above are a starting point, not a menu to pick from.
-
-## Reviewer coordination
-
-When using multiple reviewers:
-
-- Each gets the diff, linked requirements, and their focus area
-- Instruct them to read source at HEAD, not just the diff
-- Encourage cross-checking — reviewers should challenge overlapping or contradictory findings
+Adversarial is already running; do not add a second Adversarial pass. Add
+another row when you recommend it from these signals, or when the user named it.

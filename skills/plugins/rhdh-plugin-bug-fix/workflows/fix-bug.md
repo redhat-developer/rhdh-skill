@@ -60,9 +60,12 @@ Require reproducible steps, expected behavior, identifiable component or
 workspace, and target repository. If any field is missing:
 
 1. Report exactly which fields are missing.
-2. When issue mutation is in scope, add `not-ready-for-agent` and a checklist
-   comment through the issue's own tool.
-3. Stop before changing code.
+2. When issue mutation is in scope, compose the checklist comment and invoke
+   `/prose-editing` once on it in the **flavored** register. Preserve field names,
+   labels, issue keys, reproduction steps, and quoted errors.
+3. Add `not-ready-for-agent` and the edited checklist comment through the issue's
+   own tool; the transport layer must not edit it again.
+4. Stop before changing code.
 
 When triage passes, report the extracted issue, repository, and workspace.
 

@@ -211,6 +211,10 @@ git push -u origin add-<plugin-name>-workspace
 Once the pushed head SHA and full body are known, state PR creation as a new
 operation and get approval for it before running `gh pr create`.
 
+Invoke `/prose-editing` once on the final PR title and body in the **flavored**
+register before showing that operation. Preserve repository URLs, package and
+plugin names, headings, and checklist state. `gh` only transports the result.
+
 ```bash
 gh pr create \
   --title "Add <plugin-name> workspace" \
@@ -315,7 +319,10 @@ Plugins in these lists become "required" — release gates fail if they're incom
    phase.
 4. Take back its per-check results and preserve skipped checks with their
    reasons.
-5. To add those results to the overlay PR, state the comment as an operation with
+5. Compose the reviewer-facing verification comment, then invoke
+   `/prose-editing` once on it in the **flavored** register. Preserve check names,
+   exact results, artifact references, commands, and quoted errors.
+6. To add those results to the overlay PR, state the edited comment as an operation with
    its exact body and target, get approval, and report the resulting comment URL.
    Authentication failures inside the plugin card are acceptable only when
    installation, boot, and UI wiring are otherwise proven.

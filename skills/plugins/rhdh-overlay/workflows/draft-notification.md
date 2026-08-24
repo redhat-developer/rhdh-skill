@@ -138,9 +138,12 @@ Could you take a look when you have a moment?
 
 ## Phase 5: Review and Send
 
-1. **Review each draft** — adjust tone/details as needed
-2. Keep the result as a draft unless the user requests delivery.
-3. For delivery, follow the write gate in `SKILL.md`. State one operation per
+1. **Review each draft** — adjust tone/details as needed.
+2. Invoke `/prose-editing` once on the complete set of final messages in the
+   **voiced** register. Preserve Slack handles, channels, PR numbers, statuses,
+   priorities, and URLs. The send adapter must not edit them again.
+3. Keep the result as a draft unless the user requests delivery.
+4. For delivery, follow the write gate in `SKILL.md`. State one operation per
    recipient or channel, in send order, each with its final message body. Get
    approval for that stated set, send, then report the actual message and
    channel identifiers for every operation. An edited body or recipient is a new

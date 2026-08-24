@@ -10,7 +10,7 @@ description: >-
   "commission the 1.12 branch jobs", or "decommission 1.8". Prow configuration
   for a release branch only — the release itself is rhdh-release-status,
   rhdh-release-schedule, and rhdh-release-announce.
-compatibility: "A local openshift/release checkout with make and git; Slack app admin and Vault access for the per-branch alert webhook."
+compatibility: "A local openshift/release checkout with make and git; gh authenticated for pull-request creation; Slack app admin and Vault access for the per-branch alert webhook."
 ---
 
 # RHDH release-branch Prow configuration
@@ -36,11 +36,16 @@ belong to `/rhdh-prow-jobs`.
 differences, and the Slack alert setup that both workflows use. Read it with
 whichever workflow you loaded.
 
-## Writing rules
+## Local preparation and publication
 
-Copying the config, editing `_prowconfig.yaml`, deleting files, running
-`make update`, committing, pushing, and opening a pull request are writes. Follow
-`/mutation-gate`, naming each file path as the target of its operation.
+Creating the local review branch, copying or deleting the config, editing
+`_prowconfig.yaml`, and running `make update` are local preparation authorized by
+the user's commission or decommission request. Make and validate those local
+changes without a write gate.
+
+Follow `/mutation-gate` for commit, push, and pull request creation only. Treat
+them as one ordered publication set, name every reviewed path and external
+target, and stop before each later operation when an earlier one fails.
 
 - Never hardcode the branch-protection block or the release-branch adjustments.
   Read the latest existing release branch and copy its current shape; required

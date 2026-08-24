@@ -1,4 +1,4 @@
-# gh reads
+# gh reads and payloads
 
 Read patterns for GitHub pull requests, checks, workflow runs, and repository
 content, plus the behaviours that catch a caller out. Everything here is
@@ -67,6 +67,56 @@ gh pr view <number> --repo <owner/repo> --json files \
 
 For a full review context rather than an ad-hoc read, invoke `/rhdh-pr-review`,
 which owns the deterministic fetch.
+
+## Construct a pull-request creation payload
+
+Accept `REPOSITORY`, `BASE_BRANCH`, `HEAD_BRANCH`, `TITLE`, and `BODY_FILE`.
+Confirm `gh auth status` succeeds. Resolve `REPOSITORY` with
+`gh repo view "$REPOSITORY" --json nameWithOwner --jq .nameWithOwner`; use that
+result rather than an alias or remote URL.
+
+Require a canonical `owner/repo`, nonempty exact branch names, a nonempty
+one-line title, and an absolute readable body file in a unique temporary
+directory. Read the file for the payload preview, but do not put its contents on
+the command line.
+
+Construct this argument vector and return it without execution:
+
+```text
+["gh", "pr", "create", "--repo", REPOSITORY,
+ "--base", BASE_BRANCH, "--head", HEAD_BRANCH,
+ "--title", TITLE, "--body-file", BODY_FILE]
+```
+
+Its shell rendering quotes every value as one argument:
+
+```bash
+gh pr create \
+  --repo "$REPOSITORY" \
+  --base "$BASE_BRANCH" \
+  --head "$HEAD_BRANCH" \
+  --title "$TITLE" \
+  --body-file "$BODY_FILE"
+```
+
+The returned command contains shell-quoted resolved literals, not variable
+references. The variables above only show the argument boundaries.
+
+Do not use `--body`, a heredoc, command substitution, `eval`, `--fill`, or an
+editor. Those paths either put prose into shell syntax or replace the caller's
+approved title and body. The caller previews the body file, sends this exact
+command to `/mutation-gate`, and executes it only after approval.
+
+Return this read-only verification command with the payload:
+
+```bash
+gh pr list --repo "$REPOSITORY" --base "$BASE_BRANCH" \
+  --head "$HEAD_BRANCH" --state open --limit 1 \
+  --json url,title,baseRefName,headRefName
+```
+
+If canonical repository resolution, authentication, or branch resolution
+fails, return the missing capability or unresolved input instead of a command.
 
 ## Checks go stale
 

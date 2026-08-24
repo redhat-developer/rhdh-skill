@@ -211,10 +211,17 @@ These suggestions are based on support lifecycle pages checked on [today's date]
 No changes have been applied to this ticket.
 ```
 
+Invoke `/prose-editing` once on the completed comment body in the **flavored**
+register. Preserve product versions, platform names, dates, and the claim about
+whether changes were applied. Show and gate that edited body; `/rhdh-jira-update`
+only transports it.
+
 Follow `/mutation-gate`. State one operation: the target ticket and the exact
 comment body shown above. The user may approve, edit, or cancel it. Post only
-after approval, through `/rhdh-jira-update`, then report the outcome. Stop here;
-do not create child tasks for a comment-only outcome.
+after approval. Hand the exact approved body to `/rhdh-jira-update` as
+**caller-finalized**, so it transports the body without another prose pass or
+confirmation. Report the outcome, then stop; do not create child tasks for a
+comment-only outcome.
 
 ---
 

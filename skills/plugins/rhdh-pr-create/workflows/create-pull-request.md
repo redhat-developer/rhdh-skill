@@ -364,7 +364,12 @@ git push -u origin HEAD
    - **`## Test Plan`** — include only if the handoff supplied a test plan. Insert the markdown checklist as-is.
    - **`## Checklist`** — always present.
    - **`## Note`** — include when a bug-fix change handoff was supplied. Omit for a standalone publication request.
-5. Create the PR using `gh pr create` with the repo-appropriate template. Use the upstream repo value for `--repo` and `main` for `--base`. Pass the body via HEREDOC:
+5. Invoke `/prose-editing` once on the completed reviewer-facing title and body
+   in the **flavored** register. Preserve issue-closing syntax, headings,
+   checkboxes, links, image URLs, and supplied test-plan text exactly. Use the
+   edited result for the approval preview and `gh pr create`; the command is a
+   transport layer and must not edit it again.
+6. Create the PR using `gh pr create` with the repo-appropriate template. Use the upstream repo value for `--repo` and `main` for `--base`. Pass the body via HEREDOC:
 
 ```
 gh pr create --repo <upstream-repo> --base main --title "<title>" --body "$(cat <<'EOF'
@@ -373,8 +378,8 @@ EOF
 )"
 ```
 
-6. Capture and store the PR URL for Step 11.
-7. Display the PR URL.
+7. Capture and store the PR URL for Step 11.
+8. Display the PR URL.
 
 ---
 

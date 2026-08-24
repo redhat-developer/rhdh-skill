@@ -1,43 +1,57 @@
 # Workflow: Review Code
 
-Platform-agnostic code analysis. Reads the PR context from `fetch-github.md` (or a future `fetch-gitlab.md`) and produces the review draft a posting workflow sends.
+Platform-agnostic code analysis. Reads the PR context from `fetch-github.md`
+and produces the review draft a posting workflow sends.
 
-Work from that context. The one exception is reading full file contents at HEAD to verify findings, which needs forge-specific commands (see Step 3).
+Work from that context. The one exception is reading full file contents at HEAD
+to verify findings (see Reading source at HEAD).
 
 ## Mindset
 
 You are a senior team member reviewing a contribution. Your goal is to help the author ship confidently, not demonstrate expertise. Every comment should either prevent a real problem or teach something useful — if it does neither, don't leave it.
 
-## Step 0: Humanizer prerequisite
+## Step 0: `/code-review` prerequisite
 
-Load `../references/humanizer.md`. If the named `/humanizer` skill is absent, say
-that `humanizer` is missing, name `/setup-rhdh-skills install` as the human's next
-step, and stop. This applies to every draft path, including analysis-only.
+`/code-review` is required on every run, including analysis-only. If the named skill is absent, stop. Say that `code-review` is missing, name `/setup-rhdh-skills install`, and do not substitute a local two-axis review.
 
-## Step 1: Ask which specialist skills to invoke
+## Step 1: Team
 
-Read `../references/review-perspectives.md`. After fetch/context is available and **before deep analysis**, always ask the user which installed skills (if any) to invoke for this review. "None" is valid. Do not invent a hardcoded specialist roster — use whatever the user names, then follow those skills for domain knowledge.
+`/code-review`'s Standards and Spec agents run on every draft-review path.
+Dispatch **Adversarial** on every `/code-review` run. Load
+`../references/review-perspectives.md` for that prompt and for any further lens.
 
-Also choose review perspectives from the reference (Correctness, Security, etc.) as a thin router. The reference is a starting point, not a mandatory checklist. Invent new perspectives when the PR calls for it.
+Specialists named in the original request join that set. Add another perspective
+from that reference when you recommend it from the diff, or when the user named
+it. Do not re-ask.
 
-For small PRs, reviewing directly from a single perspective is often enough. For larger or more complex PRs, multiple perspectives help catch different classes of issues.
+Use `specSource` from fetch as the Spec contract for `/code-review`. Spec still runs.
 
-## Step 2: Analyze the diff
+## Step 2: Worktree, then `/code-review`
 
-Review the diff through each chosen perspective (and any user-named specialist skills). When dispatching subagent reviewers, each receives:
+If `git rev-parse HEAD` is not `changeRequest.headSha`, create a git worktree at
+that SHA. For an RHDH repository, `/rhdh-context` locates the checkout to branch
+from. Pass the worktree path into `/code-review` and any other subagents. Remove
+the worktree after the GitHub post, or after the analysis-only draft.
 
+Invoke `/code-review` with the PR base as the fixed point and `specSource` as the spec. Present the Standards and Spec reports as their own reports. Do not paste them as the GitHub review. Draft later from verified findings.
+
+When dispatching Adversarial or extra reviewers, each receives:
+
+- The worktree path when one exists
 - The diff from `diff`
-- Linked requirements (`linkedIssues`)
-- Their focus area and prompt guidance
+- `files[]`
+- `specSource`
+- Their focus area
+
+They verify against HEAD. They do not write GitHub review prose.
 
 ### Reading source at HEAD
 
-When the diff alone is insufficient to judge a finding, read the full file at HEAD. Use `repository` and `changeRequest.headSha` from the fetched context:
+When the diff alone is insufficient to judge a finding, read the full file at HEAD. Prefer the worktree when one exists. Otherwise use `repository` and `changeRequest.headSha` from the fetched context:
 
 - **GitHub**: `gh api repos/{repo}/contents/{path}?ref={head_sha} -H "Accept: application/vnd.github.raw+json"`
-- **GitLab**: `glab api projects/{id}/repository/files/{path}/raw?ref={head_sha}`
 
-This is the one place where forge awareness leaks into the analysis — prefer the diff when possible.
+Prefer the diff when it is enough.
 
 ## Step 3: Verify every finding (critical)
 
@@ -51,13 +65,11 @@ Reviewers will produce false positives. Verify each finding against actual code 
 - Misreads what the code actually does
 - Matches existing codebase conventions (the PR follows the project's style, not the reviewer's preference)
 
-**For each linked requirement, verify:**
+**For each finding `/code-review` Spec reported**, verify it against code at
+HEAD. Note anything from the issue's scope that is missing; the author may be
+intentionally splitting work — note, don't block.
 
-- Addressed in the diff?
-- Tested?
-- Anything from the issue's scope missing? (Author may be intentionally splitting work — note, don't block.)
-
-Present a **finding inventory** to the user before drafting: `file:line`, category (`question` / `observation` / `fix`), and a one-line label only. This is a triage list for what to include — **not** review prose and **not** the GitHub draft. Do not write full comment bodies here.
+Present a **finding inventory** to the user before drafting: `file:line`, category (`question` / `observation` / `fix`), and a one-line label only. This is a triage list for what to include — **not** review prose and **not** the GitHub draft. Do not write full comment bodies here. Skip the inventory only when the user already said to proceed to a draft.
 
 ## Step 4: Draft the review
 
@@ -75,21 +87,23 @@ If `existingReviews` shows you've already left a top-level comment on this PR, a
 
 ### Inline comments
 
-Post one inline comment per finding worth raising — no artificial cap. Never leave a comment just to show you noticed something. Not every finding needs the same weight — substantial issues get a full comment, nits can be grouped into a single comment as one-liners.
+One inline per merge-shaped problem or lasting rule. Group nits into one comment or a single top-level "also" paragraph. A finding that neither prevents a wrong write nor teaches something that will still be true next month does not get its own inline.
 
 Write each comment as natural prose — a short paragraph explaining the issue and why it matters. Avoid bullet lists, bold headers, and over-structured formatting.
 
 **Guide, don't dictate.** Assume deliberate choices. When the design intent is unclear, ask why before proposing alternatives. Explain reasoning only when the fix isn't obvious. Finding `type: "fix"` means "propose a direction," not "paste a patch" — still guide unless a GitHub `suggestion` block applies below.
 
-**GitHub `suggestion` blocks:** use them **only** when the fix is small and obvious — one clear replacement hunk the author can apply as-is. Otherwise leave a question or guidance without a `suggestion` block.
+A `suggestion` fence is the full replacement for the commented range, or there is no fence.
 
-### Humanize before show-user
+### Edit before show-user
 
-After drafting top-level + inlines, follow `../references/humanizer.md` → When to invoke. Run humanizer on the full draft, then present the humanized draft. Never show pre-humanizer prose as the review draft. Applies to posting and analysis-only routes.
+After drafting top-level + inlines, invoke `/prose-editing` on the whole draft — top-level comment and every inline body — in the **flavored** register. A review is a document, not a procedure, and the caller names the register so the editor does not have to guess it.
+
+Preserve technical meaning, severity, file paths, line numbers, `suggestion` fences, and the review event. Present only what comes back. Never show the unedited prose as the review draft. Applies to posting and analysis-only routes.
 
 ## Step 5: Choose event type
 
-Present the **humanized** draft to the user. For posting routes, ask which event type to use:
+Present the **edited** draft to the user. For posting routes, ask which event type to use:
 
 | Event | When |
 |-------|------|
@@ -97,7 +111,7 @@ Present the **humanized** draft to the user. For posting routes, ask which event
 | `APPROVE` | No issues, or only minor nits. |
 | `REQUEST_CHANGES` | Critical issues that must be fixed. Use sparingly. |
 
-For analysis-only (route 2), present the humanized draft and stop — no event type, no post.
+For analysis-only (route 2), present the edited draft and stop — no event type, no post. Remove the worktree if this run created one.
 
 ## What this workflow hands on
 
@@ -107,15 +121,17 @@ Carry the finished review forward as:
 changeRequest: {repository: "owner/repo", number: 123, headSha: "abc123..."}
 summary: "top-level review text"
 verdict: "COMMENT" | "APPROVE" | "REQUEST_CHANGES"
-humanized: true
+edited: true
+worktreePath: null (or the path this run created)
 findings[]
 ├── path: "src/file.ts"
 ├── line: 42
-├── startLine: null (or number for multi-line)
+├── startLine: null (or number for a block the suggestion replaces)
 ├── type: "question" | "observation" | "fix"
 └── body: "comment text, optionally with ```suggestion block when allowed"
 ```
 
-`type` is the finding kind for triage. A GitHub `suggestion` fence inside `body` is separate and only allowed for small obvious hunks (see Step 4).
+`type` is the finding kind for triage. A GitHub `suggestion` fence inside `body`
+is separate (see Step 4).
 
-**Do not post the review.** If the router selected a posting workflow, hand that draft to it. If analysis-only, stop after presenting the humanized draft (Step 5).
+**Do not post the review.** If the router selected a posting workflow, hand that draft to it. If analysis-only, stop after presenting the edited draft (Step 5).

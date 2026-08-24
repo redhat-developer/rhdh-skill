@@ -7,7 +7,7 @@
 
 Runs gh CLI commands to collect PR metadata, diff, linked issues,
 existing review comments, and CI status. Output is consumed by
-review-code.md and review-operator-pr.md workflows.
+the review-code.md workflow.
 
 Examples:
     uv run scripts/fetch_pr_context.py https://github.com/redhat-developer/rhdh-operator/pull/123
@@ -207,7 +207,7 @@ def fetch_reviews(repo, pr_number):
 
 
 def fetch_ci_status(repo, pr_number):
-    """Fetch CI check status. Returns 'pass', 'fail', or 'pending'."""
+    """Fetch CI check status. Returns 'pass', 'fail', 'pending', or 'unknown'."""
     raw = run_gh(
         ["pr", "checks", str(pr_number), "--repo", repo, "--json", "name,state,conclusion"],
         check=False,

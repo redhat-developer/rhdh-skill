@@ -75,7 +75,13 @@ Goal: same file set `sync-midstream.sh --force-clone '<ws>'` would refresh for *
    - `DESCRIPTION` plugin version fragment
    - `UPSTREAM_REPO` overlays tree SHA when known
    - Or regenerate the affected PLRs via `.tekton/updatePLRs.sh` (see reference: nested `--path '<ws>/plugins/<plugin>'` vs flat `--package`; gate on `source.json` `repo-flat`)
-5. Open the catalog MR by invoking the named skill `/rhdh-pr-create`, or with `glab` against CEE GitLab. Cite sibling package versions in the body.
+5. Open the catalog MR by invoking the named skill `/rhdh-pr-create`, or with
+   `glab` against CEE GitLab. Cite sibling package versions in the body. When
+   this skill composes a body for direct `glab` submission, invoke
+   `/prose-editing` once on the complete title and body in the **flavored**
+   register before the write gate. Preserve versions, SHAs, package names,
+   headings, links, and commands. When `/rhdh-pr-create` is the final composer,
+   hand it the facts without editing; that skill owns the single prose pass.
 
 **Who owns `.tekton`:** this skill owns only the per-workspace PLR and Containerfile tag bumps that ride the surgical catalog MR for the workspace being promoted. Full-stream PipelineRun regeneration across the catalog belongs to `/rhdh-konflux-tasks`; invoke it by name rather than regenerating the stream from here.
 

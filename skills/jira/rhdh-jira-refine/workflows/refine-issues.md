@@ -245,8 +245,14 @@ After presenting the report, ask `Apply changes? [y/N/edit]`. **y** applies the
 uncontroversial fixes and prompts for each of the rest. **N** is report-only.
 **edit** steps through every change individually.
 
-Whatever survives that selection is an external write. Invoke
-`/mutation-gate` and follow it, with one row per issue key.
+For every remediation that includes a Jira comment, compose the complete set of
+comment bodies first, then invoke `/prose-editing` once on that set in the
+**flavored** register. Preserve issue keys, resolutions, links, and quoted
+rationales. The write adapter must not edit them again.
+
+Whatever survives the selection is an external write. After every comment body
+is final, invoke `/mutation-gate` once and follow it, with one row per issue key
+and the edited bodies included in the plan.
 
 **Applied without individual prompts:**
 

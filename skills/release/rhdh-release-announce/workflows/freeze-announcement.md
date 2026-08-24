@@ -4,9 +4,8 @@ Four announcements, one command, one token apart.
 
 <prerequisites>
 
-`/humanizer` must be available — see the hard prerequisite in `../SKILL.md`. Jira
-reads use `acli`, team data uses `gog`, and every freeze and release-note scope
-comes from the Rich Filter export. Run
+Jira reads use `acli`, team data uses `gog`, and every freeze and release-note
+scope comes from the Rich Filter export. Run
 `uv run scripts/release.py --json check` when anything fails and follow its
 `next_steps`.
 
@@ -40,10 +39,11 @@ demos, Test Day features, open issues, EPICs, CVEs, release notes. The two
 updates carry per-team lines with each team's count, Jira link, and lead Slack
 handle, plus the freeze date itself, so the teams still holding work can see it.
 
-## Step 2: Humanize, then present
+## Step 2: Edit, then present
 
-Invoke `/humanizer` on the full draft. Present the humanized text in a
-triple-backtick block. Never show the pre-humanizer message as the draft.
+Invoke `/prose-editing` on the full draft in the **voiced** register. Present
+what it returns in a triple-backtick block. Never show the unedited message as
+the draft.
 
 Alongside the draft, list any figure the CLI could not produce. Leave it named
 and missing; do not fill it.
@@ -82,7 +82,7 @@ Filter's Cloud ID clauses; fix the configuration and retry instead.
 <success_criteria>
 
 - [ ] The right token for the milestone-or-update the user meant
-- [ ] `/humanizer` ran on the draft before it was shown
+- [ ] `/prose-editing` ran on the draft before it was shown
 - [ ] Draft in a triple-backtick block, no placeholders left unfilled
 - [ ] Every count carries a Jira link; missing figures are named, not invented
 - [ ] Nothing was posted

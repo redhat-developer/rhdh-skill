@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import hashlib
 import itertools
 import json
@@ -15,14 +16,21 @@ from typing import Any
 
 CATALOG_PATH = Path("skills/meta/setup-rhdh-skills/assets/catalog.json")
 PROMOTED_CATEGORIES = ("jira", "plugins", "ci", "release", "reference", "meta")
-# A named invocation reads as /rhdh-something in prose. It must follow a space,
-# a line start, or an opening bracket or backtick, never another path segment, so
-# `~/rhdh-local-setup` and `redhat-developer/rhdh-plugin-catalog` stay paths.
+# A cited skill, as `/name`. It must follow a space, a line start, or an opening
+# bracket or backtick, never another path segment, so `~/rhdh-local-setup` and
+# `redhat-developer/rhdh-plugin-catalog` stay paths. Matching only the rhdh-
+# prefixes missed every skill
+# whose subject is not RHDH — prose-editing, clean-prose, mutation-gate,
+# skill-authoring — so renaming one left its callers dangling silently. Every
+# promoted name is kebab-case, but a skill can still be a single token. Route-like
+# tokens are filtered against the promoted/external/retired name sets below. A
+# trailing slash or dot means the token is a path, not a skill.
 NAMED_INVOCATION = re.compile(
-    r"(?:^|(?<=[\s(\[`]))/((?:rhdh|ask-rhdh|setup-rhdh)[\w-]*)(?![\w-])",
+    r"""(?:^|(?<=[\s(\[`'"]))/([a-z0-9]+(?:-[a-z0-9]+)*)(?![\w-])(?![/.])""",
     re.MULTILINE,
 )
-EXTERNAL_SKILLS = {"grilling", "humanizer", "handoff"}
+EXTERNAL_SKILLS = {"code-review", "grilling", "handoff"}
+RETIRED_SKILLS = {"humanizer"}
 # A bundled script reading a file that ships *with it*, such as
 # `_DATA_DIR / "jql-release.md"`. Anchored to the handful of names that mean
 # "this script's own directory", because a bare `dir / "config.json"` is usually
@@ -34,6 +42,8 @@ SCRIPT_DATA_READ = re.compile(
 HOST_SKILL_PATHS = (".claude/skills", ".agents/skills", ".cursor/skills", ".codex/skills")
 SHIPPED_SUFFIXES = {".md", ".py", ".sh", ".mjs"}
 DUPLICATE_BLOCK_LINES = 25
+FENCE_OPEN = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})[^\r\n]*(?:\r?\n|$)")
+BLOCKQUOTE_MARKER = re.compile(r" {0,3}> ?")
 
 
 def _frontmatter(text: str) -> dict[str, Any]:
@@ -76,12 +86,122 @@ def _body(text: str) -> str:
     return re.sub(r"^---\n.*?\n---(?:\n|$)", "", normalized, count=1, flags=re.DOTALL)
 
 
+def _blockquote_layers(line: str) -> list[str]:
+    """Return the line after each valid nested CommonMark blockquote marker."""
+    layers = [line]
+    remainder = line
+    while marker := BLOCKQUOTE_MARKER.match(remainder):
+        remainder = remainder[marker.end() :]
+        layers.append(remainder)
+    return layers
+
+
+def _without_noninstructions(text: str) -> str:
+    """Remove fenced examples and comments that an agent does not follow."""
+    instructions: list[str] = []
+    fence_character: str | None = None
+    fence_length = 0
+    fence_blockquote_depth = 0
+    for line in text.splitlines(keepends=True):
+        blockquote_layers = _blockquote_layers(line)
+        blockquote_depth = len(blockquote_layers) - 1
+        if fence_character is not None:
+            if blockquote_depth >= fence_blockquote_depth:
+                fence_line = blockquote_layers[fence_blockquote_depth]
+                closing = (
+                    rf" {{0,3}}{re.escape(fence_character)}{{{fence_length},}}"
+                    r"[ \t]*(?:\r?\n)?"
+                )
+                if re.fullmatch(closing, fence_line):
+                    fence_character = None
+                    fence_length = 0
+                    fence_blockquote_depth = 0
+                continue
+            fence_character = None
+            fence_length = 0
+            fence_blockquote_depth = 0
+
+        fence_line = blockquote_layers[-1]
+        opening = FENCE_OPEN.match(fence_line)
+        if opening:
+            fence = opening.group("fence")
+            info = fence_line[opening.end("fence") :].rstrip("\r\n")
+            if fence[0] == "`" and "`" in info:
+                instructions.append(line)
+                continue
+            fence_character = fence[0]
+            fence_length = len(fence)
+            fence_blockquote_depth = blockquote_depth
+            continue
+        instructions.append(line)
+
+    text = "".join(instructions)
+    return re.sub(r"<!--.*?-->", " ", text, flags=re.DOTALL)
+
+
+# A wrapper delegates and stops, so its body is one short sentence. Anything
+# past that is substance, and substance owes a '## Completion' section.
+WRAPPER_MAX_LINES = 1
+WRAPPER_MAX_WORDS = 15
+
+
+def _delegation_target(body: str) -> str | None:
+    """Return the one skill a delegating wrapper runs, or None if it is not one.
+
+    A delegating wrapper is an entry point a person types that holds no substance
+    of its own: it delegates and stops. Recognising it by shape rather than by a
+    roster is what lets a new one arrive without amending a rule, so the shape has
+    to be narrow enough that a real skill cannot fall into it and thereby escape
+    the '## Completion' requirement. Three tests do that work: no heading of any
+    level, a body of at most a few lines, and exactly one skill named in prose.
+
+    Fenced code and HTML comments are removed first. A skill named only inside
+    either one is not an instruction the agent follows, so it cannot be the
+    delegation, and a body whose visible text delegates to nothing must fail.
+    """
+    body = _without_noninstructions(body)
+    if re.search(r"(?m)^#{1,6}\s+\S", body):
+        return None
+    lines = [line for line in body.splitlines() if line.strip()]
+    if len(lines) > WRAPPER_MAX_LINES:
+        return None
+    if len(re.findall(r"[A-Za-z0-9][\w'-]*", " ".join(lines))) > WRAPPER_MAX_WORDS:
+        return None
+    # A setext heading underlines its text, so it needs no '#' to be a section.
+    if any(re.fullmatch(r"\s*(?:=+|-{2,})\s*", line) for line in lines):
+        return None
+    targets = {match.group(1) for match in re.finditer(r"/([a-z0-9]+(?:-[a-z0-9]+)*)\b", body)}
+    if len(targets) != 1:
+        return None
+    return targets.pop()
+
+
 def _mentions(body: str, term: str) -> bool:
     """Report whether the body names a skill or artifact rather than a longer token.
 
     ``/rhdh-jira`` and `` `rhdh-jira` `` both count; ``rhdh-jira-legacy`` does not.
     """
+    body = _without_noninstructions(body)
     return re.search(rf"(?<![\w-]){re.escape(term)}(?![\w-])", body) is not None
+
+
+def _dependency_instructions(skill_dir: Path, skill_body: str) -> str:
+    """Return instruction prose that can own a catalog dependency citation.
+
+    A skill may route the relevant operation into a workflow or keep supporting
+    protocol in a reference. Requiring the parent SKILL.md to repeat that citation
+    would make the prompt say the same thing in two places.
+    """
+    documents = [skill_body]
+    for directory in ("workflows", "references"):
+        instruction_root = skill_dir / directory
+        if not instruction_root.is_dir():
+            continue
+        documents.extend(
+            path.read_text(encoding="utf-8", errors="replace")
+            for path in sorted(instruction_root.rglob("*.md"))
+        )
+    return "\n".join(documents)
 
 
 def _shipped_files(skill_dir: Path) -> Iterator[Path]:
@@ -134,6 +254,24 @@ def _duplicate_files(root: Path, skill_dirs: dict[str, Path]) -> list[tuple[str,
     return sorted(pairs)
 
 
+def _resembles_a_skill(cited: str, known: set[str]) -> bool:
+    """Report whether an unknown ``/name`` is a stale skill citation or a URL path.
+
+    Skill documentation writes a route the same way it writes a skill: ``/my-plugin``
+    in backticks is a mount point, ``/prose-editing`` in backticks is an invocation.
+    Nothing in the syntax separates them, so use what a stale citation actually is —
+    the residue of a rename or a split, which leaves a name that still resembles the
+    skill that replaced it. ``/rhdh-jira`` survives as a prefix of ``rhdh-jira-create``;
+    ``/image-registry`` resembles nothing in the catalog.
+    """
+    if cited in RETIRED_SKILLS:
+        return True
+    for name in known:
+        if cited.startswith(f"{name}-") or name.startswith(f"{cited}-"):
+            return True
+    return bool(difflib.get_close_matches(cited, sorted(known), n=1, cutoff=0.8))
+
+
 def _validate_named_invocations(
     root: Path,
     skill_dirs: dict[str, Path],
@@ -151,8 +289,11 @@ def _validate_named_invocations(
     for name, skill_dir in sorted(skill_dirs.items()):
         for path in _shipped_files(skill_dir):
             text = path.read_text(encoding="utf-8", errors="replace")
+            # A `/name` inside a fenced block is sample code — a React route, a
+            # URL path, a shell argument — not an instruction to invoke a skill.
+            text = _without_noninstructions(text)
             for cited in sorted(set(NAMED_INVOCATION.findall(text))):
-                if cited in known:
+                if cited in known or not _resembles_a_skill(cited, known):
                     continue
                 errors.append(
                     {
@@ -304,6 +445,7 @@ def validate_repository(root: Path) -> dict[str, Any]:
 
     promoted_names: list[str] = []
     human_names: list[str] = []
+    wrapper_delegations: dict[str, tuple[str, Path]] = {}
     entry_by_name: dict[str, dict[str, Any]] = {}
     external_entries = catalog.get("pack", {}).get("requiredExternalSkills", [])
     external_names = [item.get("name") for item in external_entries if isinstance(item, dict)]
@@ -372,7 +514,14 @@ def validate_repository(root: Path) -> dict[str, Any]:
                 }
             )
 
-        if not re.search(r"(?m)^##\s+Completion\s*$", body):
+        delegates_to = _delegation_target(body) if invocation == "human" else None
+        if delegates_to is not None:
+            # A delegating wrapper is an entry point a person types that holds no
+            # substance of its own. Its completion is its delegate's completion,
+            # so restating one here would put the same rule in two places. What it
+            # owes instead is that the delegate exists and can be reached.
+            wrapper_delegations[name] = (delegates_to, skill_file)
+        elif not re.search(r"(?m)^##\s+Completion\s*$", body):
             errors.append(
                 {
                     "code": "MISSING_COMPLETION",
@@ -406,15 +555,16 @@ def validate_repository(root: Path) -> dict[str, Any]:
                     }
                 )
 
+        dependency_instructions = _dependency_instructions(skill_dir, body)
         for dependency in entry.get("requiresSkills") or []:
-            if isinstance(dependency, str) and not _mentions(body, dependency):
+            if isinstance(dependency, str) and not _mentions(dependency_instructions, dependency):
                 errors.append(
                     {
                         "code": "DEPENDENCY_NOT_DOCUMENTED",
                         "message": (
-                            f"{name}: requiresSkills declares {dependency} but SKILL.md never "
-                            f"names it; document when to invoke {dependency} and what it returns, "
-                            "or drop the dependency"
+                            f"{name}: requiresSkills declares {dependency} but its SKILL.md, "
+                            "workflows, and references never name it; document when to invoke "
+                            f"{dependency} and what it returns, or drop the dependency"
                         ),
                     }
                 )
@@ -509,11 +659,37 @@ def validate_repository(root: Path) -> dict[str, Any]:
 
     _validate_internal_skills(root, errors)
 
+    for wrapper, (target, wrapper_file) in sorted(wrapper_delegations.items()):
+        location = wrapper_file.relative_to(root).as_posix()
+        target_entry = entry_by_name.get(target)
+        if target_entry is None:
+            errors.append(
+                {
+                    "code": "WRAPPER_TARGET_MISSING",
+                    "message": (
+                        f"{location}: delegates to /{target}, which is not a promoted skill. "
+                        "A wrapper holds no substance, so a dead delegate leaves it doing nothing"
+                    ),
+                }
+            )
+        elif target_entry.get("invocation") != "model":
+            errors.append(
+                {
+                    "code": "WRAPPER_TARGET_NOT_MODEL",
+                    "message": (
+                        f"{location}: delegates to /{target}, which is human-invoked. "
+                        "A wrapper delegates to a model-invoked skill; chaining entry points "
+                        "leaves neither one reachable by the router"
+                    ),
+                }
+            )
+
     return {
         "valid": not errors,
         "errors": errors,
         "promotedSkills": sorted(promoted_names),
         "humanInvokedSkills": sorted(human_names),
+        "delegatingWrappers": {name: target for name, (target, _) in wrapper_delegations.items()},
         "requiredExternalSkills": sorted(external_set),
     }
 

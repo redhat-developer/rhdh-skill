@@ -39,6 +39,10 @@ produces a **wrong mutation** — an Epic where a Story belonged — so those me
 Sprint planning and sprint reporting share a rare noun and distinct verbs, and a
 misroute there is read-only and immediately visible, so those split.
 
+The same rule keeps a release-data RPA tag update separate from a Tekton task
+digest or migration update. Both use Konflux, but they act on different
+repositories, artifacts, and publication paths; the shared noun is not a route.
+
 Shared material becomes a **reference skill**: a model-invoked skill whose reason
 for existing is material two or more skills would otherwise copy, reached by name
 like any other skill. Two callers is the threshold; one caller means the material

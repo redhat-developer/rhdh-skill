@@ -133,14 +133,8 @@ a candidate is free; assigning them is a write and goes through the gate.
 
 ### Draft a Slack ping
 
-See `workflows/draft-notification.md` for structured drafting, or compose
-manually:
-
-```
-Hey @handle - PR #1234 needs your attention.
-Status: Smoke tests passing, awaiting review.
-Priority: Mandatory workspace for RHDH catalog.
-```
+Load and follow `workflows/draft-notification.md` for every Slack draft. Use the
+final messages it returns; this triage workflow does not compose a fallback.
 
 </process>
 

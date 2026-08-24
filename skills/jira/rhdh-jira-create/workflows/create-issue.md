@@ -188,6 +188,11 @@ note them; they become Epics in Step 10.
 
 ## Step 6 — Review before creating
 
+Invoke `/prose-editing` once on the final summary and filled description in the
+**flavored** register. `/rhdh-jira-authoring` supplies the template and challenge
+rules but does not edit this caller's draft. Preserve template headings, field
+values, acceptance-criteria checkboxes, and customer-identity restrictions.
+
 Render the filled template and the inferred fields as a temporary markdown file
 and hand it to the user. Use a portable temp path (`$TMPDIR`, `%TEMP%`, or Python
 `tempfile`):
@@ -305,6 +310,10 @@ the Team payload in `/rhdh-jira-api`.
 Follow the comment suggestions behavior in `/rhdh-jira-authoring`: proactively
 offer the decision trail, elaboration, and abandoned approaches as comments, so
 the reasoning survives outside the description.
+
+After choosing the comment set, invoke `/prose-editing` once on the complete set
+of proposed comment bodies in the **flavored** register. Use those edited bodies
+for the preview and write gate; the Jira adapter must not edit them again.
 
 ```bash
 acli jira workitem comment create --key RHIDP-XXX --body "comment text"
