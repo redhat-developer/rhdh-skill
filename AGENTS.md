@@ -33,10 +33,26 @@ obsolete by your own change.
 Translate the request into observable success criteria and verify them. Run
 `uv run pytest` before reporting repository work complete.
 
-When any `.py` file changed, also run `uv run ruff format` and
-`uv run ruff check` on those files (or `uv run ruff check .` and
-`uv run ruff format --check .` to match CI). Do not open a pull request
-until both pass. `ruff check` is not a substitute for `ruff format --check`.
+When any `.py` file changed, ship Python that already matches CI. Run ruff
+after editing, and again before committing, opening a pull request, or
+reporting work complete. Tests passing is not enough — `ruff check` is not
+`ruff format --check`.
+
+```bash
+uv run ruff format <changed.py> ...
+uv run ruff check <changed.py> ...
+```
+
+CI (`lint` job) runs the same tools across the tree:
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+```
+
+Format **and** check. Fix findings, rerun until both pass, then include those
+files in the same commit. Prefer ruff's quote style (single quotes when the
+string contains `"`). Do not open a pull request until both pass.
 
 ## 5. No Irreversible Commands Without Confirmation
 
@@ -197,8 +213,3 @@ Default labels are `needs-triage`, `needs-info`, `ready-for-agent`,
 
 Single-context: `CONTEXT.md` plus root `docs/adr/`. See
 `docs/agents/domain.md`.
-
-### Cursor project rules
-
-File-scoped agent rules live in `.cursor/rules/`. Python work loads
-`.cursor/rules/ruff.mdc`.
