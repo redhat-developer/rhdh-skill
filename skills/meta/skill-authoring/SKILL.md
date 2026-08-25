@@ -117,5 +117,5 @@ architecture, script, or quality reference needed later.
 ## Completion
 
 Work is complete when the selected branch's review checklist passes, every
-referenced resource resolves, and no behavior remains duplicated under an old
-skill name.
+referenced resource resolves, no behavior remains duplicated under an old
+skill name, and every changed `.py` file passes the host linter.

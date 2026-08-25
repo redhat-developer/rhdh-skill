@@ -33,6 +33,11 @@ obsolete by your own change.
 Translate the request into observable success criteria and verify them. Run
 `uv run pytest` before reporting repository work complete.
 
+When any `.py` file changed, also run `uv run ruff format` and
+`uv run ruff check` on those files (or `uv run ruff check .` and
+`uv run ruff format --check .` to match CI). Do not open a pull request
+until both pass. `ruff check` is not a substitute for `ruff format --check`.
+
 ## 5. No Irreversible Commands Without Confirmation
 
 Never force-push, reset HEAD, merge branches, or run destructive commands
@@ -192,3 +197,8 @@ Default labels are `needs-triage`, `needs-info`, `ready-for-agent`,
 
 Single-context: `CONTEXT.md` plus root `docs/adr/`. See
 `docs/agents/domain.md`.
+
+### Cursor project rules
+
+File-scoped agent rules live in `.cursor/rules/`. Python work loads
+`.cursor/rules/ruff.mdc`.
