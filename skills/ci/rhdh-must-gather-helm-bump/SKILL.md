@@ -5,8 +5,7 @@ description: >-
   helm-related files into gitlab.cee.redhat.com/rhidp/rhdh distgit, patches
   Konflux Tekton prefetch (CGW generic vs vendored gomod), and updates
   sync/upstream_SHA. Use when bumping must-gather's HELM_VERSION (upstream or
-  downstream), switching between CGW binary and vendored Helm build paths, or
-  diagnosing a Konflux rhdh-must-gather prefetch failure after a Helm release.
+  downstream) or switching between CGW binary and vendored Helm build paths.
 ---
 
 # RHDH must-gather Helm bump
@@ -46,14 +45,20 @@ SKILL=<this skill's directory>
 # Probe CGW + planned install path
 python3 "${SKILL}/scripts/bump-must-gather-helm.py" --to 4.3.0 --check --parent-dir ~/RHDH
 
-# Dry-run, then apply (apply only after /mutation-gate)
-python3 "${SKILL}/scripts/bump-must-gather-helm.py" --to 4.3.0 --dry-run --parent-dir ~/RHDH
-python3 "${SKILL}/scripts/bump-must-gather-helm.py" --to 4.3.0 --parent-dir ~/RHDH
+# Dry-run each write separately (apply only after /mutation-gate)
+python3 "${SKILL}/scripts/bump-must-gather-helm.py" --to 4.3.0 --skip-downstream --dry-run --parent-dir ~/RHDH
+python3 "${SKILL}/scripts/bump-must-gather-helm.py" --to 4.3.0 --skip-upstream --dry-run --parent-dir ~/RHDH
+
+# 1. Bump upstream, then commit that tree
+python3 "${SKILL}/scripts/bump-must-gather-helm.py" --to 4.3.0 --skip-downstream --parent-dir ~/RHDH
+
+# 2. After the upstream commit, sync distgit + Tekton + SHA from that HEAD
+python3 "${SKILL}/scripts/bump-must-gather-helm.py" --to 4.3.0 --skip-upstream --parent-dir ~/RHDH
 ```
 
 Full flag reference: `python3 "${SKILL}/scripts/bump-must-gather-helm.py" --help`.
 
-**Default:** updates upstream, syncs helm-related paths into distgit, flips Stage 2a/2b, regenerates distgit `Containerfile`, patches Tekton prefetch, writes `sync/upstream_SHA_rhdh-must-gather`. Does **not** commit, push, or open PR/MR.
+**Apply is two writes.** `--skip-downstream` bumps upstream only. After that commit, `--skip-upstream` syncs distgit, flips Stage 2a/2b, regenerates distgit `Containerfile`, patches Tekton prefetch, and writes `sync/upstream_SHA_rhdh-must-gather` from the committed HEAD. The script does **not** commit, push, or open a PR/MR. A one-shot apply without those flags stops before distgit if upstream HEAD is dirty.
 
 ## Workflow
 

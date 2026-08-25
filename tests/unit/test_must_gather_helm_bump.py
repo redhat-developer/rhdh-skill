@@ -126,6 +126,38 @@ def _load_script():
     return mod
 
 
+def _git_commit_all(repo: Path, message: str) -> None:
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", message],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+
+
+def _apply_two_step(parent: Path, *extra: str) -> None:
+    first = _run(
+        "--to",
+        TARGET_HELM,
+        "--skip-downstream",
+        "--parent-dir",
+        str(parent),
+        *extra,
+    )
+    assert first.returncode == 0, first.stderr
+    _git_commit_all(parent / "1-must-gather", "bump helm")
+    second = _run(
+        "--to",
+        TARGET_HELM,
+        "--skip-upstream",
+        "--parent-dir",
+        str(parent),
+        *extra,
+    )
+    assert second.returncode == 0, second.stderr
+
+
 def _git_init(repo: Path) -> None:
     subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
     subprocess.run(
@@ -338,8 +370,7 @@ class TestBumpMustGatherHelmScript:
             capture_output=True,
         )
 
-        result = _run("--to", TARGET_HELM, "--parent-dir", str(parent))
-        assert result.returncode == 0, result.stderr
+        _apply_two_step(parent)
         assert not stale_vendor.exists()
         assert (distgit / "vendor" / "websocat" / "Cargo.toml").is_file()
         assert (distgit / "hack" / "verify-helm-tarball.sh").is_file()
@@ -392,8 +423,7 @@ class TestBumpMustGatherHelmScript:
         for repo in (upstream, downstream):
             _git_init(repo)
 
-        result = _run("--to", TARGET_HELM, "--parent-dir", str(parent))
-        assert result.returncode == 0, result.stderr
+        _apply_two_step(parent)
         assert (distgit / "vendor" / "helm" / "go.mod").is_file()
         assert (distgit / "vendor" / "websocat" / "Cargo.toml").is_file()
         assert (upstream / "Makefile").read_text(
@@ -424,8 +454,7 @@ class TestBumpMustGatherHelmScript:
         for repo in (upstream, downstream):
             _git_init(repo)
 
-        result = _run("--to", TARGET_HELM, "--parent-dir", str(parent))
-        assert result.returncode == 0, result.stderr
+        _apply_two_step(parent)
 
         upstream_cf = (upstream / "Containerfile").read_text(encoding="utf-8")
         assert "\nFROM registry.example/ubi9-minimal AS helm-builder\n" in upstream_cf
@@ -473,8 +502,7 @@ class TestBumpMustGatherHelmScript:
         for repo in (upstream, downstream):
             _git_init(repo)
 
-        result = _run("--to", TARGET_HELM, "--parent-dir", str(parent))
-        assert result.returncode == 0, result.stderr
+        _apply_two_step(parent)
         cf = (distgit / "Containerfile").read_text(encoding="utf-8")
         assert 'release="11"' in cf
         assert "2.0-11" in cf
@@ -514,8 +542,52 @@ class TestBumpMustGatherHelmScript:
 
         result = _run("--to", TARGET_HELM, "--allow-dirty", "--parent-dir", str(parent))
         assert result.returncode != 0
-        assert "dirty HEAD" in result.stderr
+        assert "upstream HEAD is dirty" in result.stderr
         assert not (downstream / "sync" / "upstream_SHA_rhdh-must-gather").exists()
+        pull = (downstream / ".tekton" / "rhdh-must-gather-2-pull.yaml").read_text(encoding="utf-8")
+        assert "value: '[]'" in pull
+
+    def test_one_shot_apply_stops_before_distgit_after_bump(self, tmp_path: Path) -> None:
+        parent = tmp_path / "RHDH"
+        upstream = _make_upstream(parent, cgw_exit=0)
+        downstream = _make_downstream(parent)
+        for repo in (upstream, downstream):
+            _git_init(repo)
+
+        result = _run("--to", TARGET_HELM, "--parent-dir", str(parent))
+        assert result.returncode != 0
+        assert "skip-upstream" in result.stderr
+        assert (upstream / "Makefile").read_text(
+            encoding="utf-8"
+        ) == f"HELM_VERSION := {TARGET_HELM}\n"
+        assert not (downstream / "sync" / "upstream_SHA_rhdh-must-gather").exists()
+        pull = (downstream / ".tekton" / "rhdh-must-gather-2-pull.yaml").read_text(encoding="utf-8")
+        assert "value: '[]'" in pull
+
+    def test_cgw_probe_exit_2_dies(self, tmp_path: Path) -> None:
+        parent = tmp_path / "RHDH"
+        _make_upstream(parent, cgw_exit=2)
+        _make_downstream(parent)
+        result = _run("--to", TARGET_HELM, "--check", "--parent-dir", str(parent))
+        assert result.returncode != 0
+        assert "exited 2" in result.stderr
+        assert "mode=vendor" not in result.stdout
+
+    def test_missing_curl_dies(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        parent = tmp_path / "RHDH"
+        upstream = _make_upstream(parent, cgw_exit=0)
+        _make_downstream(parent)
+        mod = _load_script()
+        real_which = mod.shutil.which
+
+        def fake_which(name: str) -> str | None:
+            if name == "curl":
+                return None
+            return real_which(name)
+
+        monkeypatch.setattr(mod.shutil, "which", fake_which)
+        with pytest.raises(SystemExit):
+            mod.cgw_available(upstream, TARGET_HELM)
 
     def test_parent_dir_discovers_rhdh_downstream(self, tmp_path: Path) -> None:
         parent = tmp_path / "RHDH"

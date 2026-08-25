@@ -128,12 +128,24 @@ def cgw_available(upstream: Path, version: str) -> bool:
     if not script.is_file():
         die(f"Missing hack/check-helm-binary-available.sh in {upstream}")
     bash = require_on_path("bash")
+    require_on_path("curl")
     result = subprocess.run(
         [bash, str(script), version],
         cwd=str(upstream),
+        capture_output=True,
+        text=True,
         check=False,
     )
-    return result.returncode == 0
+    if result.returncode == 0:
+        return True
+    if result.returncode == 1:
+        return False
+    detail = result.stderr.strip() or result.stdout.strip() or "no output"
+    die(
+        f"hack/check-helm-binary-available.sh exited {result.returncode} "
+        f"(0=CGW, 1=no tarballs/vendor; 2=missing curl or bad argv). {detail}"
+    )
+    raise AssertionError("unreachable")
 
 
 def read_makefile_helm_version(makefile: Path) -> str:
@@ -390,18 +402,24 @@ def regenerate_distgit_containerfile(dest: Path, *, dry_run: bool) -> None:
     log(f"Regenerated {DISTGIT_REL}/Containerfile from {RHDH_DOCKER_CF}")
 
 
+def assert_upstream_committed_for_downstream(upstream: Path, *, dry_run: bool) -> None:
+    """Refuse distgit/Tekton/SHA writes unless upstream HEAD is the committed bump."""
+    if dry_run:
+        return
+    if git_status_porcelain(upstream, "Upstream"):
+        die(
+            "Refusing distgit/Tekton/SHA writes while upstream HEAD is dirty. "
+            "Commit the upstream bump, then re-run with --skip-upstream "
+            "(or apply first with --skip-downstream)."
+        )
+
+
 def update_upstream_sha(
     upstream: Path,
     downstream: Path,
     *,
     dry_run: bool,
-    started_dirty: bool,
 ) -> None:
-    if started_dirty:
-        die(
-            "Refusing to write upstream_SHA from a dirty HEAD. "
-            "Commit the upstream bump first, then re-run with --skip-upstream"
-        )
     sha_file = downstream / UPSTREAM_SHA_REL
     sha = subprocess.check_output(
         ["git", "-C", str(upstream), "rev-parse", "--short", "HEAD"],
@@ -503,9 +521,9 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 Examples:
-  bump-must-gather-helm.py --to 4.3.0 --parent-dir ~/RHDH
-  bump-must-gather-helm.py --to v4.3.0 --upstream ~/RHDH/1-must-gather --downstream ~/RHDH/4-rhdh
   bump-must-gather-helm.py --to 4.3.0 --check --parent-dir ~/RHDH
+  bump-must-gather-helm.py --to 4.3.0 --skip-downstream --parent-dir ~/RHDH
+  bump-must-gather-helm.py --to 4.3.0 --skip-upstream --parent-dir ~/RHDH
 """,
     )
     parser.add_argument(
@@ -543,7 +561,7 @@ Examples:
     parser.add_argument(
         "--allow-dirty",
         action="store_true",
-        help="Proceed with uncommitted changes",
+        help="Allow uncommitted changes on --skip-downstream. Distgit/SHA still need a clean upstream HEAD",
     )
     return parser
 
@@ -650,6 +668,7 @@ def main(argv: list[str] | None = None) -> int:
         log(f"Downstream: {downstream}")
 
     require_on_path("bash")
+    require_on_path("curl")
     if not args.check and not args.skip_downstream:
         require_on_path("rsync")
 
@@ -666,9 +685,6 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     dry_run = args.dry_run
-    upstream_started_dirty = False
-    if upstream is not None:
-        upstream_started_dirty = bool(git_status_porcelain(upstream, "Upstream"))
 
     if not args.skip_upstream:
         assert upstream is not None
@@ -693,6 +709,7 @@ def main(argv: list[str] | None = None) -> int:
         assert downstream is not None
         assert upstream is not None
         assert_clean_tree(downstream, "Downstream", allow_dirty=args.allow_dirty)
+        assert_upstream_committed_for_downstream(upstream, dry_run=dry_run)
         sync_to_distgit(upstream, downstream, mode, dry_run=dry_run)
         regenerate_distgit_containerfile(downstream / DISTGIT_REL, dry_run=dry_run)
         flip_helm_stages(
@@ -705,7 +722,6 @@ def main(argv: list[str] | None = None) -> int:
             upstream,
             downstream,
             dry_run=dry_run,
-            started_dirty=upstream_started_dirty,
         )
 
     log("Done. Review git diff in each repo before committing.")
