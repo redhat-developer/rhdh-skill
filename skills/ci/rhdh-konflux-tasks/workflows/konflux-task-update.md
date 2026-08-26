@@ -34,6 +34,13 @@ If both plugin-catalog and midstream markers exist, apply changes only for the r
 
 ## Workflow
 
+### 0. OCI-TA preference (before digest bump)
+
+Scan for legacy (non-OCI-TA) `taskRef` bundles and migrate where the catalog
+offers `<name>-oci-ta` — [SKILL.md § Prefer `-oci-ta`](../SKILL.md#prefer--oci-ta-task-variants).
+Midstream paths in scope vs out of scope:
+[konflux-rhdh-midstream.md § OCI-TA file scope](../references/konflux-rhdh-midstream.md#oci-ta-file-scope).
+
 ### 1. Bump digests
 
 ```bash
@@ -92,6 +99,7 @@ Use live `MIGRATION.md` as source of truth. Common cases:
 
 | Task | Action |
 |------|--------|
+| `prefetch-dependencies` → `prefetch-dependencies-oci-ta` | See [SKILL.md § Prefer `-oci-ta`](../SKILL.md#prefer--oci-ta-task-variants). |
 | `prefetch-dependencies-oci-ta` 0.2→0.3 | Remove `dev-package-managers`; add pipeline param `enable-package-registry-proxy` (default `"true"`) and pass to prefetch task. Variant B: also add param on `build-pipeline-rhdh-{hub,operator}.yaml` tasks `prefetch-dependencies-hub` / `prefetch-dependencies-operator`, and on PLR `spec.params` in `rhdh-hub.yaml` / `rhdh-operator.yaml`. |
 | `build-image-index` 0.2→0.3 | Remove `COMMIT_SHA` / `IMAGE_EXPIRES_AFTER` from **build-image-index** task only; keep on buildah (`build-container`) and prefetch |
 | `init` 0.3→0.4 | No pipeline changes |
@@ -109,3 +117,4 @@ Use live `MIGRATION.md` as source of truth. Common cases:
 - Adding `verify_*` guards that fail on the next Konflux bump.
 - Dropping `image-expires-after` from PLRs only because `build-image-index` no longer uses it.
 - Hardcoding `1-` in `updatePLRs.sh` Containerfile comments; use `${RHDH_XY_VERSION}` so `1.10.0` becomes `1-10`, not `1`.
+- Migrating operator-bundle to `-oci-ta` on a stream-wide pass — see [SKILL.md § Prefer `-oci-ta`](../SKILL.md#prefer--oci-ta-task-variants).

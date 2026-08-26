@@ -48,6 +48,41 @@ and the pipelines need to catch up", it is this skill. Never run a full
 regeneration to deliver a single workspace bump; it rewrites every component's
 PLR.
 
+## Prefer `-oci-ta` task variants
+
+When the Konflux catalog ships both a workspace-based task and an
+`<name>-oci-ta` variant, **prefer the `-oci-ta` bundle** in templates,
+shared pipelines, and PLRs. OCI-TA tasks pass artifacts via
+`SOURCE_ARTIFACT` / `CACHI2_ARTIFACT` and `ociStorage` params instead of
+the `source` workspace.
+
+**Operator-bundle exception:** do not migrate `rhdh-operator-bundle.yaml` or
+`rhdh-operator-bundle-*` PLRs to `-oci-ta` tasks on a stream-wide pass unless
+the user explicitly requests operator-bundle changes. Hub, operator,
+must-gather, rag-content, and bootc are in scope. Per-variant file lists:
+[konflux-rhdh-midstream.md](references/konflux-rhdh-midstream.md#oci-ta-file-scope).
+
+| Legacy task | Preferred OCI-TA task |
+|-------------|----------------------|
+| `git-clone` | `git-clone-oci-ta` |
+| `prefetch-dependencies` | `prefetch-dependencies-oci-ta` |
+| `buildah` | `buildah-oci-ta` |
+| `source-build` | `source-build-oci-ta` |
+| `sast-snyk-check` | `sast-snyk-check-oci-ta` |
+| `sast-shell-check` | `sast-shell-check-oci-ta` |
+| `sast-unicode-check` | `sast-unicode-check-oci-ta` |
+| `push-dockerfile` | `push-dockerfile-oci-ta` |
+
+**`prefetch-dependencies` → `prefetch-dependencies-oci-ta`** (pipeline task
+name may stay `prefetch-dependencies`): add `SOURCE_ARTIFACT`,
+`ociStorage`, `ociArtifactExpiresAfter`, `enable-package-registry-proxy`;
+drop `dev-package-managers` and the `source` workspace; keep
+`git-basic-auth` and `netrc`; wire downstream tasks to prefetch
+`SOURCE_ARTIFACT` / `CACHI2_ARTIFACT` results.
+
+OCI-TA swaps are **not** handled by `updateDigests.sh` — apply params and
+workspaces from the task's live `MIGRATION.md`, then regenerate PLRs.
+
 ## Writing rules
 
 Editing `.tekton` YAML, committing, pushing, and opening a pull request are
@@ -55,8 +90,9 @@ writes. Follow `/mutation-gate`.
 
 - Always pass `--no-push` / `--nopush`. Do not push or open a PR unless the user
   explicitly asks. `generatePipelineRuns.sh` neither commits nor pushes.
-- Edit templates and shared pipelines first, then regenerate. Editing only the
-  PipelineRuns leaves the real source of truth stale.
+- When replacing a legacy task with `-oci-ta`, edit templates and shared
+  pipelines first, then regenerate PLRs (or patch inline `pipelineSpec` PLRs by
+  hand). Editing only PLRs leaves the source of truth stale.
 - Apply only the user actions a live `MIGRATION.md` documents. Skip "no action
   required" sections, and do not invent drift checks or `verify_*` guards that
   will fail on the next Konflux bump.
