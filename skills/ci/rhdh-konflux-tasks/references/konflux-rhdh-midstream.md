@@ -13,13 +13,25 @@ Detect which variant applies **before** editing (see table below). Edit **templa
 
 If unsure, run: `ls .tekton-templates/rhdh-pipeline.yaml .tekton-templates/rhdh-hub.yaml 2>/dev/null`
 
+## OCI-TA file scope
+
+Canonical rule and task mapping table:
+[SKILL.md § Prefer `-oci-ta`](../SKILL.md#prefer--oci-ta-task-variants).
+
+| Variant | In scope for `-oci-ta` swaps | Out of scope |
+|---------|------------------------------|--------------|
+| A (unified) | `rhdh-pipeline.yaml`, `rhdh-bootc-pipeline.yaml`, `rhdh-rag-content-*` PLRs | `rhdh-operator-bundle.yaml`, `rhdh-operator-bundle-*` PLRs |
+| B (1.9) | `build-pipeline-rhdh-hub.yaml`, `build-pipeline-rhdh-operator.yaml`, hub/operator PLR wrappers | `rhdh-operator-bundle.yaml`, `prefetch-dependencies-bundle` |
+
+`generatePipelineRuns.sh` still regenerates operator-bundle PLRs from its
+template; leave that template unchanged during hub/operator OCI-TA work unless
+the user explicitly requests operator-bundle changes.
+
 ---
 
 ## Variant A: Unified pipeline layout
 
 Used on current stable branches. Hub, operator, and must-gather share `rhdh-pipeline.yaml`; operator-bundle uses a separate template.
-
-**OCI-TA preference:** migrate tasks in `rhdh-pipeline.yaml`, `rhdh-bootc-pipeline.yaml`, and inline `rhdh-rag-content-*` PLRs. **Exclude** `rhdh-operator-bundle.yaml` and its generated PLRs unless the user explicitly requests operator-bundle changes.
 
 ### Files to update
 
@@ -95,12 +107,9 @@ Apply in **three** places:
    - Remove `dev-package-managers`; pass `enable-package-registry-proxy: $(params.enable-package-registry-proxy)`.
 3. **PLR templates** `rhdh-hub.yaml` / `rhdh-operator.yaml`:
    - Add `spec.params` entry so the value reaches the shared pipeline.
-4. **Operator-bundle template** `rhdh-operator-bundle.yaml`:
-   - Same as unified layout (inline `pipelineSpec`) — **only when operator-bundle is explicitly in scope**; skip OCI-TA task swaps on stream-wide passes.
 
-`prefetch-dependencies-bundle` on operator-bundle may remain on non-OCI
-`task-prefetch-dependencies` during hub/operator OCI-TA work. Do not migrate
-operator-bundle prefetch to `-oci-ta` unless the user asks.
+Operator-bundle prefetch (`prefetch-dependencies-bundle`) is out of scope —
+see [OCI-TA file scope](#oci-ta-file-scope) above.
 
 ### Generator notes
 

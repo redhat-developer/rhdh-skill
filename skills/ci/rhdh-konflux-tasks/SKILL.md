@@ -52,25 +52,15 @@ PLR.
 
 When the Konflux catalog ships both a workspace-based task and an
 `<name>-oci-ta` variant, **prefer the `-oci-ta` bundle** in templates,
-shared pipelines, and PLRs — **except operator-bundle** (see below).
-OCI-TA tasks pass artifacts between steps with `SOURCE_ARTIFACT` /
-`CACHI2_ARTIFACT` results and `ociStorage` params instead of binding the
-`source` workspace.
+shared pipelines, and PLRs. OCI-TA tasks pass artifacts via
+`SOURCE_ARTIFACT` / `CACHI2_ARTIFACT` and `ociStorage` params instead of
+the `source` workspace.
 
-**Scope:** apply OCI-TA preference to hub, operator, must-gather, rag-content,
-bootc, and (on variant B) hub/operator shared build-pipelines. **Do not**
-migrate `rhdh-operator-bundle.yaml` or `rhdh-operator-bundle-*` PLRs to
-`-oci-ta` tasks unless the user explicitly requests operator-bundle changes.
-`generatePipelineRuns.sh` still regenerates operator-bundle PLRs from that
-template; leave the template on legacy bundles when doing a stream-wide
-OCI-TA pass.
-
-**In scope (variant A examples):** `rhdh-pipeline.yaml`, `rhdh-bootc-pipeline.yaml`,
-`rhdh-rag-content-*` inline PLRs.
-
-**Out of scope:** `rhdh-operator-bundle.yaml`, `rhdh-operator-bundle-*` PLRs.
-
-Common midstream mappings (taskRef `name` → bundle image):
+**Operator-bundle exception:** do not migrate `rhdh-operator-bundle.yaml` or
+`rhdh-operator-bundle-*` PLRs to `-oci-ta` tasks on a stream-wide pass unless
+the user explicitly requests operator-bundle changes. Hub, operator,
+must-gather, rag-content, and bootc are in scope. Per-variant file lists:
+[konflux-rhdh-midstream.md](references/konflux-rhdh-midstream.md#oci-ta-file-scope).
 
 | Legacy task | Preferred OCI-TA task |
 |-------------|----------------------|
@@ -84,21 +74,14 @@ Common midstream mappings (taskRef `name` → bundle image):
 | `push-dockerfile` | `push-dockerfile-oci-ta` |
 
 **`prefetch-dependencies` → `prefetch-dependencies-oci-ta`** (pipeline task
-name may stay `prefetch-dependencies`):
+name may stay `prefetch-dependencies`): add `SOURCE_ARTIFACT`,
+`ociStorage`, `ociArtifactExpiresAfter`, `enable-package-registry-proxy`;
+drop `dev-package-managers` and the `source` workspace; keep
+`git-basic-auth` and `netrc`; wire downstream tasks to prefetch
+`SOURCE_ARTIFACT` / `CACHI2_ARTIFACT` results.
 
-- Add params: `SOURCE_ARTIFACT` from `clone-repository`, `ociStorage`
-  (`$(params.output-image).prefetch`), `ociArtifactExpiresAfter`
-  (`$(params.image-expires-after)`), `enable-package-registry-proxy`
-  (`$(params.enable-package-registry-proxy)`).
-- Remove `dev-package-managers` and the `source` workspace binding; keep
-  `git-basic-auth` and `netrc` workspaces.
-- Downstream tasks consume `$(tasks.prefetch-dependencies.results.SOURCE_ARTIFACT)`
-  and `CACHI2_ARTIFACT` instead of the `source` workspace.
-
-On variant B, migrate `prefetch-dependencies-hub` and
-`prefetch-dependencies-operator` when OCI-TA exists. **Do not** migrate
-operator-bundle prefetch (`prefetch-dependencies-bundle` /
-`rhdh-operator-bundle.yaml`) as part of a stream-wide OCI-TA pass.
+OCI-TA swaps are **not** handled by `updateDigests.sh` — apply params and
+workspaces from the task's live `MIGRATION.md`, then regenerate PLRs.
 
 ## Writing rules
 
@@ -109,9 +92,7 @@ writes. Follow `/mutation-gate`.
   explicitly asks. `generatePipelineRuns.sh` neither commits nor pushes.
 - When replacing a legacy task with `-oci-ta`, edit templates and shared
   pipelines first, then regenerate PLRs (or patch inline `pipelineSpec` PLRs by
-  hand).
-- Edit templates and shared pipelines first, then regenerate. Editing only the
-  PipelineRuns leaves the real source of truth stale.
+  hand). Editing only PLRs leaves the source of truth stale.
 - Apply only the user actions a live `MIGRATION.md` documents. Skip "no action
   required" sections, and do not invent drift checks or `verify_*` guards that
   will fail on the next Konflux bump.
