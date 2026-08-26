@@ -39,6 +39,11 @@ Before bumping digests, scan `.tekton` and `.tekton-templates` for legacy
 `task-buildah:`, etc.). When the catalog lists `<name>-oci-ta`, migrate to that
 variant first — see the mapping table in [SKILL.md](../SKILL.md#prefer--oci-ta-task-variants).
 
+**Exception — operator-bundle:** do not replace legacy tasks with `-oci-ta` in
+`rhdh-operator-bundle.yaml` or `rhdh-operator-bundle-*` PLRs unless the user
+explicitly asks. Hub, operator, must-gather, rag-content, and bootc are in
+scope; operator-bundle is not.
+
 OCI-TA migrations are **not** handled by `updateDigests.sh`; apply param and
 workspace changes from the task's live `MIGRATION.md`, then regenerate PLRs.
 
@@ -120,3 +125,4 @@ Use live `MIGRATION.md` as source of truth. Common cases:
 - Adding `verify_*` guards that fail on the next Konflux bump.
 - Dropping `image-expires-after` from PLRs only because `build-image-index` no longer uses it.
 - Hardcoding `1-` in `updatePLRs.sh` Containerfile comments; use `${RHDH_XY_VERSION}` so `1.10.0` becomes `1-10`, not `1`.
+- Migrating `rhdh-operator-bundle.yaml` or `rhdh-operator-bundle-*` PLRs to `-oci-ta` tasks during a stream-wide OCI-TA pass (operator-bundle is out of scope unless explicitly requested).

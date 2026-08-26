@@ -19,6 +19,8 @@ If unsure, run: `ls .tekton-templates/rhdh-pipeline.yaml .tekton-templates/rhdh-
 
 Used on current stable branches. Hub, operator, and must-gather share `rhdh-pipeline.yaml`; operator-bundle uses a separate template.
 
+**OCI-TA preference:** migrate tasks in `rhdh-pipeline.yaml`, `rhdh-bootc-pipeline.yaml`, and inline `rhdh-rag-content-*` PLRs. **Exclude** `rhdh-operator-bundle.yaml` and its generated PLRs unless the user explicitly requests operator-bundle changes.
+
 ### Files to update
 
 | Location | When to edit |
@@ -94,12 +96,11 @@ Apply in **three** places:
 3. **PLR templates** `rhdh-hub.yaml` / `rhdh-operator.yaml`:
    - Add `spec.params` entry so the value reaches the shared pipeline.
 4. **Operator-bundle template** `rhdh-operator-bundle.yaml`:
-   - Same as unified layout (inline `pipelineSpec`).
+   - Same as unified layout (inline `pipelineSpec`) — **only when operator-bundle is explicitly in scope**; skip OCI-TA task swaps on stream-wide passes.
 
-`prefetch-dependencies-bundle` should use `prefetch-dependencies-oci-ta` when the
-catalog offers it (same OCI-TA params and workspaces as hub/operator prefetch).
-Do not leave bundle on non-OCI `task-prefetch-dependencies` when an `-oci-ta`
-bundle exists.
+`prefetch-dependencies-bundle` on operator-bundle may remain on non-OCI
+`task-prefetch-dependencies` during hub/operator OCI-TA work. Do not migrate
+operator-bundle prefetch to `-oci-ta` unless the user asks.
 
 ### Generator notes
 

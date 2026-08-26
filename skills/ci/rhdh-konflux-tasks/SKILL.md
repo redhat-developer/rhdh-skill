@@ -52,9 +52,23 @@ PLR.
 
 When the Konflux catalog ships both a workspace-based task and an
 `<name>-oci-ta` variant, **prefer the `-oci-ta` bundle** in templates,
-shared pipelines, and PLRs. OCI-TA tasks pass artifacts between steps with
-`SOURCE_ARTIFACT` / `CACHI2_ARTIFACT` results and `ociStorage` params instead
-of binding the `source` workspace.
+shared pipelines, and PLRs — **except operator-bundle** (see below).
+OCI-TA tasks pass artifacts between steps with `SOURCE_ARTIFACT` /
+`CACHI2_ARTIFACT` results and `ociStorage` params instead of binding the
+`source` workspace.
+
+**Scope:** apply OCI-TA preference to hub, operator, must-gather, rag-content,
+bootc, and (on variant B) hub/operator shared build-pipelines. **Do not**
+migrate `rhdh-operator-bundle.yaml` or `rhdh-operator-bundle-*` PLRs to
+`-oci-ta` tasks unless the user explicitly requests operator-bundle changes.
+`generatePipelineRuns.sh` still regenerates operator-bundle PLRs from that
+template; leave the template on legacy bundles when doing a stream-wide
+OCI-TA pass.
+
+**In scope (variant A examples):** `rhdh-pipeline.yaml`, `rhdh-bootc-pipeline.yaml`,
+`rhdh-rag-content-*` inline PLRs.
+
+**Out of scope:** `rhdh-operator-bundle.yaml`, `rhdh-operator-bundle-*` PLRs.
 
 Common midstream mappings (taskRef `name` → bundle image):
 
@@ -81,9 +95,10 @@ name may stay `prefetch-dependencies`):
 - Downstream tasks consume `$(tasks.prefetch-dependencies.results.SOURCE_ARTIFACT)`
   and `CACHI2_ARTIFACT` instead of the `source` workspace.
 
-On variant B, migrate `prefetch-dependencies-hub` /
-`prefetch-dependencies-operator` **and** `prefetch-dependencies-bundle` when
-OCI-TA exists — do not leave bundle on non-OCI `task-prefetch-dependencies`.
+On variant B, migrate `prefetch-dependencies-hub` and
+`prefetch-dependencies-operator` when OCI-TA exists. **Do not** migrate
+operator-bundle prefetch (`prefetch-dependencies-bundle` /
+`rhdh-operator-bundle.yaml`) as part of a stream-wide OCI-TA pass.
 
 ## Writing rules
 
