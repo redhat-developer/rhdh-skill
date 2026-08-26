@@ -32,6 +32,16 @@ After a **minor** Konflux task tag bump, update `.tekton` pipelines and generato
 
 If both plugin-catalog and midstream markers exist, apply changes only for the repo/branch you are on.
 
+## Prefer `-oci-ta` tasks
+
+Before bumping digests, scan `.tekton` and `.tekton-templates` for legacy
+(non-OCI-TA) `taskRef` bundles (`task-git-clone:`, `task-prefetch-dependencies:`,
+`task-buildah:`, etc.). When the catalog lists `<name>-oci-ta`, migrate to that
+variant first — see the mapping table in [SKILL.md](../SKILL.md#prefer--oci-ta-task-variants).
+
+OCI-TA migrations are **not** handled by `updateDigests.sh`; apply param and
+workspace changes from the task's live `MIGRATION.md`, then regenerate PLRs.
+
 ## Workflow
 
 ### 1. Bump digests
@@ -92,6 +102,7 @@ Use live `MIGRATION.md` as source of truth. Common cases:
 
 | Task | Action |
 |------|--------|
+| `prefetch-dependencies` → `prefetch-dependencies-oci-ta` | Switch taskRef to `prefetch-dependencies-oci-ta` bundle; add `SOURCE_ARTIFACT`, `ociStorage`, `ociArtifactExpiresAfter`, `enable-package-registry-proxy`; drop `source` workspace and `dev-package-managers`; wire downstream tasks to `SOURCE_ARTIFACT` / `CACHI2_ARTIFACT` results. |
 | `prefetch-dependencies-oci-ta` 0.2→0.3 | Remove `dev-package-managers`; add pipeline param `enable-package-registry-proxy` (default `"true"`) and pass to prefetch task. Variant B: also add param on `build-pipeline-rhdh-{hub,operator}.yaml` tasks `prefetch-dependencies-hub` / `prefetch-dependencies-operator`, and on PLR `spec.params` in `rhdh-hub.yaml` / `rhdh-operator.yaml`. |
 | `build-image-index` 0.2→0.3 | Remove `COMMIT_SHA` / `IMAGE_EXPIRES_AFTER` from **build-image-index** task only; keep on buildah (`build-container`) and prefetch |
 | `init` 0.3→0.4 | No pipeline changes |

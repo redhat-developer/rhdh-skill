@@ -96,7 +96,10 @@ Apply in **three** places:
 4. **Operator-bundle template** `rhdh-operator-bundle.yaml`:
    - Same as unified layout (inline `pipelineSpec`).
 
-`prefetch-dependencies-bundle` uses non-OCI `task-prefetch-dependencies` — no `enable-package-registry-proxy` change unless MIGRATION.md says so.
+`prefetch-dependencies-bundle` should use `prefetch-dependencies-oci-ta` when the
+catalog offers it (same OCI-TA params and workspaces as hub/operator prefetch).
+Do not leave bundle on non-OCI `task-prefetch-dependencies` when an `-oci-ta`
+bundle exists.
 
 ### Generator notes
 
