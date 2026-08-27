@@ -25,6 +25,10 @@
 - RPM lock: `.rhdh/docker/Dockerfile` + `rpms.in.yaml` → `rpms.lock.yaml`
 - Workflow reference: `.github/workflows/update-rpm-lockfile.yaml`
 
+## Not this skill: rhdh-plugin-catalog
+
+GitLab `rhidp/rhdh-plugin-catalog` `build/containerfiles/builder.Containerfile` is owned by `/rhdh-konflux-tasks`. After this skill reports the GitHub rhdh `ubi9/nodejs-*` tag, that skill pins the catalog FROM and copies `.nvm/`.
+
 ## Midstream script source
 
 When `--update-base-images-script` is omitted, the bundled script downloads from:

@@ -120,7 +120,7 @@ digest problem.
 1. Map the stream to a GitHub selector — [SKILL.md § Boundary with base images](../SKILL.md#boundary-with-base-images). Example: catalog `rhdh-1.10-rhel-9` → `-b release-1.10`.
 2. Name `rhdh`, `rhdh-operator`, and `rhdh-must-gather` checkouts (user, or `/rhdh-context`).
 3. Invoke **`/rhdh-base-images` by name**. Do not run `base-images-and-rpms.sh` from this skill. Analyze first; if headers, `FROM` tags, or RPMs are stale, let that skill own the update and `/mutation-gate`.
-4. On plugin-catalog, copy the matching `node-v*-headers.tar.gz` and `.nvmrc` from the rhdh checkout into catalog `.nvm/` (`builder.Containerfile` COPYs it). Update `.nvm/releases/README.adoc` version/date if present. Catalog and rhdh headers must match the builder Node version.
+4. On plugin-catalog, pin `build/containerfiles/builder.Containerfile` FROM to the latest `ubi9/nodejs-*` `tag@sha256` `/rhdh-base-images` reported (nodejs-22 on 1.9, nodejs-24 on 1.10/main). Prefer `major.minor-buildid`; numeric-only tags often 404. Then copy the matching `node-v*-headers.tar.gz` and `.nvmrc` from the rhdh checkout into catalog `.nvm/` (the Containerfile COPYs it). Update `.nvm/releases/README.adoc` version/date if present. Headers must match `node --version` in the **catalog** FROM image. Catalog has no `rpms.lock.yaml`. Do not `[skip-build]` if the builder should rebuild.
 
 ### 6. Human review and push
 
@@ -152,3 +152,4 @@ Use live `MIGRATION.md` as source of truth. Common cases:
 - Hardcoding `1-` in `updatePLRs.sh` (or deprecated `generatePipelineRunsForPlugins.sh`) Containerfile comments; use `${RHDH_XY_VERSION}` so `1.10.0` becomes `1-10`, not `1`.
 - Migrating operator-bundle to `-oci-ta` on a stream-wide pass — see [SKILL.md § Prefer `-oci-ta`](../SKILL.md#prefer--oci-ta-task-variants).
 - Reconstructing `/rhdh-base-images` script flags in this skill, or skipping that handoff when Konflux logs `could not find releases/node-v*-headers.tar.gz`.
+- Copying plugin-catalog `.nvm/` headers while leaving `builder.Containerfile` FROM on an older `ubi9/nodejs-*` tag. Konflux still builds the old Node until FROM moves.

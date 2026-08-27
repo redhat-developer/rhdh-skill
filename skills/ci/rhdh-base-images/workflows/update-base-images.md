@@ -182,6 +182,7 @@ Do not downgrade. If `go.mod` already pins a newer toolchain (for example `go1.2
 - Committing `rpms.lock.yaml` without checking the base image minor (e.g. UBI `9.8`) still matches `rpms.in.yaml` repo URLs.
 - Treating `rpm-lockfile-prototype` `No sources found for` / "no matching sources" warnings as a failure or remaining risk. The source RPM is often unpublished; the lockfile is still valid.
 - Lowering `go.mod` `toolchain` (or `go`) to match an older `ubi9/go-toolset` image. Keep the newer pin.
+- Editing GitLab `rhdh-plugin-catalog` `builder.Containerfile` from this skill. That pin is `/rhdh-konflux-tasks` after this skill reports the GitHub rhdh `ubi9/nodejs-*` tag.
 
 ## Additional resources
 

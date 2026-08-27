@@ -9,7 +9,8 @@ description: >-
   FROM tags, rpms.lock.yaml, and Node headers stay current. Use for
   "bump konflux task digests", "apply the tekton migration", "ECP violation",
   "expired task", "trusted task", "missing node headers", node-v*-headers.tar.gz,
-  .nvm/releases, quay.io/konflux-ci/tekton-catalog/task-*
+  .nvm/releases, catalog builder.Containerfile, ubi9/nodejs,
+  quay.io/konflux-ci/tekton-catalog/task-*
   upgrades such as buildah-oci-ta or prefetch-dependencies-oci-ta, and
   build-definitions MIGRATION.md URLs that 404. Runs on rhdh-plugin-catalog and
   RHDH midstream (updateDigests.sh, generatePipelineRuns.sh, updatePLRs.sh;
@@ -72,9 +73,11 @@ that workflow. It maps the Konflux stream to a GitHub branch selector, names
 the checkouts (user-supplied, or `/rhdh-context`), and invokes `/rhdh-base-images`.
 
 A Konflux log `could not find releases/node-v*-headers.tar.gz` is that handoff,
-not a Tekton pin problem. Plugin-catalog `builder.Containerfile` COPYs local
-`.nvm/`; after `/rhdh-base-images` reports the matching tarball on rhdh, copy it
-into the catalog checkout too.
+not a Tekton pin problem. Plugin-catalog `build/containerfiles/builder.Containerfile`
+both **FROM**s `ubi9/nodejs-*` and COPYs local `.nvm/`. After `/rhdh-base-images`
+reports the latest tag and tarball on GitHub rhdh, pin that same `tag@sha256` on
+the catalog FROM line **and** copy the matching headers. Headers without a FROM
+bump still build on the old Node. Catalog has no `rpms.lock.yaml`.
 
 | Konflux / catalog stream | `/rhdh-base-images` `-b` |
 |--------------------------|--------------------------|
@@ -136,8 +139,10 @@ writes. Follow `/mutation-gate`.
 - Review `git diff` for `quay.io/konflux-ci/tekton-catalog/task-*` changes before
   committing.
 - After the Tekton pass, invoke `/rhdh-base-images` by name (never its script
-  paths). Map the stream to `main` or `release-*`. Copy matching Node headers
-  into plugin-catalog `.nvm/releases/` when that checkout COPYs `.nvm/`.
+  paths). Map the stream to `main` or `release-*`. On plugin-catalog, pin
+  `builder.Containerfile` FROM to the latest `ubi9/nodejs-*` `tag@sha256` that
+  skill reported (same family: nodejs-22 on 1.9, nodejs-24 on 1.10/main) and
+  copy matching Node headers into `.nvm/`.
 - The human reviews the whole diff across `.tekton/` and `.tekton-templates/`
   and decides when it is pushed.
 
@@ -161,7 +166,8 @@ days, Slack `#konflux-users`). Do not treat a no-successor warning as debug.
 
 `/rhdh-base-images` has run for the mapped GitHub branch (analyze at minimum).
 Name current vs latest `FROM` tags, Node header version, whether headers or
-RPMs changed, and whether plugin-catalog `.nvm/releases/` was synced. If that
+RPMs changed, and on plugin-catalog the `builder.Containerfile` FROM old→new
+plus whether `.nvm/releases/` matches `node --version` in that image. If that
 skill was skipped, say why (no checkouts named and `/rhdh-context` found none).
 
 State the commit state and, explicitly, that nothing was pushed, unless the user
