@@ -20,7 +20,7 @@ Canonical rule and task mapping table:
 
 | Variant | In scope for `-oci-ta` swaps | Out of scope |
 |---------|------------------------------|--------------|
-| A (unified) | `rhdh-pipeline.yaml`, `rhdh-bootc-pipeline.yaml`, `rhdh-rag-content-*` PLRs | `rhdh-operator-bundle.yaml`, `rhdh-operator-bundle-*` PLRs |
+| A (unified) | `rhdh-pipeline.yaml`, `rhdh-bootc-pipeline.yaml`; `rhdh-rag-content-*` PLRs on **1.10 only** (deprecated; removed on main / 2.1) | `rhdh-operator-bundle.yaml`, `rhdh-operator-bundle-*` PLRs |
 | B (1.9) | `build-pipeline-rhdh-hub.yaml`, `build-pipeline-rhdh-operator.yaml`, hub/operator PLR wrappers | `rhdh-operator-bundle.yaml`, `prefetch-dependencies-bundle` |
 
 `generatePipelineRuns.sh` still regenerates operator-bundle PLRs from its
@@ -44,7 +44,7 @@ Used on current stable branches. Hub, operator, and must-gather share `rhdh-pipe
 | `.tekton/rhdh-operator-<N>-{push,pull}.yaml` | Regenerate from `rhdh-pipeline.yaml` |
 | `.tekton/rhdh-must-gather-<N>-{push,pull}.yaml` | Regenerate from `rhdh-pipeline.yaml` |
 | `.tekton/rhdh-operator-bundle-<N>-{push,pull}.yaml` | Regenerate from `rhdh-operator-bundle.yaml` |
-| `.tekton/rhdh-rag-content-<N>-{push,pull}.yaml` | Inline `pipelineSpec` — **edit directly** (not in `components.yaml`) |
+| `.tekton/rhdh-rag-content-<N>-{push,pull}.yaml` | **1.10 only** (deprecated; removed on main / 2.1). Inline `pipelineSpec` — **edit directly** when present (not in `components.yaml`) |
 | `.tekton/fbc-<version>-push.yaml` | FBC; `build-image-index` without prefetch |
 | `.tekton/images-mirror-set.yaml` | Only if task bundles are referenced |
 

@@ -86,7 +86,7 @@ cd .tekton
 
 On **main** / next midstream trees whose CEL already uses `target_branch == "main"`, after regen with `-t 2` (or similar), restore CEL/`on-push-for-*` to `main` if the generator rewrote them to `release-<version>`.
 
-- **Variant A:** also patch `rhdh-rag-content-<N>-{push,pull}.yaml` by hand (inline `pipelineSpec`, not generated).
+- **Variant A:** on **1.10 only**, also patch `rhdh-rag-content-<N>-{push,pull}.yaml` by hand (inline `pipelineSpec`, not generated). That prefix is deprecated and is gone on main / 2.1 — skip it there.
 - **Variant B:** hub/operator PLRs regenerate from `rhdh-hub.yaml` / `rhdh-operator.yaml`; `build-pipeline-*.yaml` is edited directly, not by the generator.
 
 Commit migration + regen locally when ready; do not push until human review.

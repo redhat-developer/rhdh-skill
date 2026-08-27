@@ -66,7 +66,8 @@ the `source` workspace.
 **Operator-bundle exception:** do not migrate `rhdh-operator-bundle.yaml` or
 `rhdh-operator-bundle-*` PLRs to `-oci-ta` tasks on a stream-wide pass unless
 the user explicitly requests operator-bundle changes. Hub, operator,
-must-gather, rag-content, and bootc are in scope. Per-variant file lists:
+must-gather, and bootc are in scope. `rhdh-rag-content-*` is 1.10-only
+(deprecated; removed on main / 2.1). Per-variant file lists:
 [konflux-rhdh-midstream.md](references/konflux-rhdh-midstream.md#oci-ta-file-scope).
 
 | Legacy task | Preferred OCI-TA task |
@@ -117,9 +118,10 @@ reason none was needed, the affected templates and shared pipelines are listed,
 and `generatePipelineRuns.sh` or `updatePLRs.sh` (or deprecated
 `generatePipelineRunsForPlugins.sh` on 1.9/1.10) has run
 wherever a template or pipeline parameter changed. Say which files were
-regenerated and which were edited by hand — inline `pipelineSpec` PLRs such as
-`rhdh-rag-content-*` and the variant B `build-pipeline-*.yaml` files are never
-touched by the generator.
+regenerated and which were edited by hand. Variant B `build-pipeline-*.yaml`
+files are never touched by the generator. `rhdh-rag-content-*` inline
+`pipelineSpec` PLRs exist only on 1.10 (deprecated; removed on main / 2.1) —
+edit those by hand when present; do not look for them on main.
 
 `scripts/check-trusted-tasks.sh` (14-day horizon) is green, **or** the only
 remaining issues are documented `expiring-no-successor` / `expired-no-successor`
