@@ -402,7 +402,7 @@ commit_push_paths() {
 
 rhdh_nodejs_builder_image() {
     local containerfile="$1"
-    grep -E '^FROM registry\.access\.redhat\.com/ubi9/nodejs-[0-9]+:' "${containerfile}" \
+    grep -E '^FROM registry\.access\.redhat\.com/ubi[0-9]+/nodejs-[0-9]+:' "${containerfile}" \
         | grep -v minimal | head -1 | awk '{print $2}'
 }
 
@@ -448,7 +448,7 @@ update_rhdh_node_headers() {
     local image
     image=$(rhdh_nodejs_builder_image "${containerfile}")
     if [[ -z "${image}" ]]; then
-        log "Node headers: no ubi9/nodejs builder image in Containerfile"
+        log "Node headers: no ubi*/nodejs builder image in Containerfile"
         return 0
     fi
 

@@ -13,7 +13,7 @@
 | `.tekton/generatePipelineRunsForPlugins.sh` | Deprecated name of `updatePLRs.sh` on 1.9 / 1.10 streams |
 | `.tekton/updateToStableBranch.py` | Version renames only — not Konflux migrations |
 | `build/scripts/checkTrustedTasks.sh` | ECP trusted-task check (same contract as the skill script) |
-| `build/containerfiles/builder.Containerfile` | Pin `ubi9/nodejs-*` FROM `tag@sha256` to the latest image `/rhdh-base-images` reported for that family; COPY `.nvm/` headers must match `node --version` in that image |
+| `build/containerfiles/builder.Containerfile` | Pin UBI Node FROM (`ubi9/nodejs-*` or later `ubi10/nodejs-*`) `tag@sha256` to the latest image `/rhdh-base-images` reported for that image name; COPY `.nvm/` headers must match `node --version` in that image |
 
 Plugin PLRs with `pipelineRef: oci-plugin-build-pipeline` inherit task wiring from the shared pipeline; add PLR `spec.params` when migrations require explicit pipeline parameters.
 
@@ -68,8 +68,9 @@ A hit like `plugin-catalog-builder-1-push.yaml` means the generator heredoc stil
 ## Catalog builder FROM and Node headers
 
 `build/containerfiles/builder.Containerfile` is the image Konflux builds. It
-**FROM**s `registry.access.redhat.com/ubi9/nodejs-N` and COPYs `.nvm/`, then
-unpacks `releases/node-${NODE_HEADERS_VERSION}-headers.tar.gz` where
+**FROM**s `registry.access.redhat.com/ubi<N>/nodejs-<major>` (UBI 9 today; UBI
+10 when that stream ships) and COPYs `.nvm/`, then unpacks
+`releases/node-${NODE_HEADERS_VERSION}-headers.tar.gz` where
 `NODE_HEADERS_VERSION=$(node --version)` in that FROM image. A missing tarball
 is a **base-image / headers** gap, not a Tekton pin. Copying `.nvm/` while
 leaving FROM on an older tag still builds the old Node.
@@ -78,16 +79,18 @@ This catalog tree has **no** `rpms.lock.yaml`.
 
 After the digest bump, invoke `/rhdh-base-images` for the mapped GitHub branch
 (`rhdh-1.9-rhel-9` → `release-1.9`, `rhdh-1.10-rhel-9` → `release-1.10`,
-`main` → `main`). Do not run that skill's scripts from here. Then:
+`main` → `main`; later `rhdh-*-rhel-10` streams use the same GitHub
+`release-*` / `main` mapping). Do not run that skill's scripts from here. Then:
 
-1. Take the latest `ubi9/nodejs-N:tag@sha256` that skill reported (or that it
-   just wrote on GitHub rhdh). Family is **nodejs-22** on 1.9 and **nodejs-24**
-   on 1.10 and main.
+1. Take the latest `ubi<N>/nodejs-<major>:tag@sha256` that skill reported (or
+   that it just wrote on GitHub rhdh). Keep the **image name already in the
+   catalog FROM** (do not jump ubi9→ubi10 unless GitHub rhdh did). Node major
+   today is **22** on 1.9 and **24** on 1.10 and main.
 2. Set catalog `builder.Containerfile` FROM to that pin. Keep the comment URL
-   on the line above. Prefer `major.minor-buildid` (example
-   `9.8-1787706653`). Older catalog pins used a numeric-only tag such as
+   on the line above. Prefer `major.minor-buildid` (examples `9.8-1787706653`,
+   later `10.x-...`). Older catalog pins used a numeric-only tag such as
    `:1781566314`; newer builds often have no such tag (`skopeo inspect` →
-   manifest unknown). Use the `9.8-...` form when that happens.
+   manifest unknown). Use the dotted UBI-minor form when that happens.
 3. Run `node --version` from **that** image. Copy matching
    `node-v*-headers.tar.gz`, `.nvmrc`, and `.nvm/releases/README.adoc` from the
    rhdh checkout (or download from nodejs.org). Headers must match the catalog

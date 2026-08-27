@@ -27,7 +27,7 @@
 
 ## Not this skill: rhdh-plugin-catalog
 
-GitLab `rhidp/rhdh-plugin-catalog` `build/containerfiles/builder.Containerfile` is owned by `/rhdh-konflux-tasks`. After this skill reports the GitHub rhdh `ubi9/nodejs-*` tag, that skill pins the catalog FROM and copies `.nvm/`.
+GitLab `rhidp/rhdh-plugin-catalog` `build/containerfiles/builder.Containerfile` is owned by `/rhdh-konflux-tasks`. After this skill reports the GitHub rhdh UBI Node tag (`ubi9/nodejs-*` today; `ubi10/nodejs-*` when that line ships), that skill pins the catalog FROM and copies `.nvm/`.
 
 ## Midstream script source
 

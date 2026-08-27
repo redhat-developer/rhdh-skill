@@ -9,7 +9,7 @@ description: >-
   FROM tags, rpms.lock.yaml, and Node headers stay current. Use for
   "bump konflux task digests", "apply the tekton migration", "ECP violation",
   "expired task", "trusted task", "missing node headers", node-v*-headers.tar.gz,
-  .nvm/releases, catalog builder.Containerfile, ubi9/nodejs,
+  .nvm/releases, catalog builder.Containerfile, UBI nodejs,
   quay.io/konflux-ci/tekton-catalog/task-*
   upgrades such as buildah-oci-ta or prefetch-dependencies-oci-ta, and
   build-definitions MIGRATION.md URLs that 404. Runs on rhdh-plugin-catalog and
@@ -74,17 +74,19 @@ the checkouts (user-supplied, or `/rhdh-context`), and invokes `/rhdh-base-image
 
 A Konflux log `could not find releases/node-v*-headers.tar.gz` is that handoff,
 not a Tekton pin problem. Plugin-catalog `build/containerfiles/builder.Containerfile`
-both **FROM**s `ubi9/nodejs-*` and COPYs local `.nvm/`. After `/rhdh-base-images`
-reports the latest tag and tarball on GitHub rhdh, pin that same `tag@sha256` on
-the catalog FROM line **and** copy the matching headers. Headers without a FROM
-bump still build on the old Node. Catalog has no `rpms.lock.yaml`.
+both **FROM**s a UBI Node image (`ubi9/nodejs-*` today; `ubi10/nodejs-*` when
+that line ships) and COPYs local `.nvm/`. After `/rhdh-base-images` reports the
+latest tag and tarball on GitHub rhdh, pin that same image name + `tag@sha256`
+on the catalog FROM line **and** copy the matching headers. Do not rewrite
+ubi9→ubi10 (or the reverse) unless GitHub rhdh already moved. Headers without a
+FROM bump still build on the old Node. Catalog has no `rpms.lock.yaml`.
 
 | Konflux / catalog stream | `/rhdh-base-images` `-b` |
 |--------------------------|--------------------------|
 | `rhdh-1.9-rhel-9` | `release-1.9` |
 | `rhdh-1.10-rhel-9` | `release-1.10` |
 | `main` (2.1+) | `main` |
-| other `rhdh-1.Y-rhel-9` | `release-1.Y` |
+| other `rhdh-<ver>-rhel-<N>` | `release-<ver>` when that GitHub branch exists |
 
 ## Prefer `-oci-ta` task variants
 
@@ -140,9 +142,10 @@ writes. Follow `/mutation-gate`.
   committing.
 - After the Tekton pass, invoke `/rhdh-base-images` by name (never its script
   paths). Map the stream to `main` or `release-*`. On plugin-catalog, pin
-  `builder.Containerfile` FROM to the latest `ubi9/nodejs-*` `tag@sha256` that
-  skill reported (same family: nodejs-22 on 1.9, nodejs-24 on 1.10/main) and
-  copy matching Node headers into `.nvm/`.
+  `builder.Containerfile` FROM to the latest UBI Node `tag@sha256` that skill
+  reported (same image name as the current FROM: `ubi9/nodejs-*` or
+  `ubi10/nodejs-*`; Node 22 on 1.9, Node 24 on 1.10/main today) and copy
+  matching Node headers into `.nvm/`.
 - The human reviews the whole diff across `.tekton/` and `.tekton-templates/`
   and decides when it is pushed.
 
