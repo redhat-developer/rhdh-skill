@@ -9,7 +9,8 @@
 | `.tekton/plugin-catalog-builder-*-{push,pull}.yaml` | Inline `pipelineSpec` (catalog builder) |
 | `.tekton/*-push.yaml` (many components) | Usually `spec.params` only when migration adds pipeline params |
 | `.tekton/*-pull.yaml` | Same when present |
-| `.tekton/generatePipelineRunsForPlugins.sh` | Heredoc for regenerated PLRs + `*.Containerfile` |
+| `.tekton/updatePLRs.sh` | Heredoc for regenerated PLRs + `*.Containerfile` (main / 2.1+) |
+| `.tekton/generatePipelineRunsForPlugins.sh` | Deprecated name of `updatePLRs.sh` on 1.9 / 1.10 streams |
 | `.tekton/updateToStableBranch.py` | Version renames only — not Konflux migrations |
 | `build/scripts/checkTrustedTasks.sh` | ECP trusted-task check (same contract as the skill script) |
 
@@ -19,7 +20,9 @@ Plugin PLRs with `pipelineRef: oci-plugin-build-pipeline` inherit task wiring fr
 
 ```bash
 cd .tekton
-./generatePipelineRunsForPlugins.sh -v <x.y.z> --nopush
+./updatePLRs.sh -v <x.y.z> --nopush
+# 1.9 / 1.10 streams still use the deprecated name:
+# ./generatePipelineRunsForPlugins.sh -v <x.y.z> --nopush
 ```
 
 ## Validate trusted pins
@@ -44,7 +47,7 @@ Do not embed full `pipelineSpec` in the generator.
 
 ## Version naming (x.y.z → x-y)
 
-`generatePipelineRunsForPlugins.sh` derives `RHDH_XY_VERSION` from `-v x.y.z` (e.g. `1.10.0` → `1-10`). Use it everywhere; never hardcode `1-` in generated paths.
+`updatePLRs.sh` (deprecated `generatePipelineRunsForPlugins.sh` on 1.9/1.10) derives `RHDH_XY_VERSION` from `-v x.y.z` (e.g. `1.10.0` → `1-10`). Use it everywhere; never hardcode `1-` in generated paths.
 
 | Pattern | Example for 1.10.0 |
 |---------|-------------------|

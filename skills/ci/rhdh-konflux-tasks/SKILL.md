@@ -9,8 +9,8 @@ description: >-
   "expired task", "trusted task", quay.io/konflux-ci/tekton-catalog/task-*
   upgrades such as buildah-oci-ta or prefetch-dependencies-oci-ta, and
   build-definitions MIGRATION.md URLs that 404. Runs on rhdh-plugin-catalog and
-  RHDH midstream (updateDigests.sh, generatePipelineRuns.sh,
-  generatePipelineRunsForPlugins.sh).
+  RHDH midstream (updateDigests.sh, generatePipelineRuns.sh, updatePLRs.sh;
+  generatePipelineRunsForPlugins.sh is the deprecated 1.9/1.10 name).
 compatibility: "bash, skopeo, jq 1.7+, yq, and git; a checkout of the target Konflux branch. gh is optional, for PR creation."
 ---
 
@@ -26,7 +26,9 @@ Load `workflows/konflux-task-update.md`. It detects the repository layout and
 sends you to the reference that matches:
 
 - `references/konflux-plugin-catalog.md` — `rhdh-plugin-catalog`, marker
-  `.tekton/generatePipelineRunsForPlugins.sh`.
+  `.tekton/updatePLRs.sh` (main / 2.1+). On 1.9 and 1.10 streams the generator
+  is still named `.tekton/generatePipelineRunsForPlugins.sh` (deprecated;
+  same layout).
 - `references/konflux-rhdh-midstream.md` — RHDH midstream, variant A
   (`.tekton-templates/rhdh-pipeline.yaml`) and variant B
   (`.tekton-templates/rhdh-hub.yaml` with shared `build-pipeline-rhdh-*.yaml`).
@@ -112,7 +114,8 @@ writes. Follow `/mutation-gate`.
 An update is complete when every task whose tag moved is named with its old and
 new tag, each one is paired with the migration that was applied or with the
 reason none was needed, the affected templates and shared pipelines are listed,
-and `generatePipelineRuns.sh` or `generatePipelineRunsForPlugins.sh` has run
+and `generatePipelineRuns.sh` or `updatePLRs.sh` (or deprecated
+`generatePipelineRunsForPlugins.sh` on 1.9/1.10) has run
 wherever a template or pipeline parameter changed. Say which files were
 regenerated and which were edited by hand — inline `pipelineSpec` PLRs such as
 `rhdh-rag-content-*` and the variant B `build-pipeline-*.yaml` files are never
