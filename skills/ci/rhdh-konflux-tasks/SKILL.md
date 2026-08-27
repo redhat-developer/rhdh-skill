@@ -4,9 +4,12 @@ description: >-
   Bumps Konflux Tekton task bundle digests in `.tekton` and `.tekton-templates`,
   applies each task's MIGRATION.md, regenerates PipelineRuns, and checks pins
   against data-acceptable-bundles so ECP does not reject expired or untrusted
-  tag@sha256 refs (tasks.unsupported, required_untrusted_task_found). Use for
+  tag@sha256 refs (tasks.unsupported, required_untrusted_task_found). Then
+  invokes /rhdh-base-images for the matching GitHub main or release-* branch so
+  FROM tags, rpms.lock.yaml, and Node headers stay current. Use for
   "bump konflux task digests", "apply the tekton migration", "ECP violation",
-  "expired task", "trusted task", quay.io/konflux-ci/tekton-catalog/task-*
+  "expired task", "trusted task", "missing node headers", node-v*-headers.tar.gz,
+  .nvm/releases, quay.io/konflux-ci/tekton-catalog/task-*
   upgrades such as buildah-oci-ta or prefetch-dependencies-oci-ta, and
   build-definitions MIGRATION.md URLs that 404. Runs on rhdh-plugin-catalog and
   RHDH midstream (updateDigests.sh, generatePipelineRuns.sh, updatePLRs.sh;
@@ -38,6 +41,11 @@ sends you to the reference that matches:
 - `references/konflux-trusted-tasks.md` — ECP / expired / untrusted pins;
   `scripts/check-trusted-tasks.sh` against `data-acceptable-bundles`.
 
+After the digest/migration/trusted-task pass, invoke `/rhdh-base-images` **by
+name** for the matching GitHub `main` or `release-*` line (see
+[konflux-task-update.md](workflows/konflux-task-update.md) step 5). Do not run
+that skill's scripts from here.
+
 ## Boundary with plugin midstream propagation
 
 Two skills touch `.tekton`, and they touch it for different reasons.
@@ -54,6 +62,26 @@ If the request is "this plugin version needs to reach midstream", it is
 and the pipelines need to catch up", it is this skill. Never run a full
 regeneration to deliver a single workspace bump; it rewrites every component's
 PLR.
+
+## Boundary with base images
+
+`/rhdh-base-images` owns `FROM` tags, `rpms.lock.yaml`, Node headers
+(`.nvm/releases/node-v*-headers.tar.gz`), and operator `go.mod` on GitHub
+`rhdh`, `rhdh-operator`, and `rhdh-must-gather`. This skill does not reconstruct
+that workflow. It maps the Konflux stream to a GitHub branch selector, names
+the checkouts (user-supplied, or `/rhdh-context`), and invokes `/rhdh-base-images`.
+
+A Konflux log `could not find releases/node-v*-headers.tar.gz` is that handoff,
+not a Tekton pin problem. Plugin-catalog `builder.Containerfile` COPYs local
+`.nvm/`; after `/rhdh-base-images` reports the matching tarball on rhdh, copy it
+into the catalog checkout too.
+
+| Konflux / catalog stream | `/rhdh-base-images` `-b` |
+|--------------------------|--------------------------|
+| `rhdh-1.9-rhel-9` | `release-1.9` |
+| `rhdh-1.10-rhel-9` | `release-1.10` |
+| `main` (2.1+) | `main` |
+| other `rhdh-1.Y-rhel-9` | `release-1.Y` |
 
 ## Prefer `-oci-ta` task variants
 
@@ -107,6 +135,9 @@ writes. Follow `/mutation-gate`.
   the live trusted-task list — that is an ECP allow-list check, not param drift.
 - Review `git diff` for `quay.io/konflux-ci/tekton-catalog/task-*` changes before
   committing.
+- After the Tekton pass, invoke `/rhdh-base-images` by name (never its script
+  paths). Map the stream to `main` or `release-*`. Copy matching Node headers
+  into plugin-catalog `.nvm/releases/` when that checkout COPYs `.nvm/`.
 - The human reviews the whole diff across `.tekton/` and `.tekton-templates/`
   and decides when it is pushed.
 
@@ -127,6 +158,11 @@ edit those by hand when present; do not look for them on main.
 remaining issues are documented `expiring-no-successor` / `expired-no-successor`
 warnings. Surface those in the user-facing summary (expiry date, re-run in a few
 days, Slack `#konflux-users`). Do not treat a no-successor warning as debug.
+
+`/rhdh-base-images` has run for the mapped GitHub branch (analyze at minimum).
+Name current vs latest `FROM` tags, Node header version, whether headers or
+RPMs changed, and whether plugin-catalog `.nvm/releases/` was synced. If that
+skill was skipped, say why (no checkouts named and `/rhdh-context` found none).
 
 State the commit state and, explicitly, that nothing was pushed, unless the user
 asked for a push. Name any migration document that could not be resolved rather

@@ -60,7 +60,9 @@ tree is clean before writing.
   risks.
 
 Another skill invokes `/rhdh-base-images` by name and uses what it reports; it
-never reaches for these script paths.
+never reaches for these script paths. `/rhdh-konflux-tasks` does this during a
+stream Konflux bump so Node headers match the builder image; it passes named
+checkouts and a `main` or `release-*` selector.
 
 ## Completion
 

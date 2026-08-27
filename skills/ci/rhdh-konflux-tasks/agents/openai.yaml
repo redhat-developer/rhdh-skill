@@ -1,3 +1,3 @@
 interface:
   display_name: "RHDH Konflux Tasks"
-  short_description: "Bump Konflux task digests, apply migrations, and check ECP trusted pins"
+  short_description: "Bump Konflux tasks, check ECP pins, then refresh base images and Node headers"

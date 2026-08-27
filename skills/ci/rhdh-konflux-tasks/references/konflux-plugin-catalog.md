@@ -63,3 +63,16 @@ grep -R -F --include='*.Containerfile' -- '-1-push' .tekton
 ```
 
 A hit like `plugin-catalog-builder-1-push.yaml` means the generator heredoc still hardcodes `1-` instead of `${RHDH_XY_VERSION}`.
+
+## Node headers (`.nvm/`)
+
+`build/containerfiles/builder.Containerfile` COPYs `.nvm/` and unpacks
+`releases/node-${NODE_HEADERS_VERSION}-headers.tar.gz` to match `node --version`
+in the UBI Node image. A missing tarball is a **base-image / headers** gap, not
+a Tekton pin.
+
+After the digest bump, invoke `/rhdh-base-images` for the mapped GitHub branch
+(`rhdh-1.10-rhel-9` → `release-1.10`). Then copy the matching
+`node-v*-headers.tar.gz` and `.nvmrc` from the rhdh checkout into this repo's
+`.nvm/` so the next Konflux build finds them. Do not run that skill's scripts
+from here.

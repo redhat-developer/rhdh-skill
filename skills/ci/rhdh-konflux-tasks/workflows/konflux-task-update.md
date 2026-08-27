@@ -110,7 +110,19 @@ On plugin-catalog, `build/scripts/checkTrustedTasks.sh` is the same script.
   user-facing summary (expiry date, re-run in a few days, Slack `#konflux-users`).
   Do not invent a pin. `expired-no-successor` is a hard stop.
 
-### 5. Human review and push
+### 5. Base images, RPMs, Node headers
+
+Konflux plugin-catalog builds COPY `.nvm/` and fail when the builder image's
+Node version has no matching `releases/node-v*-headers.tar.gz` (log:
+`could not find releases/node-v*-headers.tar.gz`). That is **not** a Tekton
+digest problem.
+
+1. Map the stream to a GitHub selector — [SKILL.md § Boundary with base images](../SKILL.md#boundary-with-base-images). Example: catalog `rhdh-1.10-rhel-9` → `-b release-1.10`.
+2. Name `rhdh`, `rhdh-operator`, and `rhdh-must-gather` checkouts (user, or `/rhdh-context`).
+3. Invoke **`/rhdh-base-images` by name**. Do not run `base-images-and-rpms.sh` from this skill. Analyze first; if headers, `FROM` tags, or RPMs are stale, let that skill own the update and `/mutation-gate`.
+4. On plugin-catalog, copy the matching `node-v*-headers.tar.gz` and `.nvmrc` from the rhdh checkout into catalog `.nvm/` (`builder.Containerfile` COPYs it). Update `.nvm/releases/README.adoc` version/date if present. Catalog and rhdh headers must match the builder Node version.
+
+### 6. Human review and push
 
 Human reviews the full diff (digest commit plus any migration/regen commits), then `git push` or opens a PR.
 
@@ -139,3 +151,4 @@ Use live `MIGRATION.md` as source of truth. Common cases:
 - Dropping `image-expires-after` from PLRs only because `build-image-index` no longer uses it.
 - Hardcoding `1-` in `updatePLRs.sh` (or deprecated `generatePipelineRunsForPlugins.sh`) Containerfile comments; use `${RHDH_XY_VERSION}` so `1.10.0` becomes `1-10`, not `1`.
 - Migrating operator-bundle to `-oci-ta` on a stream-wide pass — see [SKILL.md § Prefer `-oci-ta`](../SKILL.md#prefer--oci-ta-task-variants).
+- Reconstructing `/rhdh-base-images` script flags in this skill, or skipping that handoff when Konflux logs `could not find releases/node-v*-headers.tar.gz`.
