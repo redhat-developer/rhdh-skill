@@ -15,8 +15,8 @@ After a **minor** Konflux task tag bump, update `.tekton` pipelines and generato
 | `updateDigests.sh` | `--no-push` / `--nopush` (`-p`) | Commit locally; no push/PR |
 | `updateDigests.sh` | `--minor` | Disables push; use with `--no-push` for clarity |
 | `updateDigests.sh` | `--no-commit` / `-n` | Preview only |
-| `updatePLRs.sh` | `--nopush` | Commit locally; no push |
-| `updatePLRs.sh` | `--nocommit` | Write YAML only |
+| `generatePipelineRunsForPlugins.sh` | `--nopush` | Commit locally; no push |
+| `generatePipelineRunsForPlugins.sh` | `--nocommit` | Write YAML only |
 
 `generatePipelineRuns.sh` does not commit or push.
 
@@ -26,7 +26,7 @@ After a **minor** Konflux task tag bump, update `.tekton` pipelines and generato
 
 | Marker in repo | Read |
 |----------------|------|
-| `.tekton/updatePLRs.sh` | [konflux-plugin-catalog.md](../references/konflux-plugin-catalog.md) |
+| `.tekton/generatePipelineRunsForPlugins.sh` | [konflux-plugin-catalog.md](../references/konflux-plugin-catalog.md) |
 | `.tekton-templates/rhdh-pipeline.yaml` | [konflux-rhdh-midstream.md](../references/konflux-rhdh-midstream.md) — **variant A** (unified) |
 | `.tekton-templates/rhdh-hub.yaml` (no `rhdh-pipeline.yaml`) | [konflux-rhdh-midstream.md](../references/konflux-rhdh-midstream.md) — **variant B** (1.9 shared build-pipeline) |
 
@@ -89,7 +89,26 @@ On **main** / next midstream trees whose CEL already uses `target_branch == "mai
 
 Commit migration + regen locally when ready; do not push until human review.
 
-### 4. Human review and push
+### 4. Trusted-task / ECP check
+
+After regen, validate pins against `data-acceptable-bundles` with a **14-day**
+expiry horizon — [konflux-trusted-tasks.md](../references/konflux-trusted-tasks.md).
+This is the live ECP allow-list, not a frozen `verify_*` param-drift guard.
+
+```bash
+scripts/check-trusted-tasks.sh --json .tekton .tekton-templates
+```
+
+On plugin-catalog, `build/scripts/checkTrustedTasks.sh` is the same script.
+
+- Exit 1 with a successor: `--apply-trusted-digests` for same-tag SHA, or
+  `updateDigests.sh --minor` plus `MIGRATION.md` when the suggested pin is a
+  new tag. Re-check.
+- `expiring-no-successor` / `expired-no-successor`: **must** appear in the
+  user-facing summary (expiry date, re-run in a few days, Slack `#konflux-users`).
+  Do not invent a pin. `expired-no-successor` is a hard stop.
+
+### 5. Human review and push
 
 Human reviews the full diff (digest commit plus any migration/regen commits), then `git push` or opens a PR.
 
@@ -114,7 +133,7 @@ Use live `MIGRATION.md` as source of truth. Common cases:
 - Leaving removed task params (`dev-package-managers`, `COMMIT_SHA` on `build-image-index`).
 - Skipping `generatePipelineRuns.sh` after fixing templates while PLRs still reference old params.
 - Editing only PLRs when templates or `build-pipeline-*.yaml` are the source of truth.
-- Adding `verify_*` guards that fail on the next Konflux bump.
+- Adding `verify_*` guards that freeze pipeline params and fail the next Konflux bump (the trusted-task check is different: it reads the live allow-list).
 - Dropping `image-expires-after` from PLRs only because `build-image-index` no longer uses it.
-- Hardcoding `1-` in `updatePLRs.sh` Containerfile comments; use `${RHDH_XY_VERSION}` so `1.10.0` becomes `1-10`, not `1`.
+- Hardcoding `1-` in `generatePipelineRunsForPlugins.sh` Containerfile comments; use `${RHDH_XY_VERSION}` so `1.10.0` becomes `1-10`, not `1`.
 - Migrating operator-bundle to `-oci-ta` on a stream-wide pass — see [SKILL.md § Prefer `-oci-ta`](../SKILL.md#prefer--oci-ta-task-variants).

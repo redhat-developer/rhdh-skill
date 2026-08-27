@@ -9,8 +9,9 @@
 | `.tekton/plugin-catalog-builder-*-{push,pull}.yaml` | Inline `pipelineSpec` (catalog builder) |
 | `.tekton/*-push.yaml` (many components) | Usually `spec.params` only when migration adds pipeline params |
 | `.tekton/*-pull.yaml` | Same when present |
-| `.tekton/updatePLRs.sh` | Heredoc for regenerated PLRs + `*.Containerfile` |
+| `.tekton/generatePipelineRunsForPlugins.sh` | Heredoc for regenerated PLRs + `*.Containerfile` |
 | `.tekton/updateToStableBranch.py` | Version renames only — not Konflux migrations |
+| `build/scripts/checkTrustedTasks.sh` | ECP trusted-task check (same contract as the skill script) |
 
 Plugin PLRs with `pipelineRef: oci-plugin-build-pipeline` inherit task wiring from the shared pipeline; add PLR `spec.params` when migrations require explicit pipeline parameters.
 
@@ -18,7 +19,16 @@ Plugin PLRs with `pipelineRef: oci-plugin-build-pipeline` inherit task wiring fr
 
 ```bash
 cd .tekton
-./updatePLRs.sh -v <x.y.z> --nopush
+./generatePipelineRunsForPlugins.sh -v <x.y.z> --nopush
+```
+
+## Validate trusted pins
+
+After digest bumps or regen, run the 14-day-horizon checker —
+[konflux-trusted-tasks.md](konflux-trusted-tasks.md):
+
+```bash
+./build/scripts/checkTrustedTasks.sh --json .tekton
 ```
 
 ## Generator: new pipeline params
@@ -34,7 +44,7 @@ Do not embed full `pipelineSpec` in the generator.
 
 ## Version naming (x.y.z → x-y)
 
-`updatePLRs.sh` derives `RHDH_XY_VERSION` from `-v x.y.z` (e.g. `1.10.0` → `1-10`). Use it everywhere; never hardcode `1-` in generated paths.
+`generatePipelineRunsForPlugins.sh` derives `RHDH_XY_VERSION` from `-v x.y.z` (e.g. `1.10.0` → `1-10`). Use it everywhere; never hardcode `1-` in generated paths.
 
 | Pattern | Example for 1.10.0 |
 |---------|-------------------|
@@ -46,7 +56,7 @@ Do not embed full `pipelineSpec` in the generator.
 After regenerate, grep for stale `-1-push` (without minor version):
 
 ```bash
-rg '-1-push' .tekton --glob '*.Containerfile'
+grep -R -F --include='*.Containerfile' -- '-1-push' .tekton
 ```
 
 A hit like `plugin-catalog-builder-1-push.yaml` means the generator heredoc still hardcodes `1-` instead of `${RHDH_XY_VERSION}`.
