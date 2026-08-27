@@ -121,6 +121,15 @@ digest problem.
 2. Name `rhdh`, `rhdh-operator`, and `rhdh-must-gather` checkouts (user, or `/rhdh-context`).
 3. Invoke **`/rhdh-base-images` by name**. Do not run `base-images-and-rpms.sh` from this skill. Analyze first; if headers, `FROM` tags, or RPMs are stale, let that skill own the update and `/mutation-gate`.
 4. On plugin-catalog, pin `build/containerfiles/builder.Containerfile` FROM to the latest UBI Node `tag@sha256` `/rhdh-base-images` reported (same image name as the current FROM: `ubi9/nodejs-*` or later `ubi10/nodejs-*`; Node 22 on 1.9, Node 24 on 1.10/main today). Prefer `major.minor-buildid` (9.8-… or 10.x-…); numeric-only tags often 404. Then copy the matching `node-v*-headers.tar.gz` and `.nvmrc` from the rhdh checkout into catalog `.nvm/` (the Containerfile COPYs it). Update `.nvm/releases/README.adoc` version/date if present. Headers must match `node --version` in the **catalog** FROM image. Catalog has no `rpms.lock.yaml`. Do not `[skip-build]` if the builder should rebuild.
+5. Rewrite only the `node-v*` token in `LABEL konflux.additional-tags=...` inside `build/containerfiles/builder.Containerfile` to match catalog `.nvmrc`. Leave other tags (`latest`, `1.9`, `1.9-72`, …) untouched:
+
+```bash
+nvm_ver=$(tr -d '\n\r' < .nvmrc)
+sed -i -E "s/node-v[0-9]+\.[0-9]+\.[0-9]+/node-v${nvm_ver}/" \
+  build/containerfiles/builder.Containerfile
+grep konflux.additional-tags build/containerfiles/builder.Containerfile
+# must contain node-v${nvm_ver}
+```
 
 ### 6. Human review and push
 
@@ -153,3 +162,4 @@ Use live `MIGRATION.md` as source of truth. Common cases:
 - Migrating operator-bundle to `-oci-ta` on a stream-wide pass — see [SKILL.md § Prefer `-oci-ta`](../SKILL.md#prefer--oci-ta-task-variants).
 - Reconstructing `/rhdh-base-images` script flags in this skill, or skipping that handoff when Konflux logs `could not find releases/node-v*-headers.tar.gz`.
 - Copying plugin-catalog `.nvm/` headers while leaving `builder.Containerfile` FROM on an older UBI Node tag. Konflux still builds the old Node until FROM moves.
+- Copying headers / `.nvmrc` while leaving a stale `node-v*` in `konflux.additional-tags`. Konflux keeps publishing the old tag until that label matches `.nvmrc`.

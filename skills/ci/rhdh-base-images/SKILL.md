@@ -75,4 +75,7 @@ instead of reported as current. Filtered `No sources found for` /
 An update is complete when the target branch was verified to exist against a
 clean working tree before any edit, every approved operation has been reported by
 target and outcome, and the push and PR state is stated explicitly — including
-"not pushed" when the default local behavior was kept.
+"not pushed" when the default local behavior was kept. When Node headers /
+`.nvmrc` changed, also state that plugin-catalog `builder.Containerfile`
+`konflux.additional-tags` `node-v*` must be updated to the same version
+(handoff to `/rhdh-konflux-tasks` or a catalog MR).

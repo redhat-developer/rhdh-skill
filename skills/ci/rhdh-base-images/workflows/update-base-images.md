@@ -164,6 +164,12 @@ the script:
 3. Updates `.nvmrc` (version without `v` prefix) and `.nvm/releases/README.adoc` (date + version)
 4. Removes stale `node-v*-headers.tar.gz` files and pushes to the same automation PR
 
+When Node headers / `.nvmrc` change on rhdh, the completion report **must** state
+that plugin-catalog `build/containerfiles/builder.Containerfile`
+`konflux.additional-tags` `node-v*` must be updated to the same version (handoff
+to `/rhdh-konflux-tasks` or a catalog MR). Do not edit the catalog from this
+skill.
+
 See [rhdh `.nvm/releases/README.adoc`](https://github.com/redhat-developer/rhdh/blob/main/.nvm/releases/README.adoc). On **release-1.9**, headers come from `docker/Dockerfile` (`ubi9/nodejs-22`), not Node 24.
 
 ### Go toolchain (rhdh-operator, main only)
@@ -186,6 +192,7 @@ Do not downgrade. If `go.mod` already pins a newer toolchain (for example `go1.2
 - Treating `rpm-lockfile-prototype` `No sources found for` / "no matching sources" warnings as a failure or remaining risk. The source RPM is often unpublished; the lockfile is still valid.
 - Lowering `go.mod` `toolchain` (or `go`) to match an older `ubi9/go-toolset` image. Keep the newer pin.
 - Editing GitLab `rhdh-plugin-catalog` `builder.Containerfile` from this skill. That pin is `/rhdh-konflux-tasks` after this skill reports the GitHub rhdh UBI Node tag.
+- Claiming Node headers / `.nvmrc` are done while plugin-catalog still advertises an old `node-v*` in `konflux.additional-tags`. Report the catalog handoff.
 
 ## Additional resources
 
