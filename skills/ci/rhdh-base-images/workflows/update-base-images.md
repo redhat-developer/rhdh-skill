@@ -154,7 +154,10 @@ When no base-images PR exists (e.g. `--skip-base`), the script uses `chore/autom
 
 ### Node headers (rhdh only)
 
-When the `ubi9/nodejs-*` builder image in `build/containerfiles/Containerfile` ships a different Node version than `.nvmrc` / `.nvm/releases/`, the script:
+When the UBI Node builder image (`ubi9/nodejs-*` today; `ubi10/nodejs-*` when
+that line ships) in `build/containerfiles/Containerfile` (or `docker/Dockerfile`
+on release-1.9) ships a different Node version than `.nvmrc` / `.nvm/releases/`,
+the script:
 
 1. Reads `node --version` from the updated builder image (`podman`/`docker`)
 2. Downloads `https://nodejs.org/dist/<version>/node-<version>-headers.tar.gz` into `.nvm/releases/`
@@ -182,6 +185,7 @@ Do not downgrade. If `go.mod` already pins a newer toolchain (for example `go1.2
 - Committing `rpms.lock.yaml` without checking the base image minor (e.g. UBI `9.8`) still matches `rpms.in.yaml` repo URLs.
 - Treating `rpm-lockfile-prototype` `No sources found for` / "no matching sources" warnings as a failure or remaining risk. The source RPM is often unpublished; the lockfile is still valid.
 - Lowering `go.mod` `toolchain` (or `go`) to match an older `ubi9/go-toolset` image. Keep the newer pin.
+- Editing GitLab `rhdh-plugin-catalog` `builder.Containerfile` from this skill. That pin is `/rhdh-konflux-tasks` after this skill reports the GitHub rhdh UBI Node tag.
 
 ## Additional resources
 

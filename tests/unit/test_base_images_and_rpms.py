@@ -308,6 +308,28 @@ class TestBaseImagesAndRpmsScript:
         script = MAIN_SCRIPT.read_text(encoding="utf-8")
         assert "will not downgrade" in script
 
+    def test_nodejs_builder_image_accepts_ubi10(self, tmp_path: Path) -> None:
+        function = _extract_bash_function(MAIN_SCRIPT, "rhdh_nodejs_builder_image")
+        cf = tmp_path / "Containerfile"
+        cf.write_text(
+            "FROM registry.access.redhat.com/ubi10/nodejs-24:10.0-1@sha256:abc AS skeleton\n",
+            encoding="utf-8",
+        )
+        result = subprocess.run(
+            [
+                "bash",
+                "-c",
+                f'{function}\nrhdh_nodejs_builder_image "$1"',
+                "bash",
+                str(cf),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "ubi10/nodejs-24:10.0-1@sha256:abc" in result.stdout
+
 
 class TestGoVersionGte:
     """Forward-only Go toolchain compares used before editing operator go.mod."""
