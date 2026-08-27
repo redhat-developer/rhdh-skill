@@ -77,9 +77,12 @@ not a Tekton pin problem. Plugin-catalog `build/containerfiles/builder.Container
 both **FROM**s a UBI Node image (`ubi9/nodejs-*` today; `ubi10/nodejs-*` when
 that line ships) and COPYs local `.nvm/`. After `/rhdh-base-images` reports the
 latest tag and tarball on GitHub rhdh, pin that same image name + `tag@sha256`
-on the catalog FROM line **and** copy the matching headers. Do not rewrite
-ubi9→ubi10 (or the reverse) unless GitHub rhdh already moved. Headers without a
-FROM bump still build on the old Node. Catalog has no `rpms.lock.yaml`.
+on the catalog FROM line **and** copy the matching headers. Also rewrite the
+`node-v*` token in `LABEL konflux.additional-tags=...` to
+`node-v$(tr -d '\n\r' < .nvmrc)` so Konflux publishes the matching tag; leave
+other tags (`latest`, `1.9`, `1.9-72`, …) untouched. Do not rewrite ubi9→ubi10
+(or the reverse) unless GitHub rhdh already moved. Headers without a FROM bump
+still build on the old Node. Catalog has no `rpms.lock.yaml`.
 
 | Konflux / catalog stream | `/rhdh-base-images` `-b` |
 |--------------------------|--------------------------|
@@ -169,9 +172,11 @@ days, Slack `#konflux-users`). Do not treat a no-successor warning as debug.
 
 `/rhdh-base-images` has run for the mapped GitHub branch (analyze at minimum).
 Name current vs latest `FROM` tags, Node header version, whether headers or
-RPMs changed, and on plugin-catalog the `builder.Containerfile` FROM old→new
-plus whether `.nvm/releases/` matches `node --version` in that image. If that
-skill was skipped, say why (no checkouts named and `/rhdh-context` found none).
+RPMs changed, and on plugin-catalog the `builder.Containerfile` FROM old→new,
+whether `.nvm/releases/` matches `node --version` in that image, and that
+`grep konflux.additional-tags build/containerfiles/builder.Containerfile`
+contains `node-v` matching `.nvmrc`. If that skill was skipped, say why (no
+checkouts named and `/rhdh-context` found none).
 
 State the commit state and, explicitly, that nothing was pushed, unless the user
 asked for a push. Name any migration document that could not be resolved rather

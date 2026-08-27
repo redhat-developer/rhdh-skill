@@ -13,7 +13,7 @@
 | `.tekton/generatePipelineRunsForPlugins.sh` | Deprecated name of `updatePLRs.sh` on 1.9 / 1.10 streams |
 | `.tekton/updateToStableBranch.py` | Version renames only — not Konflux migrations |
 | `build/scripts/checkTrustedTasks.sh` | ECP trusted-task check (same contract as the skill script) |
-| `build/containerfiles/builder.Containerfile` | Pin UBI Node FROM (`ubi9/nodejs-*` or later `ubi10/nodejs-*`) `tag@sha256` to the latest image `/rhdh-base-images` reported for that image name; COPY `.nvm/` headers must match `node --version` in that image |
+| `build/containerfiles/builder.Containerfile` | Pin UBI Node FROM (`ubi9/nodejs-*` or later `ubi10/nodejs-*`) `tag@sha256` to the latest image `/rhdh-base-images` reported for that image name; COPY `.nvm/` headers must match `node --version` in that image; rewrite `node-v*` in `konflux.additional-tags` to match `.nvmrc` |
 
 Plugin PLRs with `pipelineRef: oci-plugin-build-pipeline` inherit task wiring from the shared pipeline; add PLR `spec.params` when migrations require explicit pipeline parameters.
 
@@ -95,4 +95,9 @@ After the digest bump, invoke `/rhdh-base-images` for the mapped GitHub branch
    `node-v*-headers.tar.gz`, `.nvmrc`, and `.nvm/releases/README.adoc` from the
    rhdh checkout (or download from nodejs.org). Headers must match the catalog
    FROM image (for example v22.23.1 from `ubi9/nodejs-22:9.8-1787706653`).
-4. Omit `[skip-build]` when the builder should rebuild on the new FROM.
+4. Rewrite only the `node-v*` token in `LABEL konflux.additional-tags=...` to
+   `node-v$(tr -d '\n\r' < .nvmrc)`. Leave other tags untouched. Success:
+   `grep konflux.additional-tags build/containerfiles/builder.Containerfile`
+   contains `node-v` matching `.nvmrc`. Anti-pattern: copying headers while
+   leaving a stale `node-v*` label (Konflux keeps publishing the old tag).
+5. Omit `[skip-build]` when the builder should rebuild on the new FROM.

@@ -6,7 +6,7 @@
 - Branches: `main`, `release-1.9`, `release-1.10`, …
 - Base images: `build/containerfiles/Containerfile`, `.ci/images/Dockerfile`, and other `Dockerfile`/`Containerfile` paths within `-maxdepth 5`
 - RPM lock: `build/containerfiles/Containerfile` + `rpms.in.yaml` → `rpms.lock.yaml`
-- Node headers: when builder image Node version changes, update `.nvm/releases/node-v*-headers.tar.gz`, `.nvmrc`, and `.nvm/releases/README.adoc` (see `.nvm/releases/README.adoc`)
+- Node headers: when builder image Node version changes, update `.nvm/releases/node-v*-headers.tar.gz`, `.nvmrc`, and `.nvm/releases/README.adoc` (see `.nvm/releases/README.adoc`). After that change, report the handoff: plugin-catalog `builder.Containerfile` `konflux.additional-tags` `node-v*` must match the new `.nvmrc` (owned by `/rhdh-konflux-tasks`).
 - Workflow reference: `.github/workflows/update-rpm-lockfile.yaml`
 
 ## redhat-developer/rhdh-must-gather
@@ -27,7 +27,7 @@
 
 ## Not this skill: rhdh-plugin-catalog
 
-GitLab `rhidp/rhdh-plugin-catalog` `build/containerfiles/builder.Containerfile` is owned by `/rhdh-konflux-tasks`. After this skill reports the GitHub rhdh UBI Node tag (`ubi9/nodejs-*` today; `ubi10/nodejs-*` when that line ships), that skill pins the catalog FROM and copies `.nvm/`.
+GitLab `rhidp/rhdh-plugin-catalog` `build/containerfiles/builder.Containerfile` is owned by `/rhdh-konflux-tasks`. After this skill reports the GitHub rhdh UBI Node tag (`ubi9/nodejs-*` today; `ubi10/nodejs-*` when that line ships), that skill pins the catalog FROM, copies `.nvm/`, and rewrites `konflux.additional-tags` `node-v*` to match `.nvmrc`.
 
 ## Midstream script source
 
