@@ -70,6 +70,7 @@
         "./skills/ci/rhdh-prow-release-branch",
         "./skills/reference/prose-editing",
         "./skills/ci/rhdh-prow-trigger",
+        "./skills/ci/rhdh-must-gather-helm-bump",
         "./skills/ci/rhdh-yarn-bump"
       ]
     },

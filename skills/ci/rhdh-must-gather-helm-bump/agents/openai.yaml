@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Must-Gather Helm Bump"
+  short_description: "Bump Helm CLI in rhdh-must-gather upstream and midstream distgit/Tekton"

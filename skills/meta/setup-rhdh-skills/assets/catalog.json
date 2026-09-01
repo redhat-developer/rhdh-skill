@@ -284,6 +284,13 @@
       "requiresExternalSkills": []
     },
     {
+      "name": "rhdh-must-gather-helm-bump",
+      "category": "ci",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
       "name": "rhdh-yarn-bump",
       "category": "ci",
       "invocation": "model",
