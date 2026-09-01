@@ -37,10 +37,13 @@ def test_guest_token_prefers_backstage_identity() -> None:
     assert VERIFY.guest_token(None) == ""
 
 
-def test_packages_len_counts_arrays_only() -> None:
+def test_packages_len_prefers_total_items() -> None:
+    assert VERIFY.packages_len({"totalItems": 59, "items": [{}]}) == 59
+    assert VERIFY.packages_len({"totalItems": "59", "items": []}) == 59
+    assert VERIFY.packages_len({"items": [1, 2, 3]}) == 3
     assert VERIFY.packages_len([{}, {}]) == 2
-    assert VERIFY.packages_len({"items": [1]}) == 0
     assert VERIFY.packages_len(None) == 0
+    assert VERIFY.packages_len("not-json") == 0
 
 
 @pytest.mark.parametrize("flag", ["--help", "-h"])
