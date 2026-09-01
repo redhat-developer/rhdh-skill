@@ -31,6 +31,12 @@ def test_script_exists() -> None:
     assert SCRIPT.is_file()
 
 
+def test_script_uses_jq_not_python() -> None:
+    text = SCRIPT.read_text(encoding="utf-8")
+    assert "python3" not in text
+    assert "jq " in text
+
+
 @pytest.mark.parametrize("flag", ["--help", "-h"])
 def test_help_prints_usage_and_exits_zero(flag: str) -> None:
     result = _run(flag)

@@ -8,7 +8,7 @@ description: >-
   Guest sign-in, and the extensions packages API. Use for "run the helm smoke
   tests", "operator RC smoke", "upgrade 1.10.3 to 1.10.4 RC", "1.9.8 to 1.9.9
   then 1.10", "GA smoke test", or "SMOKE_TESTS helm and operator".
-compatibility: "oc, helm, curl, and python3; a dedicated smoke kubeconfig (not Konflux or OpenShift CI)."
+compatibility: "oc, helm, curl, and jq; a dedicated smoke kubeconfig (not Konflux or OpenShift CI)."
 ---
 
 # RHDH Helm and Operator smoke tests

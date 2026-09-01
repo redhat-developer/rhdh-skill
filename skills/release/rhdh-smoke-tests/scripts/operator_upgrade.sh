@@ -4,7 +4,7 @@
 # resulting InstallPlan. CatalogSource install is a different script
 # (install-rhdh-catalog-source.sh).
 #
-# Requires: oc, python3 (unless --dry-run).
+# Requires: oc, jq.
 #
 set -euo pipefail
 
@@ -51,6 +51,25 @@ run_oc() {
     return 0
   fi
   oc "$@"
+}
+
+emit_json() {
+  local dry_run_json="$1"
+  local extra="$2"
+  jq -nc \
+    --argjson dryRun "$dry_run_json" \
+    --arg ns "$SUB_NS" \
+    --arg name "$SUB_NAME" \
+    --arg channel "$CHANNEL" \
+    --arg csv "$STARTING_CSV" \
+    --argjson extra "$extra" \
+    '{
+      dryRun: $dryRun,
+      subscriptionNamespace: $ns,
+      subscriptionName: $name,
+      channel: $channel,
+      startingCSV: (if $csv == "" then null else $csv end)
+    } + $extra'
 }
 
 while [[ $# -gt 0 ]]; do
@@ -101,34 +120,25 @@ if [[ -z "$CHANNEL" ]]; then
   exit 2
 fi
 
+if ! command -v jq >/dev/null 2>&1; then
+  log_err "$SCRIPT_NAME: jq is not on PATH"
+  exit 2
+fi
+
 if [[ "$DRY_RUN" -eq 0 ]] && ! command -v oc >/dev/null 2>&1; then
   log_err "$SCRIPT_NAME: oc is not on PATH"
   exit 2
 fi
 
-PATCH_JSON=$(CHANNEL="$CHANNEL" STARTING_CSV="$STARTING_CSV" python3 -c '
-import json, os
-spec = {"channel": os.environ["CHANNEL"]}
-csv = os.environ.get("STARTING_CSV") or ""
-if csv:
-    spec["startingCSV"] = csv
-print(json.dumps({"spec": spec}))
+PATCH_JSON=$(jq -nc --arg channel "$CHANNEL" --arg csv "$STARTING_CSV" '
+  {spec: ({channel: $channel} + if $csv == "" then {} else {startingCSV: $csv} end)}
 ')
 
 run_oc -n "$SUB_NS" patch subscription "$SUB_NAME" --type merge -p "$PATCH_JSON"
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   if [[ "$JSON_OUT" -eq 1 ]]; then
-    python3 -c '
-import json, sys
-print(json.dumps({
-    "dryRun": True,
-    "subscriptionNamespace": sys.argv[1],
-    "subscriptionName": sys.argv[2],
-    "channel": sys.argv[3],
-    "startingCSV": sys.argv[4] or None,
-}))
-' "$SUB_NS" "$SUB_NAME" "$CHANNEL" "$STARTING_CSV"
+    emit_json true '{}'
   else
     printf 'dry-run: true\n'
     printf 'subscription: %s/%s\n' "$SUB_NS" "$SUB_NAME"
@@ -140,16 +150,8 @@ print(json.dumps({
   exit 0
 fi
 
-PENDING=$(oc -n "$SUB_NS" get installplan -o json 2>/dev/null | python3 -c '
-import json, sys
-try:
-    items = json.load(sys.stdin).get("items") or []
-except Exception:
-    items = []
-for item in items:
-    spec = item.get("spec") or {}
-    if spec.get("approved") is False:
-        print(item.get("metadata", {}).get("name") or "")
+PENDING=$(oc -n "$SUB_NS" get installplan -o json 2>/dev/null | jq -r '
+  (.items // [])[] | select(.spec.approved == false) | .metadata.name // empty
 ' || true)
 while IFS= read -r ip; do
   [[ -z "$ip" ]] && continue
@@ -175,17 +177,7 @@ if ! oc -n "$SUB_NS" wait "csv/${CSV}" --for=jsonpath='{.status.phase}'=Succeede
 fi
 
 if [[ "$JSON_OUT" -eq 1 ]]; then
-  python3 -c '
-import json, sys
-print(json.dumps({
-    "dryRun": False,
-    "subscriptionNamespace": sys.argv[1],
-    "subscriptionName": sys.argv[2],
-    "channel": sys.argv[3],
-    "startingCSV": sys.argv[4] or None,
-    "ok": True,
-}))
-' "$SUB_NS" "$SUB_NAME" "$CHANNEL" "$STARTING_CSV"
+  emit_json false '{"ok":true}'
 else
   printf 'ok: true\n'
   printf 'subscription: %s/%s\n' "$SUB_NS" "$SUB_NAME"

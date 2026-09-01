@@ -2,7 +2,7 @@
 #
 # Verify an RHDH smoke-test namespace: pods, logs, Guest token, packages API.
 #
-# Requires: oc, curl, python3. A current oc session (KUBECONFIG).
+# Requires: oc, curl, jq. A current oc session (KUBECONFIG).
 #
 set -euo pipefail
 
@@ -36,27 +36,11 @@ EOF
 log_err() { printf '%s\n' "$*" >&2; }
 
 guest_token() {
-  python3 -c '
-import json, sys
-try:
-    data = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-ident = data.get("backstageIdentity") or {}
-print(ident.get("token") or data.get("token") or "")
-'
+  jq -r '(.backstageIdentity // {}).token // .token // empty' 2>/dev/null || true
 }
 
 packages_len() {
-  python3 -c '
-import json, sys
-try:
-    data = json.load(sys.stdin)
-except Exception:
-    print(0)
-    sys.exit(0)
-print(len(data) if isinstance(data, list) else 0)
-'
+  jq -r 'if type == "array" then length else 0 end' 2>/dev/null || printf '0\n'
 }
 
 while [[ $# -gt 0 ]]; do
@@ -106,8 +90,8 @@ if ! command -v curl >/dev/null 2>&1; then
   log_err "$SCRIPT_NAME: curl is not on PATH"
   exit 2
 fi
-if ! command -v python3 >/dev/null 2>&1; then
-  log_err "$SCRIPT_NAME: python3 is not on PATH"
+if ! command -v jq >/dev/null 2>&1; then
+  log_err "$SCRIPT_NAME: jq is not on PATH"
   exit 2
 fi
 
@@ -175,19 +159,20 @@ fi
 if [[ "$JSON_OUT" -eq 1 ]]; then
   FAIL_JSON='[]'
   if [[ ${#FAILURES[@]} -gt 0 ]]; then
-    FAIL_JSON=$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))' "${FAILURES[@]}")
+    FAIL_JSON=$(jq -nc '$ARGS.positional' --args -- "${FAILURES[@]}")
   fi
-  python3 -c '
-import json, sys
-payload = {
-    "namespace": sys.argv[1],
-    "url": sys.argv[2],
-    "packages": int(sys.argv[3]),
-    "ok": sys.argv[4] == "[]",
-    "failures": json.loads(sys.argv[4]),
-}
-print(json.dumps(payload))
-' "$NS" "${RHDH_URL:-}" "$PACKAGES" "$FAIL_JSON"
+  jq -nc \
+    --arg ns "$NS" \
+    --arg url "${RHDH_URL:-}" \
+    --argjson packages "${PACKAGES:-0}" \
+    --argjson failures "$FAIL_JSON" \
+    '{
+      namespace: $ns,
+      url: $url,
+      packages: $packages,
+      ok: ($failures | length == 0),
+      failures: $failures
+    }'
 else
   printf 'namespace: %s\n' "$NS"
   printf 'url: %s\n' "${RHDH_URL:-}"
