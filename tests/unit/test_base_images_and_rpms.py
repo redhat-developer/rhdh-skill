@@ -308,6 +308,62 @@ class TestBaseImagesAndRpmsScript:
         script = MAIN_SCRIPT.read_text(encoding="utf-8")
         assert "will not downgrade" in script
 
+    def test_catalog_git_branch_for_maps_release_line(self) -> None:
+        function = _extract_bash_function(MAIN_SCRIPT, "catalog_git_branch_for")
+        result = subprocess.run(
+            [
+                "bash",
+                "-c",
+                f'die() {{ echo "$*" >&2; exit 1; }}\n{function}\ncatalog_git_branch_for release-1.10',
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "rhdh-1.10-rhel-9"
+
+    def test_detect_repo_kind_plugin_catalog(self, tmp_path: Path) -> None:
+        function = _extract_bash_function(MAIN_SCRIPT, "detect_repo_kind")
+        repo = tmp_path / "catalog"
+        (repo / "build" / "containerfiles").mkdir(parents=True)
+        (repo / ".tekton").mkdir()
+        (repo / "build" / "containerfiles" / "builder.Containerfile").write_text("FROM x\n")
+        (repo / ".nvmrc").write_text("24.19.0\n")
+        (repo / ".tekton" / "updatePLRs.sh").write_text("#!/bin/bash\n")
+        result = subprocess.run(
+            ["bash", "-c", f'{function}\ndetect_repo_kind "$1"', "bash", str(repo)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "rhdh-plugin-catalog"
+
+    def test_detect_repo_kind_overlays(self, tmp_path: Path) -> None:
+        function = _extract_bash_function(MAIN_SCRIPT, "detect_repo_kind")
+        repo = tmp_path / "overlays"
+        repo.mkdir()
+        (repo / "workspaces").mkdir()
+        (repo / "versions.json").write_text('{\n    "node": "24.14.0"\n}\n')
+        result = subprocess.run(
+            ["bash", "-c", f'{function}\ndetect_repo_kind "$1"', "bash", str(repo)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "rhdh-plugin-export-overlays"
+
+    def test_skill_covers_catalog_and_overlays(self) -> None:
+        skill = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+        assert "plugin-catalog" in skill
+        assert "versions.json" in skill
+        repos = (SKILL_DIR / "references" / "repos.md").read_text(encoding="utf-8")
+        assert "rhidp/rhdh-plugin-catalog" in repos
+        assert "rhdh-plugin-export-overlays" in repos
+        assert "Not this skill: rhdh-plugin-catalog" not in repos
+
     def test_nodejs_builder_image_accepts_ubi10(self, tmp_path: Path) -> None:
         function = _extract_bash_function(MAIN_SCRIPT, "rhdh_nodejs_builder_image")
         cf = tmp_path / "Containerfile"

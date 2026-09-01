@@ -2,11 +2,13 @@
 name: rhdh-base-images
 description: >-
   Analyzes and updates the `FROM` base images, Node headers, Go toolchain, and
-  `rpms.lock.yaml` files in rhdh, rhdh-operator, and rhdh-must-gather on `main` or
-  a `release-1.10` branch. Use for weekly base-image maintenance, a UBI or RHEL
-  bump, an RPM lockfile refresh, "which base images are out of date", or UBI minor
-  skew inside a Containerfile.
-compatibility: "bash, jq, skopeo, curl, git; podman or docker for toolchain detection; gh for PR creation."
+  `rpms.lock.yaml` files in rhdh, rhdh-operator, and rhdh-must-gather; pin
+  plugin-catalog `builder.Containerfile` / `.nvm/` / `konflux.additional-tags`;
+  and bump overlays `versions.json` `node` on `main` or a `release-1.10` branch.
+  Use for weekly base-image maintenance, a UBI or RHEL bump, an RPM lockfile
+  refresh, "which base images are out of date", node-v*-headers.tar.gz, catalog
+  builder FROM, overlays Node version, or UBI minor skew inside a Containerfile.
+compatibility: "bash, jq, skopeo, curl, git, python3; podman or docker for toolchain detection; gh or glab for PR/MR creation."
 ---
 
 # RHDH base images
@@ -23,7 +25,7 @@ discovers another skill's paths.
 | Read-only current/latest image scan | `workflows/update-base-images.md`, then `scripts/base-images-and-rpms.sh --analyze ...` |
 | Explain repository rules | `references/repos.md` |
 | Preview an update | `workflows/update-base-images.md`, then `scripts/base-images-and-rpms.sh --dry-run ...` |
-| Update images, lockfiles, Node headers, or Go toolchain | `workflows/update-base-images.md` |
+| Update images, lockfiles, Node headers, catalog builder, overlays node, or Go toolchain | `workflows/update-base-images.md` |
 
 A scan reports, per repository: every `FROM` image with its current and latest
 tag, UBI minor skew within a file, Node or Go toolchain drift, the registries and
@@ -49,7 +51,13 @@ tree is clean before writing.
 - Accepted branch selectors are `main` or `release-*`; map them to the documented
   GitLab scripts branch in `references/repos.md`.
 - Keep base-image UBI minors aligned with RPM repository URLs.
-- On RHDH, update Node headers when the builder image changes Node.
+- On RHDH, update Node headers when the builder image changes Node. Then, when
+  those checkouts are in scope, pin plugin-catalog
+  `build/containerfiles/builder.Containerfile` FROM to the same UBI Node
+  `tag@sha256`, copy `.nvm/`, rewrite `konflux.additional-tags` `node-v*` to
+  match `.nvmrc`, and set overlays `versions.json` `node` to that version.
+  Catalog maps `release-X.Y` → GitLab `rhdh-X.Y-rhel-9`. Catalog has no
+  `rpms.lock.yaml`. Do not `[skip-build]` the catalog builder commit.
 - On rhdh-operator `main`, raise `go.mod` to the Go toolset image when the
   image is newer. Never lower `go` or `toolchain` to match an older image;
   a newer pin (for example from Renovate) is valid.
@@ -76,6 +84,7 @@ An update is complete when the target branch was verified to exist against a
 clean working tree before any edit, every approved operation has been reported by
 target and outcome, and the push and PR state is stated explicitly — including
 "not pushed" when the default local behavior was kept. When Node headers /
-`.nvmrc` changed, also state that plugin-catalog `builder.Containerfile`
-`konflux.additional-tags` `node-v*` must be updated to the same version
-(handoff to `/rhdh-konflux-tasks` or a catalog MR).
+`.nvmrc` changed, name the plugin-catalog FROM old→new, confirm
+`grep konflux.additional-tags build/containerfiles/builder.Containerfile`
+contains `node-v` matching `.nvmrc`, and name the overlays `versions.json`
+`node` value (or that those checkouts were not in scope).

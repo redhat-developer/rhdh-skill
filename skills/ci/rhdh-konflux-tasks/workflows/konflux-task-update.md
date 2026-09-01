@@ -118,18 +118,9 @@ Node version has no matching `releases/node-v*-headers.tar.gz` (log:
 digest problem.
 
 1. Map the stream to a GitHub selector — [SKILL.md § Boundary with base images](../SKILL.md#boundary-with-base-images). Example: catalog `rhdh-1.10-rhel-9` → `-b release-1.10`.
-2. Name `rhdh`, `rhdh-operator`, and `rhdh-must-gather` checkouts (user, or `/rhdh-context`).
-3. Invoke **`/rhdh-base-images` by name**. Do not run `base-images-and-rpms.sh` from this skill. Analyze first; if headers, `FROM` tags, or RPMs are stale, let that skill own the update and `/mutation-gate`.
-4. On plugin-catalog, pin `build/containerfiles/builder.Containerfile` FROM to the latest UBI Node `tag@sha256` `/rhdh-base-images` reported (same image name as the current FROM: `ubi9/nodejs-*` or later `ubi10/nodejs-*`; Node 22 on 1.9, Node 24 on 1.10/main today). Prefer `major.minor-buildid` (9.8-… or 10.x-…); numeric-only tags often 404. Then copy the matching `node-v*-headers.tar.gz` and `.nvmrc` from the rhdh checkout into catalog `.nvm/` (the Containerfile COPYs it). Update `.nvm/releases/README.adoc` version/date if present. Headers must match `node --version` in the **catalog** FROM image. Catalog has no `rpms.lock.yaml`. Do not `[skip-build]` if the builder should rebuild.
-5. Rewrite only the `node-v*` token in `LABEL konflux.additional-tags=...` inside `build/containerfiles/builder.Containerfile` to match catalog `.nvmrc`. Leave other tags (`latest`, `1.9`, `1.9-72`, …) untouched:
-
-```bash
-nvm_ver=$(tr -d '\n\r' < .nvmrc)
-sed -i -E "s/node-v[0-9]+\.[0-9]+\.[0-9]+/node-v${nvm_ver}/" \
-  build/containerfiles/builder.Containerfile
-grep konflux.additional-tags build/containerfiles/builder.Containerfile
-# must contain node-v${nvm_ver}
-```
+2. Name `rhdh`, `rhdh-operator`, `rhdh-must-gather`, plugin-catalog, and overlays checkouts (user, or `/rhdh-context`).
+3. Invoke **`/rhdh-base-images` by name**. Do not run `base-images-and-rpms.sh` from this skill. Analyze first; if headers, `FROM` tags, catalog builder pins, overlays `versions.json` `node`, or RPMs are stale, let that skill own the update and `/mutation-gate`.
+4. Do not pin `builder.Containerfile`, copy `.nvm/`, or edit overlays `versions.json` from this skill.
 
 ### 6. Human review and push
 
