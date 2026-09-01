@@ -53,6 +53,8 @@
         "./skills/release/rhdh-release-schedule",
         "./skills/release/rhdh-release-status",
         "./skills/release/rhdh-release-teams",
+        "./skills/release/rhdh-smoke-tests",
+        "./skills/reference/mutation-gate",
         "./skills/release/rhdh-test-plan-review"
       ]
     },
