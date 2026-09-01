@@ -39,7 +39,24 @@ def guest_token(data: Any) -> str:
 
 
 def packages_len(data: Any) -> int:
-    return len(data) if isinstance(data, list) else 0
+    """Count catalog packages from /api/extensions/packages.
+
+    Current API is ``{items, totalItems}``. Prefer ``totalItems``, then
+    ``len(items)``, then a bare JSON array.
+    """
+    if isinstance(data, list):
+        return len(data)
+    if not isinstance(data, dict):
+        return 0
+    total = data.get("totalItems")
+    if isinstance(total, int) and not isinstance(total, bool):
+        return total
+    if isinstance(total, str) and total.isdigit():
+        return int(total)
+    items = data.get("items")
+    if isinstance(items, list):
+        return len(items)
+    return 0
 
 
 def first_matching_line(text: str, pattern: re.Pattern[str]) -> str:
@@ -86,8 +103,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--min-packages",
         type=int,
-        default=100,
-        help="Packages API length must be >= N (default: 100)",
+        default=1,
+        help="packages totalItems (or items length) must be >= N (default: 1)",
     )
     parser.add_argument(
         "--json",
@@ -123,7 +140,7 @@ def emit_result(
     print(f"namespace: {namespace}")
     print(f"url: {url}")
     print(f"deploy: {deploy}")
-    print(f"packages: {packages}")
+    print(f"Total items: {packages}")
     if failures:
         print(f"failures: {' '.join(failures)}")
     else:
@@ -220,7 +237,7 @@ def main(argv: list[str] | None = None) -> int:
             pack_json = parse_json(http_body(f"{rhdh_url}/api/extensions/packages", token=token))
             packages = packages_len(pack_json)
             if packages < args.min_packages:
-                log_err(f"packages API length {packages} < {args.min_packages}")
+                log_err(f"Total items {packages} < {args.min_packages}")
                 failures.append("packages-low")
 
     emit_result(

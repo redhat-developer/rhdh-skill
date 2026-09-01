@@ -3,6 +3,7 @@
 One Backstage CR namespace (`${NS_OP}`). OLM Subscription stays in
 `rhdh-operator` (cluster-wide). After the CR exists: Guest ConfigMap (SKILL.md),
 then verify. Fail if CSV `replaces` cannot resolve or an InstallPlan is `Failed`.
+After each verify, print a live line (`Operator: deployed …` or `FAILED`).
 
 Catalog source for an RC CSV:
 [install-rhdh-catalog-source.sh](https://github.com/redhat-developer/rhdh-operator/blob/main/.rhdh/scripts/install-rhdh-catalog-source.sh)
@@ -33,7 +34,7 @@ EOF
 ```
 
 If the CRD is `v1alpha5`, use that `apiVersion`. Guest + verify. Images:
-`registry.redhat.io/rhdh/…`.
+`registry.redhat.io/rhdh/…`. Live: `Operator: deployed older version ${PREV_GA}`.
 
 ### 2. Upgrade to this RC
 
@@ -51,12 +52,14 @@ python3 "${SKILL_DIR}/scripts/operator_upgrade.py" \
 ```
 
 `${RC_CSV}` comes from the IIB / `oc get csv` — do not invent it. Then verify
-the same CR. Fail if InstallPlan is `Failed`.
+the same CR. Fail if InstallPlan is `Failed`. Live:
+`Operator: deployed latest CI version ${RC_VER} RC`.
 
 ### 3. Higher-stream (older branch only)
 
 Skip when this RC is already the newest stream. Switch to the next-minor **GA**
-channel (latest `1.10.z`, not 2.0):
+channel (latest `1.10.z`, not 2.0). Live skip:
+`Operator: skipped next-minor (this stream is newest)`.
 
 ```bash
 python3 "${SKILL_DIR}/scripts/operator_upgrade.py" \
@@ -65,7 +68,8 @@ python3 "${SKILL_DIR}/scripts/operator_upgrade.py" \
   --starting-csv "${NEXT_GA_CSV}"
 ```
 
-Then verify. Images must be `registry.redhat.io/rhdh/…`.
+Then verify. Images must be `registry.redhat.io/rhdh/…`. Live:
+`Operator: deployed next-minor GA ${NEXT_GA}`.
 
 ## GA run (only if asked)
 
