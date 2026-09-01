@@ -1,19 +1,19 @@
 ---
 name: rhdh-smoke-tests
 description: >-
-  Walks RHDH Helm and Operator heartbeat smoke tests in one namespace each:
+  Walks RHDH Helm and Operator smoke tests in one namespace each:
   install the previous GA, upgrade to this RC, then if this stream is not the
   newest, upgrade to the latest GA of the next minor. Enables Guest via Helm
   upstream.backstage.appConfig or an Operator ConfigMap, then verifies pods,
   Guest sign-in, and the extensions packages API. Use for "run the helm smoke
   tests", "operator RC smoke", "upgrade 1.10.3 to 1.10.4 RC", "1.9.8 to 1.9.9
-  then 1.10", "GA heartbeat", or "SMOKE_TESTS helm and operator".
+  then 1.10", "GA smoke test", or "SMOKE_TESTS helm and operator".
 compatibility: "oc, helm, curl, and python3; a dedicated smoke kubeconfig (not Konflux or OpenShift CI)."
 ---
 
 # RHDH Helm and Operator smoke tests
 
-Heartbeat after an RC (Quay CI chart / IIB). Helm **and** Operator are both
+Smoke test after an RC (Quay CI chart / IIB). Helm **and** Operator are both
 mandatory. One Helm namespace and one Operator namespace — the three checks are
 a chain in that namespace, not three installs.
 
