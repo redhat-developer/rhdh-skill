@@ -79,25 +79,7 @@ This catalog tree has **no** `rpms.lock.yaml`.
 
 After the digest bump, invoke `/rhdh-base-images` for the mapped GitHub branch
 (`rhdh-1.9-rhel-9` → `release-1.9`, `rhdh-1.10-rhel-9` → `release-1.10`,
-`main` → `main`; later `rhdh-*-rhel-10` streams use the same GitHub
-`release-*` / `main` mapping). Do not run that skill's scripts from here. Then:
-
-1. Take the latest `ubi<N>/nodejs-<major>:tag@sha256` that skill reported (or
-   that it just wrote on GitHub rhdh). Keep the **image name already in the
-   catalog FROM** (do not jump ubi9→ubi10 unless GitHub rhdh did). Node major
-   today is **22** on 1.9 and **24** on 1.10 and main.
-2. Set catalog `builder.Containerfile` FROM to that pin. Keep the comment URL
-   on the line above. Prefer `major.minor-buildid` (examples `9.8-1787706653`,
-   later `10.x-...`). Older catalog pins used a numeric-only tag such as
-   `:1781566314`; newer builds often have no such tag (`skopeo inspect` →
-   manifest unknown). Use the dotted UBI-minor form when that happens.
-3. Run `node --version` from **that** image. Copy matching
-   `node-v*-headers.tar.gz`, `.nvmrc`, and `.nvm/releases/README.adoc` from the
-   rhdh checkout (or download from nodejs.org). Headers must match the catalog
-   FROM image (for example v22.23.1 from `ubi9/nodejs-22:9.8-1787706653`).
-4. Rewrite only the `node-v*` token in `LABEL konflux.additional-tags=...` to
-   `node-v$(tr -d '\n\r' < .nvmrc)`. Leave other tags untouched. Success:
-   `grep konflux.additional-tags build/containerfiles/builder.Containerfile`
-   contains `node-v` matching `.nvmrc`. Anti-pattern: copying headers while
-   leaving a stale `node-v*` label (Konflux keeps publishing the old tag).
-5. Omit `[skip-build]` when the builder should rebuild on the new FROM.
+catalog `release-2.Y` → `release-2.Y`, `main` → `main`; later
+`rhdh-*-rhel-10` streams use the same GitHub `release-*` / `main` mapping). Name the catalog checkout (and overlays, when
+present). Do not run that skill's scripts from here, and do not pin FROM,
+`.nvm/`, or `konflux.additional-tags` from this skill.

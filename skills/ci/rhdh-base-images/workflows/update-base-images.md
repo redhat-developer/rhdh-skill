@@ -4,13 +4,15 @@ Before any non-analysis run, follow the write gate in [SKILL.md](../SKILL.md): s
 
 ## Goal
 
-Refresh **base images** and **RPM lockfiles** in the three upstream GitHub repos:
+Refresh **base images** and **RPM lockfiles** in the GitHub hub/operator/must-gather repos, then pin **plugin-catalog** Node and **overlays** `versions.json` when those checkouts are named:
 
 | Repo | Node / Go source | RPM containerfile |
 |------|------------------|-------------------|
 | rhdh | `build/containerfiles/Containerfile` or `docker/Dockerfile` (release-1.9) | `build/containerfiles/Containerfile` or `.rhdh/docker/Dockerfile` |
 | rhdh-operator | `go.mod` aligned with `ubi9/go-toolset` on **main** only | `.rhdh/docker/Dockerfile` |
 | rhdh-must-gather | — | `Containerfile` |
+| rhdh-plugin-catalog | `builder.Containerfile` FROM + `.nvm/` + `konflux.additional-tags` `node-v*` | none |
+| rhdh-plugin-export-overlays | `versions.json` `node` | none |
 
 Upstream helper scripts live in GitLab midstream [rhidp/rhdh](https://gitlab.cee.redhat.com/rhidp/rhdh) on branch `rhdh-1-rhel-9` (see [updateBaseImages.sh](https://gitlab.cee.redhat.com/rhidp/rhdh/-/blob/rhdh-1-rhel-9/build/scripts/updateBaseImages.sh)).
 
@@ -34,10 +36,11 @@ On Fedora/RHEL hosts, `dnf install podman skopeo python3-dnf` may also be requir
 
 Accepted `-b` values: `main` or any `release-*` branch (e.g. `release-1.9`, `release-1.10`, `release-2.1`).
 
-| GitHub branch (`-b`) | GitLab scripts branch (`-sb` for `updateBaseImages.sh`) |
-|----------------------|---------------------------------------------------------|
-| `main` | `rhdh-1-rhel-9` |
-| `release-X.Y` | `rhdh-X.Y-rhel-9` |
+| GitHub branch (`-b`) | GitLab scripts branch (`-sb` for `updateBaseImages.sh`) | plugin-catalog GitLab branch |
+|----------------------|---------------------------------------------------------|------------------------------|
+| `main` | `rhdh-1-rhel-9` | `main` |
+| `release-1.Y` | `rhdh-1.Y-rhel-9` | `rhdh-1.Y-rhel-9` |
+| `release-2.Y` | `rhdh-2.Y-rhel-9` | `release-2.Y` |
 
 Verify the target branch exists in each repo before running.
 
@@ -152,7 +155,7 @@ When no base-images PR exists (e.g. `--skip-base`), the script uses `chore/autom
 
 `rpm-lockfile-prototype` often logs `No sources found for <pkg>` when the matching source RPM is unpublished (commonly `kernel-headers` and `efi-srpm-macros`). The bundled script drops those lines. Never list them as remaining risks; Konflux still consumes the binary lockfile.
 
-### Node headers (rhdh only)
+### Node headers (rhdh, then catalog and overlays)
 
 When the UBI Node builder image (`ubi9/nodejs-*` today; `ubi10/nodejs-*` when
 that line ships) in `build/containerfiles/Containerfile` (or `docker/Dockerfile`
@@ -163,12 +166,11 @@ the script:
 2. Downloads `https://nodejs.org/dist/<version>/node-<version>-headers.tar.gz` into `.nvm/releases/`
 3. Updates `.nvmrc` (version without `v` prefix) and `.nvm/releases/README.adoc` (date + version)
 4. Removes stale `node-v*-headers.tar.gz` files and pushes to the same automation PR
-
-When Node headers / `.nvmrc` change on rhdh, the completion report **must** state
-that plugin-catalog `build/containerfiles/builder.Containerfile`
-`konflux.additional-tags` `node-v*` must be updated to the same version (handoff
-to `/rhdh-konflux-tasks` or a catalog MR). Do not edit the catalog from this
-skill.
+5. When a plugin-catalog checkout is in the same run, pins
+   `builder.Containerfile` FROM to the rhdh UBI Node image, copies `.nvm/`, and
+   rewrites `konflux.additional-tags` `node-v*` (no `[skip-build]`)
+6. When an overlays checkout is in the same run, sets `versions.json` `node` to
+   that `.nvmrc` value
 
 See [rhdh `.nvm/releases/README.adoc`](https://github.com/redhat-developer/rhdh/blob/main/.nvm/releases/README.adoc). On **release-1.9**, headers come from `docker/Dockerfile` (`ubi9/nodejs-22`), not Node 24.
 
@@ -186,13 +188,14 @@ Do not downgrade. If `go.mod` already pins a newer toolchain (for example `go1.2
 ## Anti-patterns
 
 - Pushing without human review.
-- Running on a branch that does not exist in one of the three repos.
+- Running on a branch that does not exist in one of the in-scope repos.
 - Omitting `registry.redhat.io` login before base image updates.
 - Committing `rpms.lock.yaml` without checking the base image minor (e.g. UBI `9.8`) still matches `rpms.in.yaml` repo URLs.
 - Treating `rpm-lockfile-prototype` `No sources found for` / "no matching sources" warnings as a failure or remaining risk. The source RPM is often unpublished; the lockfile is still valid.
 - Lowering `go.mod` `toolchain` (or `go`) to match an older `ubi9/go-toolset` image. Keep the newer pin.
-- Editing GitLab `rhdh-plugin-catalog` `builder.Containerfile` from this skill. That pin is `/rhdh-konflux-tasks` after this skill reports the GitHub rhdh UBI Node tag.
-- Claiming Node headers / `.nvmrc` are done while plugin-catalog still advertises an old `node-v*` in `konflux.additional-tags`. Report the catalog handoff.
+- Copying plugin-catalog `.nvm/` headers while leaving `builder.Containerfile` FROM on an older UBI Node tag, or leaving a stale `node-v*` in `konflux.additional-tags`.
+- Handing catalog FROM / overlays `versions.json` to `/rhdh-konflux-tasks`. That skill invokes this one; it does not pin those files.
+- Claiming Node headers / `.nvmrc` are done while plugin-catalog still advertises an old `node-v*` in `konflux.additional-tags`. Name the catalog (and overlays) checkout outcome or that it was out of scope.
 
 ## Additional resources
 

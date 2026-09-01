@@ -67,27 +67,22 @@ PLR.
 ## Boundary with base images
 
 `/rhdh-base-images` owns `FROM` tags, `rpms.lock.yaml`, Node headers
-(`.nvm/releases/node-v*-headers.tar.gz`), and operator `go.mod` on GitHub
-`rhdh`, `rhdh-operator`, and `rhdh-must-gather`. This skill does not reconstruct
-that workflow. It maps the Konflux stream to a GitHub branch selector, names
-the checkouts (user-supplied, or `/rhdh-context`), and invokes `/rhdh-base-images`.
+(`.nvm/releases/node-v*-headers.tar.gz`), operator `go.mod`, plugin-catalog
+`builder.Containerfile` / `.nvm/` / `konflux.additional-tags`, and overlays
+`versions.json` `node`. This skill does not reconstruct that workflow. It maps
+the Konflux stream to a GitHub branch selector, names the checkouts
+(user-supplied, or `/rhdh-context`, including catalog and overlays), and
+invokes `/rhdh-base-images`.
 
 A Konflux log `could not find releases/node-v*-headers.tar.gz` is that handoff,
-not a Tekton pin problem. Plugin-catalog `build/containerfiles/builder.Containerfile`
-both **FROM**s a UBI Node image (`ubi9/nodejs-*` today; `ubi10/nodejs-*` when
-that line ships) and COPYs local `.nvm/`. After `/rhdh-base-images` reports the
-latest tag and tarball on GitHub rhdh, pin that same image name + `tag@sha256`
-on the catalog FROM line **and** copy the matching headers. Also rewrite the
-`node-v*` token in `LABEL konflux.additional-tags=...` to
-`node-v$(tr -d '\n\r' < .nvmrc)` so Konflux publishes the matching tag; leave
-other tags (`latest`, `1.9`, `1.9-72`, …) untouched. Do not rewrite ubi9→ubi10
-(or the reverse) unless GitHub rhdh already moved. Headers without a FROM bump
-still build on the old Node. Catalog has no `rpms.lock.yaml`.
+not a Tekton pin problem. Do not pin catalog FROM or copy `.nvm/` from this
+skill.
 
 | Konflux / catalog stream | `/rhdh-base-images` `-b` |
 |--------------------------|--------------------------|
 | `rhdh-1.9-rhel-9` | `release-1.9` |
 | `rhdh-1.10-rhel-9` | `release-1.10` |
+| `release-2.Y` | `release-2.Y` |
 | `main` (2.1+) | `main` |
 | other `rhdh-<ver>-rhel-<N>` | `release-<ver>` when that GitHub branch exists |
 
@@ -144,11 +139,9 @@ writes. Follow `/mutation-gate`.
 - Review `git diff` for `quay.io/konflux-ci/tekton-catalog/task-*` changes before
   committing.
 - After the Tekton pass, invoke `/rhdh-base-images` by name (never its script
-  paths). Map the stream to `main` or `release-*`. On plugin-catalog, pin
-  `builder.Containerfile` FROM to the latest UBI Node `tag@sha256` that skill
-  reported (same image name as the current FROM: `ubi9/nodejs-*` or
-  `ubi10/nodejs-*`; Node 22 on 1.9, Node 24 on 1.10/main today) and copy
-  matching Node headers into `.nvm/`.
+  paths). Map the stream to `main` or `release-*`. Pass named rhdh, catalog, and
+  overlays checkouts so that skill pins `builder.Containerfile` / `.nvm/` /
+  overlays `versions.json`. Do not edit those files from this skill.
 - The human reviews the whole diff across `.tekton/` and `.tekton-templates/`
   and decides when it is pushed.
 

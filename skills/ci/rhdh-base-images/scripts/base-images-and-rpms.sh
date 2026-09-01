@@ -25,7 +25,8 @@ CACHE_DIR="${XDG_CACHE_HOME:-${HOME}/.cache}/base-images-and-rpms"
 
 usage() {
     cat <<'EOF'
-Update base images and RPM lockfiles in rhdh, rhdh-must-gather, and rhdh-operator.
+Update base images, RPM lockfiles, Node headers, plugin-catalog builder pins,
+and overlays versions.json node in the RHDH GitHub/GitLab checkouts.
 
 Usage:
   base-images-and-rpms.sh -b BRANCH [OPTIONS] [REPO_DIR ...]
@@ -56,7 +57,8 @@ Examples:
   base-images-and-rpms.sh -b release-1.10 --parent-dir ~/RHDH/
   base-images-and-rpms.sh -b main \
     --update-base-images-script ~/src/rhdh/build/scripts/updateBaseImages.sh \
-    ~/RHDH/rhdh ~/RHDH/rhdh-operator ~/RHDH/rhdh-must-gather
+    ~/RHDH/rhdh ~/RHDH/rhdh-operator ~/RHDH/rhdh-must-gather \
+    ~/RHDH/rhdh-plugin-catalog ~/RHDH/rhdh-plugin-export-overlays
 EOF
 }
 
@@ -92,6 +94,25 @@ scripts_branch_for() {
     fi
 }
 
+is_git_checkout() {
+    [[ -e "$1/.git" ]]
+}
+
+# GitHub -b selector → plugin-catalog GitLab branch.
+# 1.Y still uses rhdh-1.Y-rhel-9; 2.Y+ uses the same release-X.Y name as GitHub.
+catalog_git_branch_for() {
+    local branch="$1"
+    if [[ "${branch}" == "main" ]]; then
+        echo "main"
+    elif [[ "${branch}" =~ ^release-(1\.[0-9]+)$ ]]; then
+        echo "rhdh-${BASH_REMATCH[1]}-rhel-9"
+    elif [[ "${branch}" =~ ^release- ]]; then
+        echo "${branch}"
+    else
+        die "No plugin-catalog branch mapping for ${branch}"
+    fi
+}
+
 detect_repo_kind() {
     local repo_dir="$1"
     if [[ -f "${repo_dir}/Containerfile" && -f "${repo_dir}/rpms.in.yaml" && -d "${repo_dir}/collection-scripts" ]]; then
@@ -99,6 +120,14 @@ detect_repo_kind() {
     elif [[ -f "${repo_dir}/go.mod" ]] \
         && grep -q '^module github.com/redhat-developer/rhdh-operator' "${repo_dir}/go.mod" 2>/dev/null; then
         echo "rhdh-operator"
+    elif [[ -f "${repo_dir}/build/containerfiles/builder.Containerfile" && -f "${repo_dir}/.nvmrc" ]] \
+        && { [[ -f "${repo_dir}/.tekton/updatePLRs.sh" ]] \
+            || [[ -f "${repo_dir}/.tekton/generatePipelineRunsForPlugins.sh" ]]; }; then
+        echo "rhdh-plugin-catalog"
+    elif [[ -f "${repo_dir}/versions.json" ]] \
+        && { [[ -d "${repo_dir}/workspaces" ]] || [[ -d "${repo_dir}/catalog-entities" ]]; } \
+        && grep -q '"node"' "${repo_dir}/versions.json" 2>/dev/null; then
+        echo "rhdh-plugin-export-overlays"
     elif [[ -f "${repo_dir}/rpms.in.yaml" ]] && [[ -f "${repo_dir}/package.json" ]]; then
         echo "rhdh"
     else
@@ -114,6 +143,8 @@ rhdh_nodejs_containerfile() {
         echo "${repo_dir}/docker/Dockerfile"
     elif [[ -f "${repo_dir}/.rhdh/docker/Dockerfile" ]]; then
         echo "${repo_dir}/.rhdh/docker/Dockerfile"
+    elif [[ -f "${repo_dir}/build/containerfiles/builder.Containerfile" ]]; then
+        echo "${repo_dir}/build/containerfiles/builder.Containerfile"
     fi
 }
 
@@ -132,6 +163,9 @@ rpm_containerfile_for() {
             ;;
         rhdh-operator) echo ".rhdh/docker/Dockerfile" ;;
         rhdh-must-gather) echo "Containerfile" ;;
+        rhdh-plugin-catalog | rhdh-plugin-export-overlays)
+            die "${repo_dir}: ${kind} has no rpms.lock.yaml"
+            ;;
         *) die "Unknown repo kind '${kind}'" ;;
     esac
 }
@@ -202,8 +236,10 @@ discover_repos_in_parent() {
     for candidate in \
         "${parent}/1-rhdh" "${parent}/rhdh" \
         "${parent}/1-rhdh-operator" "${parent}/rhdh-operator" \
-        "${parent}/1-must-gather" "${parent}/1-rhdh-must-gather" "${parent}/rhdh-must-gather"; do
-        [[ -d "${candidate}/.git" ]] || continue
+        "${parent}/1-must-gather" "${parent}/1-rhdh-must-gather" "${parent}/rhdh-must-gather" \
+        "${parent}/1-rhdh-plugin-catalog" "${parent}/rhdh-plugin-catalog" \
+        "${parent}/1-overlays" "${parent}/rhdh-plugin-export-overlays"; do
+        is_git_checkout "${candidate}" || continue
         kind=$(detect_repo_kind "${candidate}")
         [[ "${kind}" != "unknown" ]] || continue
         REPO_DIRS+=("${candidate}")
@@ -335,14 +371,14 @@ ensure_automation_branch() {
     pr_branch=$(find_open_base_images_pr_branch "${branch}" || true)
     if [[ -n "${pr_branch}" ]]; then
         log "Switching to open base-images PR branch ${pr_branch}" >&2
-        git checkout "${pr_branch}"
+        git checkout "${pr_branch}" >/dev/null
         printf '%s\n' "${pr_branch}"
         return 0
     fi
 
     local rpm_branch="chore/automated-update-rpm-lockfile/${branch}"
     log "No automation PR branch; using ${rpm_branch}" >&2
-    git checkout -B "${rpm_branch}"
+    git checkout -B "${rpm_branch}" >/dev/null
     printf '%s\n' "${rpm_branch}"
 }
 
@@ -374,7 +410,8 @@ commit_push_paths() {
     push_branch="${current}"
 
     if [[ "${current}" == "${branch}" ]]; then
-        push_branch=$(ensure_automation_branch "${branch}")
+        # Capture only the branch name; git checkout/hooks must not leak into the refspec.
+        push_branch=$(ensure_automation_branch "${branch}" | tail -n1)
     fi
 
     git add "${paths[@]}"
@@ -504,6 +541,138 @@ update_rhdh_node_headers() {
 
     commit_push_paths "${branch}" "chore: update node headers to ${node_version} [skip-build]" \
         .nvmrc "${headers_file}" "${readme_file}"
+    popd >/dev/null
+}
+
+pin_catalog_builder_from() {
+    local catalog_cf="$1"
+    local src_image="$2"
+    python3 - "${catalog_cf}" "${src_image}" <<'PY'
+import pathlib
+import re
+import sys
+
+path = pathlib.Path(sys.argv[1])
+image = sys.argv[2]
+text = path.read_text(encoding="utf-8")
+pattern = re.compile(
+    r"^FROM registry\.access\.redhat\.com/ubi[0-9]+/nodejs-[0-9]+:\S+",
+    re.MULTILINE,
+)
+match = pattern.search(text)
+if match is None:
+    raise SystemExit("no ubi*/nodejs FROM line in catalog builder.Containerfile")
+replacement = f"FROM {image}"
+if match.group(0) == replacement:
+    raise SystemExit(0)
+path.write_text(pattern.sub(replacement, text, count=1), encoding="utf-8")
+PY
+}
+
+rewrite_catalog_additional_tags() {
+    local catalog_cf="$1"
+    local node_plain="$2"
+    sed -i -E "s/node-v[0-9]+\\.[0-9]+\\.[0-9]+/node-v${node_plain}/" "${catalog_cf}"
+}
+
+copy_nvm_tree() {
+    local src="$1"
+    local dest="$2"
+    local old
+    mkdir -p "${dest}/.nvm/releases"
+    /bin/cp -f "${src}/.nvmrc" "${dest}/.nvmrc"
+    if [[ -f "${src}/.nvm/releases/README.adoc" ]]; then
+        /bin/cp -f "${src}/.nvm/releases/README.adoc" "${dest}/.nvm/releases/README.adoc"
+    fi
+    for old in "${src}"/.nvm/releases/node-v*-headers.tar.gz; do
+        [[ -e "${old}" ]] || continue
+        /bin/cp -f "${old}" "${dest}/.nvm/releases/"
+    done
+}
+
+remove_stale_header_tarballs() {
+    local keep="$1"
+    local old
+    for old in .nvm/releases/node-v*-headers.tar.gz; do
+        [[ -e "${old}" && "${old}" != "${keep}" ]] || continue
+        if git ls-files --error-unmatch "${old}" >/dev/null 2>&1; then
+            git rm -f "${old}"
+        else
+            rm -f "${old}"
+        fi
+    done
+}
+
+update_plugin_catalog_node() {
+    local repo_dir="$1"
+    local git_branch="$2"
+    local rhdh_src="${3:-}"
+    local catalog_cf="${repo_dir}/build/containerfiles/builder.Containerfile"
+    [[ -f "${catalog_cf}" ]] || return 0
+
+    local src_image="" node_plain="" headers_file
+    if [[ -n "${rhdh_src}" && -f "${rhdh_src}/.nvmrc" ]]; then
+        src_image=$(rhdh_nodejs_builder_image "$(rhdh_nodejs_containerfile "${rhdh_src}")")
+        node_plain=$(tr -d '\n\r' < "${rhdh_src}/.nvmrc")
+    fi
+
+    if [[ ${DRY_RUN} -eq 1 ]]; then
+        echo "  dry-run: pin ${catalog_cf} FROM to rhdh UBI node image; copy .nvm/; rewrite konflux.additional-tags node-v*"
+        return 0
+    fi
+
+    pushd "${repo_dir}" >/dev/null
+    if [[ -n "${src_image}" ]]; then
+        pin_catalog_builder_from "${catalog_cf}" "${src_image}"
+        copy_nvm_tree "${rhdh_src}" "${repo_dir}"
+    else
+        log "plugin-catalog: no rhdh checkout in this run; refreshing headers from catalog FROM"
+        update_rhdh_node_headers "${repo_dir}" "${git_branch}"
+        [[ -f .nvmrc ]] && node_plain=$(tr -d '\n\r' < .nvmrc)
+    fi
+
+    if [[ -n "${node_plain}" ]]; then
+        rewrite_catalog_additional_tags "${catalog_cf}" "${node_plain}"
+        headers_file=".nvm/releases/node-v${node_plain}-headers.tar.gz"
+        remove_stale_header_tarballs "${headers_file}"
+        commit_push_paths "${git_branch}" "chore: pin catalog builder to Node v${node_plain}" \
+            .nvmrc "${headers_file}" .nvm/releases/README.adoc "${catalog_cf}"
+    fi
+    popd >/dev/null
+}
+
+update_overlays_node_version() {
+    local repo_dir="$1"
+    local git_branch="$2"
+    local node_plain="${3:-}"
+    local versions="${repo_dir}/versions.json"
+
+    [[ -f "${versions}" ]] || return 0
+    if [[ -z "${node_plain}" ]]; then
+        warn "overlays: no Node version from rhdh/.nvmrc; skipping versions.json"
+        return 0
+    fi
+
+    if [[ ${DRY_RUN} -eq 1 ]]; then
+        echo "  dry-run: set ${versions} node=${node_plain}"
+        return 0
+    fi
+
+    pushd "${repo_dir}" >/dev/null
+    python3 - "${versions}" "${node_plain}" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+wanted = sys.argv[2]
+data = json.loads(path.read_text(encoding="utf-8"))
+if data.get("node") == wanted:
+    raise SystemExit(0)
+data["node"] = wanted
+path.write_text(json.dumps(data, indent=4) + "\n", encoding="utf-8")
+PY
+    commit_push_paths "${git_branch}" "chore: bump versions.json Node to ${node_plain}" versions.json
     popd >/dev/null
 }
 
@@ -683,7 +852,7 @@ while [[ $# -gt 0 ]]; do
         --) shift; break ;;
         -*) die "Unknown option: $1 (try --help)" ;;
         *)
-            [[ -d "$1/.git" ]] || die "Not a git repo: $1"
+            [[ -e "$1/.git" ]] || die "Not a git repo: $1"
             REPO_DIRS+=("$1")
             shift
             ;;
@@ -691,7 +860,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 while [[ $# -gt 0 ]]; do
-    [[ -d "$1/.git" ]] || die "Not a git repo: $1"
+    is_git_checkout "$1" || die "Not a git repo: $1"
     REPO_DIRS+=("$1")
     shift
 done
@@ -706,7 +875,7 @@ else
 fi
 
 if [[ ${#REPO_DIRS[@]} -eq 0 ]]; then
-    if [[ -d ".git" ]] && [[ "$(detect_repo_kind "$(pwd)")" != "unknown" ]]; then
+    if is_git_checkout "." && [[ "$(detect_repo_kind "$(pwd)")" != "unknown" ]]; then
         REPO_DIRS=("$(pwd)")
     else
         die "No repo directories found. Pass REPO_DIR paths or --parent-dir."
@@ -735,37 +904,73 @@ if [[ ${SKIP_RPM} -eq 0 ]]; then
 fi
 command -v gh >/dev/null 2>&1 || warn "gh not found; automation commits may not reach an open PR"
 
+order_repo_dirs() {
+    local -a ordered=()
+    local want d
+    for want in rhdh rhdh-operator rhdh-must-gather rhdh-plugin-catalog rhdh-plugin-export-overlays; do
+        for d in "${REPO_DIRS[@]}"; do
+            if [[ "$(detect_repo_kind "${d}")" == "${want}" ]]; then
+                ordered+=("${d}")
+            fi
+        done
+    done
+    REPO_DIRS=("${ordered[@]}")
+}
+
+order_repo_dirs
+
+RHDH_NODE_REPO=""
+RHDH_NODE_PLAIN=""
+
 declare -A SEEN_KIND=()
 for repo_dir in "${REPO_DIRS[@]}"; do
     repo_dir=$(cd "${repo_dir}" && pwd)
     kind=$(detect_repo_kind "${repo_dir}")
-    [[ "${kind}" != "unknown" ]] || die "${repo_dir}: cannot detect repo type (rhdh, rhdh-operator, or rhdh-must-gather)"
+    [[ "${kind}" != "unknown" ]] || die "${repo_dir}: cannot detect repo type (rhdh, rhdh-operator, rhdh-must-gather, rhdh-plugin-catalog, or rhdh-plugin-export-overlays)"
     if [[ -n "${SEEN_KIND[${kind}]:-}" ]]; then
         warn "Skipping duplicate ${kind} repo: ${repo_dir}"
         continue
     fi
     SEEN_KIND[${kind}]=1
 
-    echo "=================================================="
-    log "Processing ${kind} (${repo_dir})"
-    if [[ ${DRY_RUN} -eq 1 ]]; then
-        log "dry-run: would checkout ${BRANCH} in ${repo_dir}"
-    else
-        checkout_branch "${repo_dir}" "${BRANCH}"
+    local_git_branch="${BRANCH}"
+    if [[ "${kind}" == "rhdh-plugin-catalog" ]]; then
+        local_git_branch=$(catalog_git_branch_for "${BRANCH}")
     fi
 
-    if [[ ${SKIP_BASE} -eq 0 ]]; then
-        update_base_images "${repo_dir}" "${BRANCH}" "${SCRIPTS_BRANCH}" "${UPDATE_SCRIPT}"
+    echo "=================================================="
+    log "Processing ${kind} (${repo_dir}) @ ${local_git_branch}"
+    if [[ ${DRY_RUN} -eq 1 ]]; then
+        log "dry-run: would checkout ${local_git_branch} in ${repo_dir}"
+    else
+        checkout_branch "${repo_dir}" "${local_git_branch}"
     fi
-    if [[ ${SKIP_RPM} -eq 0 ]]; then
-        update_rpm_lockfile "${repo_dir}" "${kind}" "${RPM_TOOL}" "${BRANCH}"
+
+    if [[ ${SKIP_BASE} -eq 0 \
+        && "${kind}" != "rhdh-plugin-export-overlays" \
+        && "${kind}" != "rhdh-plugin-catalog" ]]; then
+        update_base_images "${repo_dir}" "${local_git_branch}" "${SCRIPTS_BRANCH}" "${UPDATE_SCRIPT}"
+    fi
+    if [[ ${SKIP_RPM} -eq 0 \
+        && "${kind}" != "rhdh-plugin-catalog" \
+        && "${kind}" != "rhdh-plugin-export-overlays" ]]; then
+        update_rpm_lockfile "${repo_dir}" "${kind}" "${RPM_TOOL}" "${local_git_branch}"
     fi
     if [[ "${kind}" == "rhdh" ]]; then
-        update_rhdh_node_headers "${repo_dir}" "${BRANCH}"
+        update_rhdh_node_headers "${repo_dir}" "${local_git_branch}"
+        RHDH_NODE_REPO="${repo_dir}"
+        [[ -f "${repo_dir}/.nvmrc" ]] && RHDH_NODE_PLAIN=$(tr -d '\n\r' < "${repo_dir}/.nvmrc")
     fi
     if [[ "${kind}" == "rhdh-operator" ]]; then
-        update_operator_go_mod "${repo_dir}" "${BRANCH}"
+        update_operator_go_mod "${repo_dir}" "${local_git_branch}"
+    fi
+    if [[ "${kind}" == "rhdh-plugin-catalog" ]]; then
+        update_plugin_catalog_node "${repo_dir}" "${local_git_branch}" "${RHDH_NODE_REPO}"
+        [[ -f "${repo_dir}/.nvmrc" ]] && RHDH_NODE_PLAIN=$(tr -d '\n\r' < "${repo_dir}/.nvmrc")
+    fi
+    if [[ "${kind}" == "rhdh-plugin-export-overlays" ]]; then
+        update_overlays_node_version "${repo_dir}" "${local_git_branch}" "${RHDH_NODE_PLAIN}"
     fi
 done
 
-log "Done. Review open PRs for base image, RPM lockfile, node header, and go.mod updates."
+log "Done. Review open PRs for base image, RPM lockfile, node header, catalog builder, overlays, and go.mod updates."
