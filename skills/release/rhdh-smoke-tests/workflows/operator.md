@@ -8,7 +8,7 @@ Catalog source for an RC CSV:
 [install-rhdh-catalog-source.sh](https://github.com/redhat-developer/rhdh-operator/blob/main/.rhdh/scripts/install-rhdh-catalog-source.sh)
 
 CSV upgrades (channel / `startingCSV` / InstallPlan) go through
-`scripts/operator_upgrade.sh`. Do not hand-roll `oc patch` for those.
+`scripts/operator_upgrade.py`. Do not hand-roll `oc patch` for those.
 
 ```bash
 NS="${NS_OP}"
@@ -44,7 +44,7 @@ same CR):
 curl -sSLO https://raw.githubusercontent.com/redhat-developer/rhdh-operator/main/.rhdh/scripts/install-rhdh-catalog-source.sh
 chmod +x install-rhdh-catalog-source.sh
 ./install-rhdh-catalog-source.sh -v "${STREAM}" --install-operator rhdh
-"${SKILL_DIR}/scripts/operator_upgrade.sh" \
+python3 "${SKILL_DIR}/scripts/operator_upgrade.py" \
   --subscription-namespace "${SUB_NS}" \
   --channel "fast-${STREAM}" \
   --starting-csv "${RC_CSV}"
@@ -59,7 +59,7 @@ Skip when this RC is already the newest stream. Switch to the next-minor **GA**
 channel (latest `1.10.z`, not 2.0):
 
 ```bash
-"${SKILL_DIR}/scripts/operator_upgrade.sh" \
+python3 "${SKILL_DIR}/scripts/operator_upgrade.py" \
   --subscription-namespace "${SUB_NS}" \
   --channel "fast-${NEXT_STREAM}" \
   --starting-csv "${NEXT_GA_CSV}"
@@ -70,5 +70,5 @@ Then verify. Images must be `registry.redhat.io/rhdh/…`.
 ## GA run (only if asked)
 
 Same CR namespace. Step 1–3 all use OperatorHub `fast` / `fast-1.y` (no IIB).
-`fast` ↔ `fast-1.y` is the same `operator_upgrade.sh --channel` invocation.
+`fast` ↔ `fast-1.y` is the same `operator_upgrade.py --channel` invocation.
 Every step must pull `registry.redhat.io/rhdh/…`.

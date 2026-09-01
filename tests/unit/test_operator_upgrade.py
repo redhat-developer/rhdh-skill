@@ -1,29 +1,28 @@
-"""Tests for rhdh-smoke-tests operator_upgrade.sh."""
+"""Tests for rhdh-smoke-tests operator_upgrade.py."""
 
 from __future__ import annotations
 
+import importlib.util
 import json
-import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = (
-    PROJECT_ROOT / "skills" / "release" / "rhdh-smoke-tests" / "scripts" / "operator_upgrade.sh"
+    PROJECT_ROOT / "skills" / "release" / "rhdh-smoke-tests" / "scripts" / "operator_upgrade.py"
 )
-
-
-def _cmd(*args: str) -> list[str]:
-    if os.name == "nt":
-        pytest.skip("bash required")
-    return [str(SCRIPT), *args]
+SPEC = importlib.util.spec_from_file_location("operator_upgrade", SCRIPT)
+assert SPEC and SPEC.loader
+UPGRADE = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(UPGRADE)
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        _cmd(*args),
+        [sys.executable, str(SCRIPT), *args],
         capture_output=True,
         text=True,
         check=False,
@@ -34,30 +33,43 @@ def test_script_exists() -> None:
     assert SCRIPT.is_file()
 
 
-def test_script_uses_jq_not_python() -> None:
-    text = SCRIPT.read_text(encoding="utf-8")
-    assert "python3" not in text
-    assert "jq " in text
+def test_subscription_patch_omits_empty_starting_csv() -> None:
+    assert UPGRADE.subscription_patch("fast-1.10", None) == {"spec": {"channel": "fast-1.10"}}
+    assert UPGRADE.subscription_patch("fast-1.10", "rhdh-operator.v1.10.4") == {
+        "spec": {"channel": "fast-1.10", "startingCSV": "rhdh-operator.v1.10.4"},
+    }
+
+
+def test_unapproved_installplans_only_explicit_false() -> None:
+    payload = {
+        "items": [
+            {"metadata": {"name": "skip-approved"}, "spec": {"approved": True}},
+            {"metadata": {"name": "skip-missing"}, "spec": {}},
+            {"metadata": {"name": "need-approve"}, "spec": {"approved": False}},
+        ]
+    }
+    assert UPGRADE.unapproved_installplans(payload) == ["need-approve"]
+    assert UPGRADE.unapproved_installplans(None) == []
 
 
 @pytest.mark.parametrize("flag", ["--help", "-h"])
 def test_help_prints_usage_and_exits_zero(flag: str) -> None:
     result = _run(flag)
     assert result.returncode == 0
-    assert "Usage:" in result.stdout
+    assert "usage:" in result.stdout.lower()
     assert "--channel" in result.stdout
 
 
 def test_missing_channel_exits_two() -> None:
     result = _run()
     assert result.returncode == 2
-    assert "--channel is required" in result.stderr
+    assert "--channel" in result.stderr
 
 
 def test_unknown_option_exits_two() -> None:
-    result = _run("--not-a-real-flag")
+    result = _run("--channel", "fast", "--not-a-real-flag")
     assert result.returncode == 2
-    assert "Unknown option" in result.stderr
+    assert "unrecognized arguments" in result.stderr
 
 
 def test_dry_run_prints_patch_and_skips_oc() -> None:

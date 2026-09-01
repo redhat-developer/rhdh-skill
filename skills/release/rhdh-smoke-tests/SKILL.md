@@ -8,7 +8,7 @@ description: >-
   Guest sign-in, and the extensions packages API. Use for "run the helm smoke
   tests", "operator RC smoke", "upgrade 1.10.3 to 1.10.4 RC", "1.9.8 to 1.9.9
   then 1.10", "GA smoke test", or "SMOKE_TESTS helm and operator".
-compatibility: "oc, helm, curl, and jq; a dedicated smoke kubeconfig (not Konflux or OpenShift CI)."
+compatibility: "oc, helm, and python3; a dedicated smoke kubeconfig (not Konflux or OpenShift CI)."
 ---
 
 # RHDH Helm and Operator smoke tests
@@ -102,7 +102,7 @@ oc -n "${NS_OP}" patch backstage "${CR_NAME}" --type merge -p \
 
 ## Verify
 
-`scripts/verify_ns.sh --namespace "${NS}"` after Guest. Fail on
+`scripts/verify_ns.py --namespace "${NS}"` after Guest. Fail on
 `ImagePullBackOff`, `CrashLoopBackOff`, `OOMKilled`, or 401/403 in
 `install-dynamic-plugins`. 504 right after install = still starting.
 
