@@ -5,7 +5,7 @@
   Commands:
     link         Create/update a Web link, apply missing configured defaults, In Progress.
                  Auto-moves RHDHPLAN Epic/Story/Task → RHIDP first.
-    mark-merged  Prefix remotelink titles with "[x] merged: " for merged PRs/MRs
+    mark-merged  Prefix remotelink titles: "[x] merged: " or "[!] closed: "
 
   Auth (either):
     - $JIRA_API_TOKEN + login/server from ~/.config/.jira/.config.yml
@@ -33,6 +33,10 @@ const {
   resolveJiraAuth,
   shouldMoveRhdhplanDeliveryIssue,
   shouldSkipTeamAndSprint,
+  classifyPrMrState,
+  prefixForPrMrState,
+  stripOutcomePrefix,
+  withClosedPrefix,
   withMergedPrefix,
   parseArgs: parseArgv,
 } = require('./lib.js');
@@ -92,6 +96,8 @@ function usage(exitCode = 0) {
     [--story-points N] [--priority NAME]
 
   link-pr-mr.js mark-merged --issue KEY
+    Prefix merged PRs/MRs with "[x] merged: " and closed (unmerged) ones
+    with "[!] closed: ". Open PRs/MRs are left unchanged.
 
 Environment:
   JIRA_API_TOKEN              API token (or email:token); optional if .jira-token exists
@@ -569,9 +575,7 @@ function adfPrMrBullet(url, linkTitle) {
 
 function buildLinkCommentAdf({ url, webLink, status, defaults }) {
   const linkTitle =
-    String(webLink?.title || '')
-      .replace(/^\[x\]\s*merged:\s*/i, '')
-      .trim() ||
+    stripOutcomePrefix(webLink?.title) ||
     displayTitleFromLinkTitle(webLink?.title) ||
     url;
   const content = [adfParagraph('PR/MR:'), adfPrMrBullet(url, linkTitle)];
@@ -680,20 +684,30 @@ async function cmdLink(args, cfg) {
   });
 }
 
-function isMerged(ref) {
+function lookupPrMrState(ref) {
   if (ref.kind === 'github') {
     const label = `${ref.owner}/${ref.repo}#${ref.id}`;
     const out = spawnSync(
       'gh',
-      ['api', `repos/${ref.owner}/${ref.repo}/pulls/${ref.id}`, '--jq', '.merged'],
+      [
+        'api',
+        `repos/${ref.owner}/${ref.repo}/pulls/${ref.id}`,
+        '--jq',
+        '{merged:.merged,state:.state}',
+      ],
       { encoding: 'utf8' },
     );
     if (out.status !== 0) {
       const err = (out.stderr || out.stdout || '').trim().slice(0, 240);
       console.error(`warn: merge-check failed for github ${label}: ${err || `exit ${out.status}`}`);
-      return false;
+      return 'unknown';
     }
-    return String(out.stdout).trim() === 'true';
+    try {
+      return classifyPrMrState(JSON.parse(out.stdout));
+    } catch (err) {
+      console.error(`warn: merge-check parse failed for github ${label}: ${err.message}`);
+      return 'unknown';
+    }
   }
   const label = `${ref.project}!${ref.id}`;
   const project = encodeURIComponent(ref.project);
@@ -706,14 +720,18 @@ function isMerged(ref) {
   if (out.status !== 0) {
     const err = (out.stderr || out.stdout || '').trim().slice(0, 240);
     console.error(`warn: merge-check failed for gitlab ${label}: ${err || `exit ${out.status}`}`);
-    return false;
+    return 'unknown';
   }
   try {
     const mr = JSON.parse(out.stdout);
-    return Boolean(mr.merged_at) || mr.state === 'merged';
+    return classifyPrMrState({
+      merged: Boolean(mr.merged_at) || mr.state === 'merged',
+      state: mr.state,
+      mergedAt: mr.merged_at,
+    });
   } catch (err) {
     console.error(`warn: merge-check parse failed for gitlab ${label}: ${err.message}`);
-    return false;
+    return 'unknown';
   }
 }
 
@@ -738,11 +756,12 @@ async function cmdMarkMerged(args, cfg) {
       skipped.push(title || url);
       continue;
     }
-    if (!isMerged(ref)) {
+    const prMrState = lookupPrMrState(ref);
+    if (prMrState === 'open' || prMrState === 'unknown') {
       leftOpen.push({ title: title || url, url });
       continue;
     }
-    const newTitle = withMergedPrefix(title);
+    const newTitle = prefixForPrMrState(prMrState, title);
     if (newTitle === title) {
       updated.push({ label: `already: ${title}`, url });
       continue;
@@ -831,4 +850,6 @@ module.exports = {
   parsePrMrUrl,
   resolveDefaults,
   withMergedPrefix,
+  withClosedPrefix,
+  prefixForPrMrState,
 };

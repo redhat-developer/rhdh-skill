@@ -20,6 +20,9 @@ import {
   shouldSkipTeamAndSprint,
   stripMergedPrefix,
   withMergedPrefix,
+  classifyPrMrState,
+  prefixForPrMrState,
+  withClosedPrefix,
 } from '../scripts/lib.js';
 
 describe('detectHost', () => {
@@ -45,11 +48,58 @@ describe('title helpers', () => {
       '[x] merged: repo #1: fix',
     );
   });
+  it('strips and adds closed prefix', () => {
+    assert.equal(stripMergedPrefix('[!] closed: repo #1: fix'), 'repo #1: fix');
+    assert.equal(withClosedPrefix('repo #1: fix'), '[!] closed: repo #1: fix');
+    assert.equal(
+      withClosedPrefix('[!] closed: repo #1: fix'),
+      '[!] closed: repo #1: fix',
+    );
+  });
+  it('swaps closed and merged prefixes', () => {
+    assert.equal(
+      withMergedPrefix('[!] closed: repo #1: fix'),
+      '[x] merged: repo #1: fix',
+    );
+    assert.equal(
+      withClosedPrefix('[x] merged: repo #1: fix'),
+      '[!] closed: repo #1: fix',
+    );
+  });
   it('displayTitleFromLinkTitle drops repo#N prefix', () => {
     assert.equal(
       displayTitleFromLinkTitle('rhdh #12: fix: widget'),
       'fix: widget',
     );
+    assert.equal(
+      displayTitleFromLinkTitle('[!] closed: rhdh #12: fix: widget'),
+      'fix: widget',
+    );
+  });
+});
+
+describe('classifyPrMrState', () => {
+  it('treats GitHub merged+closed as merged', () => {
+    assert.equal(classifyPrMrState({ merged: true, state: 'closed' }), 'merged');
+    assert.equal(classifyPrMrState({ merged: 'true', state: 'closed' }), 'merged');
+  });
+  it('treats closed unmerged as closed', () => {
+    assert.equal(classifyPrMrState({ merged: false, state: 'closed' }), 'closed');
+    assert.equal(classifyPrMrState({ state: 'closed' }), 'closed');
+  });
+  it('treats GitLab merged_at / state=merged as merged', () => {
+    assert.equal(classifyPrMrState({ mergedAt: '2026-01-01T00:00:00Z' }), 'merged');
+    assert.equal(classifyPrMrState({ state: 'merged' }), 'merged');
+  });
+  it('treats opened as open', () => {
+    assert.equal(classifyPrMrState({ merged: false, state: 'open' }), 'open');
+    assert.equal(classifyPrMrState({ state: 'opened' }), 'open');
+    assert.equal(classifyPrMrState({}), 'open');
+  });
+  it('prefixForPrMrState maps merged and closed', () => {
+    assert.equal(prefixForPrMrState('merged', 'repo #1: fix'), '[x] merged: repo #1: fix');
+    assert.equal(prefixForPrMrState('closed', 'repo #1: fix'), '[!] closed: repo #1: fix');
+    assert.equal(prefixForPrMrState('open', 'repo #1: fix'), 'repo #1: fix');
   });
 });
 
