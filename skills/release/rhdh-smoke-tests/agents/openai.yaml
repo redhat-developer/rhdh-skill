@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Smoke Tests"
+  short_description: "Walk Helm and Operator RC/GA heartbeat installs"
