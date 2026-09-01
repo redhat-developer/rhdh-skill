@@ -79,7 +79,7 @@ This catalog tree has **no** `rpms.lock.yaml`.
 
 After the digest bump, invoke `/rhdh-base-images` for the mapped GitHub branch
 (`rhdh-1.9-rhel-9` → `release-1.9`, `rhdh-1.10-rhel-9` → `release-1.10`,
-`main` → `main`; later `rhdh-*-rhel-10` streams use the same GitHub
-`release-*` / `main` mapping). Name the catalog checkout (and overlays, when
+catalog `release-2.Y` → `release-2.Y`, `main` → `main`; later
+`rhdh-*-rhel-10` streams use the same GitHub `release-*` / `main` mapping). Name the catalog checkout (and overlays, when
 present). Do not run that skill's scripts from here, and do not pin FROM,
 `.nvm/`, or `konflux.additional-tags` from this skill.

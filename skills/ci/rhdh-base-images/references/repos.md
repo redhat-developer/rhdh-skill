@@ -28,7 +28,7 @@
 ## GitLab rhidp/rhdh-plugin-catalog
 
 - Clone: `https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog.git`
-- GitHub `-b main` → catalog `main`; `-b release-X.Y` → `rhdh-X.Y-rhel-9`
+- GitHub `-b main` → catalog `main`; `-b release-1.Y` → `rhdh-1.Y-rhel-9`; `-b release-2.Y` → `release-2.Y`
 - Pin `build/containerfiles/builder.Containerfile` FROM to the same UBI Node `tag@sha256` as GitHub rhdh (do not jump ubi9→ubi10 unless rhdh did). Prefer `major.minor-buildid`; numeric-only tags often 404.
 - Copy matching `.nvmrc`, `node-v*-headers.tar.gz`, and `.nvm/releases/README.adoc` from the rhdh checkout. Rewrite only the `node-v*` token in `LABEL konflux.additional-tags=...`.
 - No `rpms.lock.yaml`. Do not `[skip-build]` when FROM or headers change.

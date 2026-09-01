@@ -310,18 +310,27 @@ class TestBaseImagesAndRpmsScript:
 
     def test_catalog_git_branch_for_maps_release_line(self) -> None:
         function = _extract_bash_function(MAIN_SCRIPT, "catalog_git_branch_for")
-        result = subprocess.run(
-            [
-                "bash",
-                "-c",
-                f'die() {{ echo "$*" >&2; exit 1; }}\n{function}\ncatalog_git_branch_for release-1.10',
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
+        cases = (
+            ("main", "main"),
+            ("release-1.10", "rhdh-1.10-rhel-9"),
+            ("release-2.1", "release-2.1"),
         )
-        assert result.returncode == 0, result.stderr
-        assert result.stdout.strip() == "rhdh-1.10-rhel-9"
+        for github_branch, catalog_branch in cases:
+            result = subprocess.run(
+                [
+                    "bash",
+                    "-c",
+                    (
+                        'die() { echo "$*" >&2; exit 1; }\n'
+                        f"{function}\ncatalog_git_branch_for {github_branch}"
+                    ),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            assert result.returncode == 0, result.stderr
+            assert result.stdout.strip() == catalog_branch
 
     def test_detect_repo_kind_plugin_catalog(self, tmp_path: Path) -> None:
         function = _extract_bash_function(MAIN_SCRIPT, "detect_repo_kind")

@@ -117,7 +117,7 @@ Node version has no matching `releases/node-v*-headers.tar.gz` (log:
 `could not find releases/node-v*-headers.tar.gz`). That is **not** a Tekton
 digest problem.
 
-1. Map the stream to a GitHub selector — [SKILL.md § Boundary with base images](../SKILL.md#boundary-with-base-images). Example: catalog `rhdh-1.10-rhel-9` → `-b release-1.10`.
+1. Map the stream to a GitHub selector — [SKILL.md § Boundary with base images](../SKILL.md#boundary-with-base-images). Example: catalog `rhdh-1.10-rhel-9` → `-b release-1.10`; catalog `release-2.1` → `-b release-2.1`.
 2. Name `rhdh`, `rhdh-operator`, `rhdh-must-gather`, plugin-catalog, and overlays checkouts (user, or `/rhdh-context`).
 3. Invoke **`/rhdh-base-images` by name**. Do not run `base-images-and-rpms.sh` from this skill. Analyze first; if headers, `FROM` tags, catalog builder pins, overlays `versions.json` `node`, or RPMs are stale, let that skill own the update and `/mutation-gate`.
 4. Do not pin `builder.Containerfile`, copy `.nvm/`, or edit overlays `versions.json` from this skill.

@@ -82,6 +82,7 @@ skill.
 |--------------------------|--------------------------|
 | `rhdh-1.9-rhel-9` | `release-1.9` |
 | `rhdh-1.10-rhel-9` | `release-1.10` |
+| `release-2.Y` | `release-2.Y` |
 | `main` (2.1+) | `main` |
 | other `rhdh-<ver>-rhel-<N>` | `release-<ver>` when that GitHub branch exists |
 

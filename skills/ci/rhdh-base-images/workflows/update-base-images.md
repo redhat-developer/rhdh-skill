@@ -39,7 +39,8 @@ Accepted `-b` values: `main` or any `release-*` branch (e.g. `release-1.9`, `rel
 | GitHub branch (`-b`) | GitLab scripts branch (`-sb` for `updateBaseImages.sh`) | plugin-catalog GitLab branch |
 |----------------------|---------------------------------------------------------|------------------------------|
 | `main` | `rhdh-1-rhel-9` | `main` |
-| `release-X.Y` | `rhdh-X.Y-rhel-9` | `rhdh-X.Y-rhel-9` |
+| `release-1.Y` | `rhdh-1.Y-rhel-9` | `rhdh-1.Y-rhel-9` |
+| `release-2.Y` | `rhdh-2.Y-rhel-9` | `release-2.Y` |
 
 Verify the target branch exists in each repo before running.
 
