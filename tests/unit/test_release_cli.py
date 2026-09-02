@@ -101,7 +101,7 @@ class TestJqlUrl:
     def test_url_encoding(self):
         jql_str = "project = RHIDP AND status != closed"
         url = jql.jira_url(jql_str)
-        assert url.startswith("https://issues.redhat.com/issues/?jql=")
+        assert url.startswith("https://redhat.atlassian.net/issues/?jql=")
         assert "%20" in url or "+" in url
         assert "project" not in url.split("jql=")[1].split("%")[0] or quote(jql_str, safe="") in url
 
@@ -116,7 +116,7 @@ class TestJqlUrl:
     def test_render_with_url(self):
         rendered, url = jql.render_with_url("open_issues", version="1.9.0")
         assert '"1.9.0"' in rendered
-        assert url.startswith("https://issues.redhat.com/issues/?jql=")
+        assert url.startswith("https://redhat.atlassian.net/issues/?jql=")
         assert quote(rendered, safe="") in url
 
 

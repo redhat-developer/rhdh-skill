@@ -35,7 +35,7 @@ import rich_filter as rf_mod  # noqa: E402
 import slack_templates as slack_mod  # noqa: E402
 from _support import OutputFormatter, find_acli  # noqa: E402
 
-JIRA_BASE = "https://issues.redhat.com"
+JIRA_BASE = "https://redhat.atlassian.net"
 SCHEDULE_SHEET_ID = "1knVzlMW0l0X4c7gkoiuaGql1zuFgEGwHHBsj-ygUTnc"
 TEAM_SHEET_ID = "1vQXfvID72qwqvLb17eyGOvnZXrZG7NBzTGv6RP9wvyM"
 
@@ -836,7 +836,7 @@ def cmd_notes(args: argparse.Namespace, fmt: OutputFormatter) -> None:
         jql, url = jql_mod.render_with_url(template_name, version=version)
         lifecycle[stage] = {"count": _acli_count(jql, fmt), "jira_url": url}
 
-    dashboard_url = "https://issues.redhat.com/secure/Dashboard.jspa?selectPageId=12382090"
+    dashboard_url = "https://redhat.atlassian.net/jira/dashboards/21418"
 
     fmt.header(f"RHDH {version} — Release Notes")
     for stage, data in lifecycle.items():
