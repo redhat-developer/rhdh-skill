@@ -35,7 +35,7 @@ import rich_filter as rf_mod  # noqa: E402
 import slack_templates as slack_mod  # noqa: E402
 from _support import OutputFormatter, find_acli  # noqa: E402
 
-JIRA_BASE = "https://issues.redhat.com"
+JIRA_BASE = "https://redhat.atlassian.net"
 SCHEDULE_SHEET_ID = "1knVzlMW0l0X4c7gkoiuaGql1zuFgEGwHHBsj-ygUTnc"
 TEAM_SHEET_ID = "1vQXfvID72qwqvLb17eyGOvnZXrZG7NBzTGv6RP9wvyM"
 
