@@ -106,6 +106,13 @@
       "requiresExternalSkills": []
     },
     {
+      "name": "rhdh-catalog-sync-export-debug",
+      "category": "plugins",
+      "invocation": "model",
+      "requiresSkills": [],
+      "requiresExternalSkills": []
+    },
+    {
       "name": "rhdh-local",
       "category": "plugins",
       "invocation": "model",

@@ -9,7 +9,9 @@ description: >-
   import, overlay PRs, or testing exact PR artifacts before merge. For
   code-level review of a pull request, use /rhdh-pr-review. To promote an
   rhdh-plugins release through overlays into rhdh-plugin-catalog, use
-  /rhdh-plugin-midstream-propagate.
+  /rhdh-plugin-midstream-propagate. For a GitLab rhdh-plugin-catalog
+  sync-midstream Loop 3 BODY DRIFT or validation-failed export, use
+  /rhdh-catalog-sync-export-debug.
 compatibility: "Git, GitHub CLI, Python 3, and a checkout of rhdh-plugin-export-overlays."
 ---
 

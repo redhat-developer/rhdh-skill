@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH catalog sync-midstream export debug"
+  short_description: "Diagnose rhdh-plugin-catalog Loop 3 BODY DRIFT and export validation failures"
