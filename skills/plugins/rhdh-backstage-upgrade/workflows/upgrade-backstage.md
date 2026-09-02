@@ -38,13 +38,10 @@ Compare current vs target. If they match, report "Already on target version" and
 
 ## Phase 3: Bump Dependencies
 
-Load `references/bump-deps.md` and run:
-
-```bash
-yarn backstage-cli versions:bump --release <target-version>
-```
-
-Review the changes to `package.json` before continuing.
+Load `references/bump-deps.md` and run the repository wrapper or CLI it selects.
+Review dependency range style, `resolutions` or `overrides`, `package.json`, and
+the lockfile before continuing. Complete install and dedupe successfully before
+editing source.
 
 ## Phase 4: Migrate Moved Packages
 
@@ -71,15 +68,8 @@ checklist. It owns the NFS API deltas; this workflow owns version numbers.
 
 ## Phase 6: Verify
 
-Load `references/verify-upgrade.md` and run all checks:
-
-```bash
-yarn tsc
-yarn build
-yarn test
-```
-
-Fix any failures before reporting success.
+Load `references/verify-upgrade.md` and run every check it selects for the
+checkout. Fix any failures before reporting success.
 
 </process>
 
@@ -87,6 +77,7 @@ Fix any failures before reporting success.
 
 - All `@backstage/*` deps match the target release
 - No deprecated or moved package imports remain
-- `yarn tsc`, `yarn build`, and `yarn test` pass
+- Every build, test, lint, formatting, monorepo, and generation check selected
+  for the checkout passes
 - No console errors when running the dev app (if applicable)
 </success_criteria>

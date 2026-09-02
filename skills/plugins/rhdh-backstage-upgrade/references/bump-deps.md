@@ -2,11 +2,21 @@
 
 ## Primary command
 
+Use a repository-provided wrapper when one exists; it may enforce pinning and
+update generated metadata that the CLI does not know about. In
+`redhat-developer/rhdh`, run:
+
+```bash
+yarn versions:bump --release <version>
+```
+
+Otherwise run:
+
 ```bash
 yarn backstage-cli versions:bump --release <version>
 ```
 
-Replace `<version>` with the target Backstage release (e.g., `1.45.3`).
+Replace `<version>` with the validated target Backstage release (e.g., `1.45.3`).
 
 This command:
 
@@ -30,6 +40,22 @@ In a monorepo (like `rhdh-plugins`), run from the workspace root. The command up
 
 If you only want to bump a single plugin package, you can run it from that package's directory -- but be aware that shared workspace deps may need alignment too.
 
+## Preserve dependency style
+
+Record whether each dependency section uses exact versions, carets, tildes, or
+workspace ranges before the bump. `versions:bump` may rewrite that style. Restore
+the existing convention after the command, then review every changed dependency
+and the lockfile. In `redhat-developer/rhdh`, `@backstage/*` dependencies remain
+exact pins.
+
+## Audit resolutions and overrides
+
+Review changed packages against root `resolutions` and `overrides`. Trace each
+possibly stale entry to its commit history, issue, advisory, or patch comment.
+Remove it only when that reason no longer applies, then run the relevant
+regression check as well as install and build. A green install or build alone
+does not prove that a pin is obsolete.
+
 ## What it doesn't do
 
 - Fix breaking API changes in your source code (see `fix-breaking-changes.md`)
@@ -40,8 +66,16 @@ If you only want to bump a single plugin package, you can run it from that packa
 
 **"Could not fetch release manifest"** — Check network connectivity. The CLI fetches from `https://versions.backstage.io`. You can also set `BACKSTAGE_MANIFEST_FILE` to a local file.
 
-**Lockfile conflicts** — Delete the lockfile and re-run `yarn install` after the bump.
+**Lockfile conflicts** — Diagnose the conflicting dependency or resolution and
+rerun the bump or install. Do not delete a committed lockfile to hide the
+conflict.
 
 **Version not found** — Verify the release version exists. Check available releases at `https://github.com/backstage/backstage/releases`.
 
 **Workspace resolution errors** — In monorepos, ensure all workspace packages are using compatible version ranges. Run `yarn dedupe @backstage/*` after the bump.
+
+Every step selected for the checkout must succeed before manual source fixes
+begin. This includes install, any required migration, and dedupe when the
+repository wrapper runs it or workspace resolution requires it. If a selected
+step fails, diagnose it and rerun that phase. Do not use build errors from a
+partial install as migration guidance.
