@@ -82,6 +82,7 @@
       "skills": [
         "./skills/plugins/rhdh-backstage-upgrade",
         "./skills/reference/backstage-api-changes",
+        "./skills/plugins/rhdh-catalog-sync-export-debug",
         "./skills/plugins/rhdh-local",
         "./skills/plugins/rhdh-overlay",
         "./skills/reference/mutation-gate",

@@ -8,7 +8,9 @@ description: >-
   sync-midstream --force-clone. Use when promoting plugin versions, waiting on
   npm @red-hat-developer-hub packages, bumping overlays repo-ref, or midstream
   Hermeto/lock/PLR updates for one workspace. For an overlays workspace edit
-  outside this promotion chain, use /rhdh-overlay.
+  outside this promotion chain, use /rhdh-overlay. When scoped
+  --force-clone or sync-midstream Loop 3 fails yarn.lock BODY DRIFT /
+  validation-failed, use /rhdh-catalog-sync-export-debug.
 compatibility: >-
   Git, jq, npm, the skills CLI for repos.* config, GitHub CLI, and glab
   authenticated against gitlab.cee.redhat.com; checkouts of rhdh-plugins,
