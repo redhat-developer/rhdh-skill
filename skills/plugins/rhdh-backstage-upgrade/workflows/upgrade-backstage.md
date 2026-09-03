@@ -38,10 +38,13 @@ Compare current vs target. If they match, report "Already on target version" and
 
 ## Phase 3: Bump Dependencies
 
-Load `references/bump-deps.md` and run the repository wrapper or CLI it selects.
-Review dependency range style, `resolutions` or `overrides`, `package.json`, and
-the lockfile before continuing. Complete installation and every migration or
-dedupe step selected for the checkout before editing source.
+Load `references/bump-deps.md`. Inventory every `resolutions` and `overrides`
+entry and capture its provenance and pre-bump dependency paths before running
+the selected repository wrapper or CLI. After installation, compare the graph
+for every entry and record its keep, update, or remove decision and evidence.
+Review dependency range style, `package.json`, and the lockfile before
+continuing. Complete every migration or dedupe step selected for the checkout
+before editing source.
 
 ## Phase 4: Migrate Moved Packages
 
@@ -77,6 +80,8 @@ checkout. Fix any failures before reporting success.
 
 - All `@backstage/*` deps match the target release
 - No deprecated or moved package imports remain
+- Every resolution and override has a documented provenance, before/after graph
+  comparison, decision, reason, and verification evidence
 - Every build, test, lint, formatting, monorepo, and generation check selected
   for the checkout passes
 - No console errors when running the dev app (if applicable)

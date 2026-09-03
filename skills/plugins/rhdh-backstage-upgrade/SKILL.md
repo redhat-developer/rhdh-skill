@@ -68,6 +68,9 @@ another skill's files.
 - Use the checkout's `versions:bump` script when it wraps
   `backstage-cli versions:bump`; otherwise use the CLI directly. Review the
   resulting `package.json` and lockfile diff before continuing.
+- Inventory every resolution and override before the bump. Compare its package
+  manager dependency paths before and after, then record the provenance and
+  evidence for keeping, updating, or removing it.
 - Read the changelog for every release between the old and new version, then
   search the source for each affected API. Do not assume a range is
   breaking-change free.
@@ -79,6 +82,7 @@ another skill's files.
 ## Completion
 
 Report the versions found, the target chosen and where the answer came from,
-the commands run, the breaking changes fixed and the files they touched, any
-range-style or resolution change and its evidence, generated files, the
+the commands run, the breaking changes fixed and the files they touched, every
+resolution and override with its provenance, before/after graph evidence and
+keep/update/remove reason, any range-style change, generated files, the
 verification results, and any dependency left misaligned with a reason.

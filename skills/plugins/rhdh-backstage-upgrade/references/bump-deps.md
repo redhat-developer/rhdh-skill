@@ -2,6 +2,9 @@
 
 ## Primary command
 
+Before running either command, complete the pre-bump inventory and dependency
+graph capture in **Audit resolutions and overrides** below.
+
 Use a repository-provided wrapper when one exists; it may enforce pinning and
 update generated metadata that the CLI does not know about. In
 `redhat-developer/rhdh`, run:
@@ -50,11 +53,36 @@ exact pins.
 
 ## Audit resolutions and overrides
 
-Review changed packages against root `resolutions` and `overrides`. Trace each
-possibly stale entry to its commit history, issue, advisory, or patch comment.
-Remove it only when that reason no longer applies, then run the relevant
-regression check as well as install and build. A green install or build alone
-does not prove that a pin is obsolete.
+Audit every `resolutions` and `overrides` entry in every upgrade root discovered
+before the bump. Do not limit the inventory to packages changed directly by
+`versions:bump`; an obsolete transitive pin may only become visible when the
+new dependency graph no longer reaches it.
+
+Before the bump:
+
+1. Record each entry's root, field, selector, and replacement value.
+2. Capture why the package is present and which dependency paths the entry
+   changes. Use the package manager's graph command, such as `yarn why -R
+   <package>` or `npm explain <package>`.
+3. Trace the entry to its introducing commit with history such as `git log -S
+   '<selector>' -- <manifest>` and `git blame`, then follow any linked issue,
+   advisory, or patch comment. State the compatibility, security, singleton, or
+   build condition it was meant to enforce.
+
+After the bump and install, rerun the graph query for every inventoried entry and
+compare its dependency paths, requested ranges, and resolved versions with the
+pre-bump graph. Classify every entry as **keep**, **update**, or **remove**:
+
+- Keep or update it only when the original condition still applies to the new
+  graph; record the graph evidence and the regression check that protects it.
+- Remove it only after testing the graph without it and confirming that the
+  original condition no longer applies. Run the relevant regression check as
+  well as install and build. A green install or build alone does not prove that
+  a pin is obsolete.
+
+Report one row per entry with: root, field and selector, provenance, before and
+after dependency paths, decision, reason, and verification evidence. Entries
+that are unchanged still require a recorded keep reason.
 
 ## What it doesn't do
 
