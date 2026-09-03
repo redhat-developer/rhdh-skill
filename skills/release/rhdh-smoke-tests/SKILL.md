@@ -1,52 +1,66 @@
 ---
 name: rhdh-smoke-tests
 description: >-
-  Walks RHDH Helm and Operator smoke tests in parallel (two agents, one
-  namespace each): install the previous GA, upgrade to this RC, then if this
-  stream is not the newest, upgrade to the latest GA of the next minor. Sets
-  Helm global.clusterRouterBase on every helm command (never --reuse-values).
-  Prompts for an OpenShift console URL and oauth/token/display when oc is not
-  logged in. Enables Guest via Helm upstream.backstage.appConfig or an Operator
-  ConfigMap, then verifies pods, Guest sign-in, and extensions packages
-  totalItems. Use for "run the helm smoke tests", "operator RC smoke",
-  "parallel helm and operator smoke", "clusterRouterBase", "console URL login",
+  Walks RHDH smoke tests: inspect plugin-catalog-index OCI refs first, then Helm
+  and Operator in parallel (one namespace each): install the previous GA, upgrade
+  to this RC, then if this stream is not the newest, upgrade to the latest GA of
+  the next minor. Sets Helm global.clusterRouterBase on every helm command (never
+  --reuse-values). Prompts for an OpenShift console URL and oauth/token/display
+  when oc is not logged in. Enables Guest via Helm upstream.backstage.appConfig
+  or an Operator ConfigMap, then verifies pods, Guest sign-in, and extensions
+  packages totalItems. Use for "run the helm smoke tests", "operator RC smoke",
+  "parallel helm and operator smoke", "catalog-index smoke", "plugin-catalog-index
+  pull", "inspect catalog OCI refs", "clusterRouterBase", "console URL login",
   "upgrade 1.10.3 to 1.10.4 RC", "1.9.8 to 1.9.9 then 1.10", "GA smoke test",
   or "SMOKE_TESTS helm and operator".
-compatibility: "oc, helm, and python3; a dedicated smoke kubeconfig (not Konflux)."
+compatibility: >-
+  oc, helm, python3, podman, skopeo, jq; a dedicated smoke kubeconfig (not
+  Konflux); an rhdh-plugin-catalog checkout with build/scripts/checkIndexRefsPullable.sh.
 ---
 
 # RHDH Helm and Operator smoke tests
 
-Smoke test after an RC (Quay CI chart / IIB). Helm **and** Operator are both
-mandatory. One Helm namespace and one Operator namespace — the three checks are
-a chain in that namespace, not three installs.
+Smoke test after an RC (Quay CI chart / IIB). Catalog-index OCI refs run
+**first**. Helm **and** Operator are both mandatory after that. One Helm
+namespace and one Operator namespace — the three checks are a chain in that
+namespace, not three installs.
 
 This is not full QE, Prow e2e, local compose, or an operator-PR catalog test.
 
 ## Route
 
-1. Collect tags. Stop if tags are missing — do not invent CI tags.
-2. Establish `oc` (login below). Derive `CLUSTER_ROUTER_BASE` before Helm.
-3. Default is an **RC** run. A **GA** run (published chart / OperatorHub `fast`,
+1. Collect tags. Stop if tags are missing — do not invent CI tags. Require
+   `INDEX_IMAGE` or derive
+   `registry.access.redhat.com/rhdh/plugin-catalog-index:${RC_VER}`. Require
+   `CATALOG_REPO` (rhdh-plugin-catalog checkout that contains
+   `build/scripts/checkIndexRefsPullable.sh`).
+2. Catalog-index OCI check **first**, before any Helm install/upgrade or
+   Operator CSV work. Load `workflows/catalog-index.md`. That agent gets
+   `CATALOG_REPO` and `INDEX_IMAGE` only (no kubeconfig). Wait until it
+   finishes. A catalog fail does not skip Helm/Operator.
+3. Establish `oc` (login below). Derive `CLUSTER_ROUTER_BASE` before Helm.
+4. Default is an **RC** run. A **GA** run (published chart / OperatorHub `fast`,
    including `fast` ↔ `fast-1.y`) only when the user asked for GA.
-4. Follow `/mutation-gate` **once** for both full chains (login + Helm +
+5. Follow `/mutation-gate` **once** for both cluster chains (login + Helm +
    Operator). Then launch two agents in the **same turn** (Helm and Operator).
    Do not wait for Helm to finish before launching Operator. Do not run both
-   chains in the parent.
-5. Load `workflows/helm.md` in the Helm agent, `workflows/operator.md` in the
+   cluster chains in the parent. Do not start them until step 2 has completed.
+6. Load `workflows/helm.md` in the Helm agent, `workflows/operator.md` in the
    Operator agent.
-6. After every install or upgrade: Guest (below), then verify (below), then a
+7. After every install or upgrade: Guest (below), then verify (below), then a
    live line (below).
 
 | Load when | File |
 |---|---|
+| Catalog-index OCI (first) | `workflows/catalog-index.md` |
 | Helm chain | `workflows/helm.md` |
 | Operator chain | `workflows/operator.md` |
 | Guest fragment | `assets/app-config-guest.yaml` |
 | Helm Guest overlay | `assets/helm-values-guest.yaml` |
 | Console URL → router / API | `scripts/cluster_from_console.py` |
 
-`SKILL_DIR` is the directory that contains this `SKILL.md`.
+`SKILL_DIR` is the directory that contains this `SKILL.md`. The catalog script
+lives in the plugin-catalog repo, not under `SKILL_DIR`.
 
 ## Cluster login
 
@@ -97,8 +111,9 @@ Leave the namespace in place after the chain so it can be inspected.
 Operator OLM Subscription is cluster-wide (`rhdh-operator`). Helm and Operator
 chains can share a cluster; do not run two Operator CSV targets at once.
 
-Each subagent gets absolute `SKILL_DIR`, `KUBECONFIG`, tags, namespace, and
-(Helm only) `CLUSTER_ROUTER_BASE`.
+Each cluster subagent gets absolute `SKILL_DIR`, `KUBECONFIG`, tags, namespace, and
+(Helm only) `CLUSTER_ROUTER_BASE`. The catalog agent gets `CATALOG_REPO` and
+`INDEX_IMAGE` only.
 
 ## Shared setup
 
@@ -116,6 +131,8 @@ NEXT_STREAM=        # e.g. 1.10 when testing 1.9
 NS_HELM=rhdh-${STREAM}-helm
 NS_OP=rhdh-${STREAM}-op
 CLUSTER_ROUTER_BASE=apps.example.cluster
+CATALOG_REPO=/path/to/rhdh-plugin-catalog
+INDEX_IMAGE=registry.access.redhat.com/rhdh/plugin-catalog-index:${RC_VER}
 ```
 
 ## Guest enablement
@@ -154,9 +171,13 @@ UI: Administration → Extensions → Catalog must not be empty.
 
 ## Live lines
 
-After each install or upgrade + verify, print one line (prefix `Helm:` or
-`Operator:`). Use real tags.
+After the catalog script, print one line (prefix `Catalog:`). When the script
+reports failures, keep its **Could not pull** table in the transcript. Do not
+expect a passing table unless the script was run with `--debug` (passing table
+precedes failures in that mode). After each install or upgrade + verify, print
+one line (prefix `Helm:` or `Operator:`). Use real tags.
 
+- `Catalog: inspected N unique refs from plugin-catalog-index:1.10.4`
 - `Helm: deployed older version 1.10.3`
 - `Helm: deployed latest CI version 1.10.4 RC`
 - `Helm: deployed next-minor GA 1.10.3`
@@ -174,17 +195,22 @@ Failure: same sentence, then `FAILED` and the reason. Skip:
 - Helm `--reuse-values` keeps GA image digests on an RC upgrade.
 - Catalog UI warning `spec.backstage` additionalProperty `author` is not
   `packages-low`.
+- Index field is `registryReference`, not `oci://…!package`. Inspect as written.
+- `checkIndexUpToDate.sh` (git vs latest tags) is not this smoke.
+- Catalog script prints failure tables only by default; `--debug` adds passing refs.
+- `tree` is human debug only; the catalog script does not require it.
 
 ## Completion
 
-After both agents finish, print this table (Status first, fixed-width column).
-Six rows; higher-stream stays `⚠️ skip` when this stream is newest. Do not drop
-a row. Substitute real versions. Failed: `❌ fail` and put the reason after the
-test name in column two.
+After catalog and both cluster agents finish, print this table (Status first,
+fixed-width column). **Seven** rows; catalog is **row 1**. Higher-stream stays
+`⚠️ skip` when this stream is newest. Do not drop a row. Substitute real
+versions. Failed: `❌ fail` and put the reason after the test name in column two.
 
 ```
 | Status     | Smoke Test |
 |:-----------|:-----------|
+| ✅ pass | Inspect catalog-index OCI refs registry.access.redhat.com/rhdh/plugin-catalog-index:1.10.4 |
 | ✅ pass | Install Helm Previous GA 1.10.3 |
 | ✅ pass | Upgrade Helm RC 1.10-170-CI |
 | ⚠️ skip | Upgrade Helm higher-stream |
@@ -196,5 +222,5 @@ test name in column two.
 If Markdown collapses padding, use HTML `<colgroup><col style="width:11em"><col></colgroup>`.
 
 Name the Guest method under the table (Helm `appConfig` vs Operator ConfigMap),
-not as a seventh row. A step that never ran because an earlier write was refused
+not as an eighth row. A step that never ran because an earlier write was refused
 is skipped, not omitted.
