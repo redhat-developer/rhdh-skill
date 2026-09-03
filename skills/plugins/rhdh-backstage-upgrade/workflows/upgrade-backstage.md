@@ -40,8 +40,8 @@ Compare current vs target. If they match, report "Already on target version" and
 
 Load `references/bump-deps.md` and run the repository wrapper or CLI it selects.
 Review dependency range style, `resolutions` or `overrides`, `package.json`, and
-the lockfile before continuing. Complete install and dedupe successfully before
-editing source.
+the lockfile before continuing. Complete installation and every migration or
+dedupe step selected for the checkout before editing source.
 
 ## Phase 4: Migrate Moved Packages
 
