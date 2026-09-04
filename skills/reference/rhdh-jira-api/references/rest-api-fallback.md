@@ -25,6 +25,8 @@ request previews. Do not fall back from a native tool to raw `curl`.
 | Update fields | Partial issue update with a `fields` object | No-content success or updated issue |
 | Add comment | Add an ADF comment, with visibility when required | Comment receipt |
 | Add remote link | Attach a web link to an issue key with `{"object": {"url": ..., "title": ...}}` | Created link with an id, or the id of the link it replaced |
+| Sprint report (best-effort) | GET Greenhopper `sprintreport` with `rapidViewId` and `sprintId` | Per-sprint completed / not-completed issues and `issueKeysAddedDuringSprint` |
+| Scope-change burndown (best-effort) | GET Greenhopper `scopechangeburndownchart` with `rapidViewId` and `sprintId` | Timestamped estimate and scope-change events |
 
 The host adapter may expose these as tools instead of URL paths. Select by semantic capability, not
 by tool name, and keep transport-specific response metadata out of what you report.
@@ -98,3 +100,79 @@ leave a field unset.
 
 REST search is not a fallback for bulk JQL in this skill. Use `acli --paginate` or the authenticated
 GraphQL adapter instead.
+
+## Greenhopper sprint report and burndown
+
+These endpoints power the board UI at
+`https://redhat.atlassian.net/jira/software/c/projects/RHIDP/boards/{boardId}/reports/burndown-chart?sprint={sprintId}`.
+They are **not** a public Jira Cloud API. `acli` has no equivalent. Treat them as
+best-effort and unstable: Cloud may 404 or 403 them, the JSON may drift, and a
+host adapter that cannot GET an authenticated path cannot use them.
+
+Capability gate, in addition to the seam rules above:
+
+1. The host adapter must be able to GET an authenticated Jira path. If it cannot,
+   skip Greenhopper in one line and reconstruct.
+2. Never `curl`, never an Authorization header, never a credential in context.
+3. On 404, 403, or a body that lacks the keys below, skip in one line and
+   reconstruct. Do not retry as raw REST.
+
+```
+GET /rest/greenhopper/1.0/rapid/charts/sprintreport?rapidViewId={boardId}&sprintId={sprintId}
+GET /rest/greenhopper/1.0/rapid/charts/scopechangeburndownchart?rapidViewId={boardId}&sprintId={sprintId}
+```
+
+A live probe through the host adapter was not available when this was written, so
+reconstruction is the documented happy path. When a probe succeeds, record the
+live keys here and keep using them; until then, callers should accept this shape
+and ignore unknown fields:
+
+```json
+{
+  "rapidViewId": 11374,
+  "sprint": {
+    "id": 47486,
+    "name": "RHDH COPE 3289",
+    "state": "CLOSED",
+    "startDate": "18/Mar/26 12:00 PM",
+    "endDate": "8/Apr/26 12:00 PM"
+  },
+  "contents": {
+    "completedIssues": [
+      {
+        "key": "RHIDP-1001",
+        "statusName": "Closed",
+        "currentEstimate": 5,
+        "estimateStatistic": {
+          "statFieldId": "customfield_10028",
+          "statFieldValue": {"value": 5.0, "text": "5"}
+        }
+      }
+    ],
+    "issuesNotCompletedInCurrentSprint": [],
+    "puntedIssues": [],
+    "issueKeysAddedDuringSprint": {"RHIDP-1002": true},
+    "completedIssuesEstimateSum": {"value": 5, "text": "5.0"}
+  }
+}
+```
+
+`issueKeysAddedDuringSprint` is the grey scope-change on the burndown chart —
+issues whose Sprint field joined after sprint start. That is interrupt work.
+
+`/rhdh-release-capacity-plan` consumes this. It never copies these paths into its
+own files.
+
+### Reconstruction when Greenhopper is skipped
+
+Same numbers the chart is drawn from, without the chart API:
+
+1. `acli jira sprint view --id SPRINT_ID --json` for `startDate`.
+2. Paginated `acli` search for every issue in the sprint, enriched for story
+   points and status. Prefer `--paginate`.
+3. An issue is interrupt when changelog (or the Greenhopper added-keys set)
+   shows its Sprint field joined after `startDate`. If changelog cannot be
+   fetched, report interrupt as unretrieved — do not treat that as zero.
+4. Completed is status Closed or Release Pending.
+5. Always include the human chart URL in the report so a person can open the
+   same view.

@@ -34,6 +34,7 @@ here.
 | What must be true before this status transition? | [references/workflows.md](references/workflows.md) |
 | I need a relationship-heavy bulk read or a team roster | [references/graphql-queries.md](references/graphql-queries.md) |
 | `acli` cannot read or set this field | [references/rest-api-fallback.md](references/rest-api-fallback.md) |
+| Sprint report or burndown-chart numbers | [references/rest-api-fallback.md](references/rest-api-fallback.md) |
 
 Load the one branch the question needs.
 
@@ -84,8 +85,10 @@ one.
 - Opening new work is `/rhdh-jira-create`.
 - Judging whether existing work is ready is `/rhdh-jira-refine`.
 - Changing a field, status, assignee, comment, or link on a known key is `/rhdh-jira-update`.
-- Sprint carryover, velocity, and capacity are `/rhdh-jira-sprint-plan`; the end-of-sprint
-  summary is `/rhdh-jira-sprint-report`.
+- Sprint carryover, velocity, and next-sprint capacity are `/rhdh-jira-sprint-plan`; the
+  end-of-sprint summary is `/rhdh-jira-sprint-report`.
+- Whether a team can fit `rhdh-X.Y-candidate` Features through Code Freeze is
+  `/rhdh-release-capacity-plan`.
 - Issue templates, the grill matrix, sizing scales, and decomposition rules are
   `/rhdh-jira-authoring`.
 - What is still open against a release is `/rhdh-release-status`.

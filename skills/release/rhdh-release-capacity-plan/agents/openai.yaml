@@ -1,0 +1,3 @@
+interface:
+  display_name: "RHDH Release Capacity"
+  short_description: "Candidate fit versus historical and theoretical capacity through Code Freeze"
