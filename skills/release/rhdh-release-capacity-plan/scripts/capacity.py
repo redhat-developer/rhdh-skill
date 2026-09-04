@@ -21,14 +21,14 @@ import argparse
 import json
 import math
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 COMPLETED_STATUSES = frozenset({"closed", "release pending"})
 COVERAGE_FLOOR = 0.5
 DEFAULT_MEETING_FACTOR = 0.4
-SPRINT_LENGTH_DAYS = 14
+SPRINT_LENGTH_DAYS = 21
 
 # Placeholder Fibonacci buckets until Size→SP is calibrated. Same map for
 # Feature and Epic T-shirts. Never treat the Size field's 1–5 as SP, and never
@@ -72,9 +72,55 @@ def remaining_sprints(
     *,
     sprint_days: int = SPRINT_LENGTH_DAYS,
 ) -> int:
+    if sprint_days <= 0:
+        _fail("sprint_days must be positive")
     if code_freeze <= today:
         return 0
     return math.ceil((code_freeze - today).days / sprint_days)
+
+
+def weekday_count(sprint_days: int) -> float:
+    """Weekdays in a sprint of this many calendar days (5/7)."""
+    return sprint_days * 5.0 / 7.0
+
+
+def availability_from_pto(
+    pto_weekdays: float,
+    remaining_n: int,
+    *,
+    sprint_days: int = SPRINT_LENGTH_DAYS,
+) -> float:
+    """Fraction of horizon remaining after PTO weekdays. Clipped to [0, 1]."""
+    denom = remaining_n * weekday_count(sprint_days)
+    if denom <= 0:
+        return 1.0
+    return max(0.0, min(1.0, 1.0 - float(pto_weekdays) / denom))
+
+
+def count_weekdays(start: date, end: date) -> int:
+    """Count Mon–Fri from start inclusive to end exclusive (Google all-day)."""
+    if end <= start:
+        return 0
+    days = 0
+    current = start
+    while current < end:
+        if current.weekday() < 5:
+            days += 1
+        current += timedelta(days=1)
+    return days
+
+
+def interrupt_was_retrieved(snapshot: dict[str, Any], sprints: list[dict[str, Any]]) -> bool:
+    """True when Greenhopper or a real added-after-start flag supplied interrupt."""
+    if "interrupt_retrieved" in snapshot:
+        return bool(snapshot["interrupt_retrieved"])
+    if any(sprint.get("source") == "greenhopper" for sprint in sprints):
+        return True
+    for raw in snapshot.get("sprints") or []:
+        for issue in raw.get("issues") or []:
+            if issue.get("added_after_start"):
+                return True
+    return False
 
 
 def _is_completed(status: str | None) -> bool:
@@ -101,9 +147,13 @@ def _estimate_from_greenhopper_issue(issue: dict[str, Any]) -> float | None:
     current = issue.get("currentEstimate")
     if current is not None:
         return _points(current)
-    stat = issue.get("estimateStatistic") or {}
-    field = stat.get("statFieldValue") or {}
-    return _points(field.get("value"))
+    for key in ("currentEstimateStatistic", "estimateStatistic"):
+        stat = issue.get(key) or {}
+        field = stat.get("statFieldValue") or {}
+        value = _points(field.get("value"))
+        if value is not None:
+            return value
+    return None
 
 
 def empty_sprint_metrics() -> dict[str, Any]:
@@ -117,6 +167,7 @@ def empty_sprint_metrics() -> dict[str, Any]:
         "pointed_count": 0,
         "issue_count": 0,
         "interrupt_rate": 0.0,
+        "committed_sp": None,
     }
 
 
@@ -144,6 +195,13 @@ def sprint_from_issues(issues: list[dict[str, Any]]) -> dict[str, Any]:
     return metrics
 
 
+def _gh_sum(contents: dict[str, Any], key: str) -> float | None:
+    raw = contents.get(key)
+    if isinstance(raw, dict):
+        return _points(raw.get("value"))
+    return _points(raw)
+
+
 def sprint_from_greenhopper(report: dict[str, Any]) -> dict[str, Any]:
     contents = report.get("contents") or {}
     added = {
@@ -152,14 +210,19 @@ def sprint_from_greenhopper(report: dict[str, Any]) -> dict[str, Any]:
     completed = list(contents.get("completedIssues") or [])
     incomplete = list(contents.get("issuesNotCompletedInCurrentSprint") or [])
     punted = list(contents.get("puntedIssues") or [])
+    rolled = list(contents.get("issuesCompletedInAnotherSprint") or [])
     issues: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for raw in (*completed, *incomplete, *punted):
+    completed_keys = {str(raw.get("key") or "") for raw in completed if raw.get("key")}
+    for raw in (*completed, *incomplete, *punted, *rolled):
         key = str(raw.get("key") or "")
         if not key or key in seen:
             continue
         seen.add(key)
-        status = raw.get("statusName") or ("Closed" if raw in completed else "To Do")
+        if raw in rolled and key not in completed_keys:
+            status = "To Do"
+        else:
+            status = raw.get("statusName") or ("Closed" if raw in completed else "To Do")
         issues.append(
             {
                 "key": key,
@@ -179,7 +242,28 @@ def sprint_from_greenhopper(report: dict[str, Any]) -> dict[str, Any]:
                 "added_after_start": True,
             }
         )
-    return sprint_from_issues(issues)
+    metrics = sprint_from_issues(issues)
+    completed_sum = _gh_sum(contents, "completedIssuesEstimateSum")
+    if completed_sum is not None:
+        interrupt_among_completed = 0.0
+        for issue in issues:
+            if not issue.get("added_after_start"):
+                continue
+            if not _is_completed(str(issue.get("status") or "")):
+                continue
+            interrupt_among_completed += _points(issue.get("story_points")) or 0.0
+        metrics["completed_sp"] = completed_sum
+        metrics["planned_completed_sp"] = max(0.0, completed_sum - interrupt_among_completed)
+        metrics["interrupt_rate"] = metrics["interrupt_sp"] / max(completed_sum, 1.0)
+    initial_done = _gh_sum(contents, "completedIssuesInitialEstimateSum")
+    initial_open = _gh_sum(contents, "issuesNotCompletedInitialEstimateSum")
+    if initial_done is not None or initial_open is not None:
+        metrics["committed_sp"] = (initial_done or 0.0) + (initial_open or 0.0)
+    else:
+        all_sum = _gh_sum(contents, "allIssuesEstimateSum")
+        if all_sum is not None:
+            metrics["committed_sp"] = max(0.0, all_sum - metrics["interrupt_sp"])
+    return metrics
 
 
 def normalize_sprint(raw: dict[str, Any]) -> dict[str, Any]:
@@ -334,13 +418,22 @@ def compute(snapshot: dict[str, Any]) -> dict[str, Any]:
     headcount = len(members)
     availability_factor = available_people / headcount if headcount else 0.0
 
+    sprint_days_raw = snapshot.get("sprint_days", SPRINT_LENGTH_DAYS)
+    sprint_days = int(sprint_days_raw)
+    if sprint_days <= 0:
+        _fail("sprint_days must be positive")
+
     remaining = snapshot.get("remaining_sprints")
     today_raw = snapshot.get("today")
     freeze_raw = snapshot.get("code_freeze")
     if remaining is None:
         if not today_raw or not freeze_raw:
             _fail("remaining_sprints, or both today and code_freeze, is required")
-        remaining = remaining_sprints(parse_date(str(today_raw)), parse_date(str(freeze_raw)))
+        remaining = remaining_sprints(
+            parse_date(str(today_raw)),
+            parse_date(str(freeze_raw)),
+            sprint_days=sprint_days,
+        )
     remaining_n = int(remaining)
     if remaining_n < 0:
         _fail("remaining_sprints cannot be negative")
@@ -348,6 +441,7 @@ def compute(snapshot: dict[str, Any]) -> dict[str, Any]:
     sprints = [normalize_sprint(raw) for raw in (snapshot.get("sprints") or [])]
     if not sprints:
         _fail("snapshot.sprints must include at least one sample sprint")
+    retrieved = interrupt_was_retrieved(snapshot, sprints)
 
     pointed = sum(int(s["pointed_count"]) for s in sprints)
     issues = sum(int(s["issue_count"]) for s in sprints)
@@ -358,31 +452,45 @@ def compute(snapshot: dict[str, Any]) -> dict[str, Any]:
     if use_counts:
         planned_samples = [float(s["planned_completed_count"]) for s in sprints]
         completed_samples = [float(s["completed_count"]) for s in sprints]
-        interrupt_total = sum(float(s["interrupt_count"]) for s in sprints)
+        interrupt_samples = [float(s["interrupt_count"]) for s in sprints]
+        interrupt_total = sum(interrupt_samples)
         completed_total = sum(float(s["completed_count"]) for s in sprints)
     else:
         planned_samples = [float(s["planned_completed_sp"]) for s in sprints]
         completed_samples = [float(s["completed_sp"]) for s in sprints]
-        interrupt_total = sum(float(s["interrupt_sp"]) for s in sprints)
+        interrupt_samples = [float(s["interrupt_sp"]) for s in sprints]
+        interrupt_total = sum(interrupt_samples)
         completed_total = sum(float(s["completed_sp"]) for s in sprints)
 
     mean_planned = _mean(planned_samples)
     mean_completed = _mean(completed_samples)
-    interrupt_rate = interrupt_total / max(completed_total, 1.0)
+    mean_interrupt = _mean(interrupt_samples)
+    observed_interrupt_rate = interrupt_total / max(completed_total, 1.0)
+    interrupt_rate = observed_interrupt_rate if retrieved else None
 
     historical_net = mean_planned * remaining_n * availability_factor
     historical_arithmetic = (
         f"{_fmt(mean_planned)} × {_fmt(remaining_n)} × {_fmt(availability_factor)}"
         f" = {_fmt(historical_net)}"
     )
+    fillable_net = historical_net
+    fillable_is_upper_bound = not retrieved
+    reserve_net = mean_interrupt * remaining_n * availability_factor if retrieved else None
+    reserve_arithmetic = None
+    if retrieved:
+        reserve_arithmetic = (
+            f"{_fmt(mean_interrupt)} × {_fmt(remaining_n)} × {_fmt(availability_factor)}"
+            f" = {_fmt(reserve_net)}"
+        )
 
+    applied_interrupt = observed_interrupt_rate if retrieved else 0.0
     user_rate = snapshot.get("sp_per_person_sprint")
     if user_rate is not None:
         full_focus = float(user_rate)
         rate_source = "user_full_focus"
     else:
         observed = mean_completed / headcount if headcount else 0.0
-        denominator = (1.0 - meeting_factor) * (1.0 - interrupt_rate)
+        denominator = (1.0 - meeting_factor) * (1.0 - applied_interrupt)
         if denominator <= 0:
             _fail(
                 "cannot back out a full-focus rate: meeting_factor and interrupt_rate leave no remainder"
@@ -390,22 +498,25 @@ def compute(snapshot: dict[str, Any]) -> dict[str, Any]:
         full_focus = observed / denominator
         rate_source = "inferred_backed_out"
 
-    theoretical_net = (
-        available_people
-        * remaining_n
-        * full_focus
-        * (1.0 - meeting_factor)
-        * (1.0 - interrupt_rate)
-    )
-    theoretical_arithmetic = (
-        f"{_fmt(available_people)} × {_fmt(remaining_n)} × {_fmt(full_focus)}"
-        f" × {_fmt(1.0 - meeting_factor)} × {_fmt(1.0 - interrupt_rate)}"
-        f" = {_fmt(theoretical_net)}"
-    )
+    theoretical_net = available_people * remaining_n * full_focus * (1.0 - meeting_factor)
+    theoretical_parts = [
+        _fmt(available_people),
+        _fmt(remaining_n),
+        _fmt(full_focus),
+        _fmt(1.0 - meeting_factor),
+    ]
+    if retrieved:
+        theoretical_net *= 1.0 - applied_interrupt
+        theoretical_parts.append(_fmt(1.0 - applied_interrupt))
+    theoretical_arithmetic = " × ".join(theoretical_parts) + f" = {_fmt(theoretical_net)}"
 
     demand = demand_from_features(list(snapshot.get("features") or []))
     required = float(demand["required_sp"])
     total_demand = float(demand["total_sp"])
+    vs_fillable = theoretical_delta(required, fillable_net)
+    vs_theoretical = theoretical_delta(required, theoretical_net)
+    total_vs_fillable = theoretical_delta(total_demand, fillable_net)
+    total_vs_theoretical = theoretical_delta(total_demand, theoretical_net)
 
     return {
         "ok": True,
@@ -416,6 +527,8 @@ def compute(snapshot: dict[str, Any]) -> dict[str, Any]:
         "coverage": coverage,
         "coverage_warning": use_counts,
         "meeting_factor": meeting_factor,
+        "sprint_days": sprint_days,
+        "interrupt_retrieved": retrieved,
         "interrupt_rate": interrupt_rate,
         "remaining_sprints": remaining_n,
         "feature_freeze": snapshot.get("feature_freeze"),
@@ -433,6 +546,22 @@ def compute(snapshot: dict[str, Any]) -> dict[str, Any]:
                 "net": historical_net,
                 "arithmetic": historical_arithmetic,
             },
+            "fillable": {
+                "net": fillable_net,
+                "arithmetic": historical_arithmetic,
+                "is_upper_bound": fillable_is_upper_bound,
+            },
+            "interrupt_reserve": (
+                None
+                if not retrieved
+                else {
+                    "mean": mean_interrupt,
+                    "remaining_sprints": remaining_n,
+                    "availability_factor": availability_factor,
+                    "net": reserve_net,
+                    "arithmetic": reserve_arithmetic,
+                }
+            ),
             "theoretical": {
                 "available_people": available_people,
                 "remaining_sprints": remaining_n,
@@ -440,15 +569,19 @@ def compute(snapshot: dict[str, Any]) -> dict[str, Any]:
                 "sp_per_person_sprint_source": rate_source,
                 "meeting_factor": meeting_factor,
                 "interrupt_rate": interrupt_rate,
+                "interrupt_applied": retrieved,
                 "net": theoretical_net,
                 "arithmetic": theoretical_arithmetic,
             },
         },
         "fit": {
-            "required_vs_historical": theoretical_delta(required, historical_net),
-            "required_vs_theoretical": theoretical_delta(required, theoretical_net),
-            "total_vs_historical": theoretical_delta(total_demand, historical_net),
-            "total_vs_theoretical": theoretical_delta(total_demand, theoretical_net),
+            "required_vs_fillable": vs_fillable,
+            "required_vs_historical": vs_fillable,
+            "required_vs_theoretical": vs_theoretical,
+            "total_vs_fillable": total_vs_fillable,
+            "total_vs_historical": total_vs_fillable,
+            "total_vs_theoretical": total_vs_theoretical,
+            "fill_against": "fillable",
         },
         "stretch_first_cuts": [
             item["key"] for item in demand["items"] if item.get("stretch") and item.get("key")

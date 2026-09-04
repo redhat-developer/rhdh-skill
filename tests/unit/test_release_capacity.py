@@ -123,6 +123,27 @@ def test_greenhopper_sprintreport_uses_added_during_sprint_keys():
     assert metrics["interrupt_count"] == 2
 
 
+def test_greenhopper_reads_current_estimate_statistic():
+    report = {
+        "contents": {
+            "completedIssues": [
+                {
+                    "key": "RHIDP-1",
+                    "statusName": "Closed",
+                    "currentEstimateStatistic": {
+                        "statFieldId": "customfield_10028",
+                        "statFieldValue": {"value": 8.0},
+                    },
+                }
+            ],
+            "issueKeysAddedDuringSprint": {},
+        }
+    }
+    metrics = CAPACITY.sprint_from_greenhopper(report)
+    assert metrics["completed_sp"] == 8
+    assert metrics["planned_completed_sp"] == 8
+
+
 def test_greenhopper_snapshot_feeds_the_same_ledgers_as_issues():
     report = {
         "contents": {
@@ -174,6 +195,12 @@ def test_both_ledgers_and_inferred_rate_is_not_double_counted():
     assert theoretical["net"] == pytest.approx(80)
     assert "0.6" in theoretical["arithmetic"]
     assert result["unit"] == "sp"
+    assert result["interrupt_retrieved"] is True
+    assert result["ledgers"]["fillable"]["net"] == 60
+    assert result["ledgers"]["fillable"]["is_upper_bound"] is False
+    assert result["ledgers"]["interrupt_reserve"]["net"] == pytest.approx(32)
+    assert result["fit"]["required_vs_fillable"]["capacity"] == 60
+    assert result["fit"]["fill_against"] == "fillable"
 
 
 def test_user_full_focus_rate_is_used_raw():
@@ -322,8 +349,9 @@ def test_low_story_point_coverage_falls_back_to_issue_counts():
 
 
 def test_remaining_sprints_from_code_freeze():
-    assert CAPACITY.remaining_sprints(date(2026, 9, 3), date(2026, 11, 1)) == 5
+    assert CAPACITY.remaining_sprints(date(2026, 9, 3), date(2026, 11, 1)) == 3
     assert CAPACITY.remaining_sprints(date(2026, 11, 1), date(2026, 11, 1)) == 0
+    assert CAPACITY.remaining_sprints(date(2026, 9, 3), date(2026, 11, 1), sprint_days=14) == 5
 
     result = CAPACITY.compute(
         _snapshot(
@@ -332,7 +360,22 @@ def test_remaining_sprints_from_code_freeze():
             code_freeze="2026-11-01",
         )
     )
+    assert result["remaining_sprints"] == 3
+    assert result["sprint_days"] == 21
+    assert result["ledgers"]["historical"]["net"] == 45
+
+
+def test_snapshot_sprint_days_overrides_default_horizon():
+    result = CAPACITY.compute(
+        _snapshot(
+            remaining_sprints=None,
+            today="2026-09-03",
+            code_freeze="2026-11-01",
+            sprint_days=14,
+        )
+    )
     assert result["remaining_sprints"] == 5
+    assert result["sprint_days"] == 14
     assert result["ledgers"]["historical"]["net"] == 75
 
 
@@ -381,3 +424,97 @@ def test_cli_rejects_bad_meeting_factor(capsys, tmp_path):
         CAPACITY.main(["--input", str(snapshot)])
     assert exited.value.code == 1
     assert "meeting_factor" in json.loads(capsys.readouterr().out)["error"]
+
+
+def test_availability_from_pto_clips_and_uses_weekdays():
+    # 7 remaining 21-day sprints → 7 × 15 weekdays = 105
+    assert CAPACITY.weekday_count(21) == 15
+    assert CAPACITY.availability_from_pto(0, 7) == 1.0
+    assert CAPACITY.availability_from_pto(10.5, 7) == pytest.approx(0.9)
+    assert CAPACITY.availability_from_pto(200, 7) == 0.0
+    assert CAPACITY.count_weekdays(date(2026, 9, 7), date(2026, 9, 12)) == 5
+    assert CAPACITY.count_weekdays(date(2026, 9, 12), date(2026, 9, 14)) == 0
+
+
+def test_unretrieved_interrupt_is_upper_bound_not_zero_rate():
+    closed_only = [
+        _issue("RHIDP-1", 8, "Closed", False),
+        _issue("RHIDP-2", 7, "Closed", False),
+    ]
+    result = CAPACITY.compute(
+        _snapshot(
+            interrupt_retrieved=False,
+            sprints=[
+                _sprint(issues=closed_only),
+                _sprint(name="RHDH COPE 3288", id=47424, issues=closed_only),
+            ],
+        )
+    )
+
+    assert result["interrupt_retrieved"] is False
+    assert result["interrupt_rate"] is None
+    assert result["ledgers"]["fillable"]["is_upper_bound"] is True
+    assert result["ledgers"]["interrupt_reserve"] is None
+    assert result["ledgers"]["theoretical"]["interrupt_applied"] is False
+    assert result["ledgers"]["theoretical"]["interrupt_rate"] is None
+    assert result["ledgers"]["theoretical"]["arithmetic"] == "2 × 4 × 12.5 × 0.6 = 60"
+    assert result["ledgers"]["fillable"]["net"] == result["ledgers"]["historical"]["net"]
+
+
+def test_inferred_unretrieved_when_no_added_after_start_and_not_greenhopper():
+    issues = [
+        {"key": "RHIDP-1", "story_points": 8, "status": "Closed"},
+        {"key": "RHIDP-2", "story_points": 7, "status": "Closed"},
+    ]
+    result = CAPACITY.compute(
+        _snapshot(sprints=[_sprint(issues=issues), _sprint(name="B", id=2, issues=issues)])
+    )
+    assert result["interrupt_retrieved"] is False
+    assert result["ledgers"]["fillable"]["is_upper_bound"] is True
+
+
+def test_all_false_added_after_start_is_unretrieved_unless_snapshot_says_otherwise():
+    issues = [
+        _issue("RHIDP-1", 8, "Closed", False),
+        _issue("RHIDP-2", 7, "Closed", False),
+    ]
+    inferred = CAPACITY.compute(
+        _snapshot(sprints=[_sprint(issues=issues), _sprint(name="B", id=2, issues=issues)])
+    )
+    asserted = CAPACITY.compute(
+        _snapshot(
+            interrupt_retrieved=True,
+            sprints=[_sprint(issues=issues), _sprint(name="B", id=2, issues=issues)],
+        )
+    )
+    assert inferred["interrupt_retrieved"] is False
+    assert inferred["interrupt_rate"] is None
+    assert asserted["interrupt_retrieved"] is True
+    assert asserted["interrupt_rate"] == 0.0
+    assert asserted["ledgers"]["interrupt_reserve"]["net"] == 0
+
+
+def test_greenhopper_rolled_forward_is_not_completed_this_sprint():
+    report = {
+        "contents": {
+            "completedIssues": [{"key": "RHIDP-1", "statusName": "Closed", "currentEstimate": 8}],
+            "issuesCompletedInAnotherSprint": [
+                {"key": "RHIDP-9", "statusName": "Closed", "currentEstimate": 13}
+            ],
+            "issueKeysAddedDuringSprint": {"RHIDP-4": True},
+            "issuesNotCompletedInCurrentSprint": [
+                {"key": "RHIDP-4", "statusName": "To Do", "currentEstimate": 3}
+            ],
+            "completedIssuesEstimateSum": {"value": 8, "text": "8.0"},
+            "completedIssuesInitialEstimateSum": {"value": 8, "text": "8.0"},
+            "issuesNotCompletedInitialEstimateSum": {"value": 5, "text": "5.0"},
+        }
+    }
+
+    metrics = CAPACITY.sprint_from_greenhopper(report)
+
+    assert metrics["completed_sp"] == 8
+    assert metrics["planned_completed_sp"] == 8
+    assert metrics["interrupt_sp"] == 3
+    assert metrics["committed_sp"] == 13
+    assert metrics["completed_count"] == 1
